@@ -20,6 +20,62 @@
 
 #include <bitlbee/bitlbee.h>
 
+#define STEAM_API_HOST     "api.steampowered.com"
+#define STEAM_API_AGENT    "Steam 1291812 / iPhone"
+
+#define STEAM_PATH_AUTH    "/ISteamOAuth2/GetTokenWithCredentials/v0001"
+#define STEAM_PATH_LOGON   "/ISteamWebUserPresenceOAuth/Logon/v0001"
+#define STEAM_PATH_LOGOFF  "/ISteamWebUserPresenceOAuth/Logoff/v0001"
+
+
+typedef enum   _SteamError SteamError;
+typedef struct _SteamAPI   SteamAPI;
+
+typedef void (*SteamAPIFunc) (SteamAPI * api, SteamError err, gpointer data);
+
+enum _SteamError
+{
+    STEAM_ERROR_SUCCESS = 0,
+    STEAM_ERROR_GENERIC,
+    
+    STEAM_ERROR_AUTH_CODE_INVALID,
+    STEAM_ERROR_AUTH_CODE_REQ,
+    STEAM_ERROR_AUTH_FAILED,
+    
+    STEAM_ERROR_JSON_EMPTY,
+    STEAM_ERROR_JSON_PARSE,
+    
+    STEAM_ERROR_LOGON_FAILED,
+    STEAM_ERROR_LOGON_INVALID,
+    
+    STEAM_ERROR_LOGOFF_FAILED,
+    
+    STEAM_ERROR_STEAMID_EMPTY,
+    STEAM_ERROR_UMQID_EMPTY
+};
+
+struct _SteamAPI
+{
+    account_t * acc;
+    
+    gchar *token;
+    gchar *steamid;
+    gchar *umqid;
+};
+
+
+gchar *steam_api_error_str(SteamError err);
+
+SteamAPI *steam_api_new(account_t *acc);
+
+void steam_api_free(SteamAPI *api);
+
+void steam_api_auth(SteamAPI *api, const gchar *authcode,
+                    SteamAPIFunc func, gpointer data);
+
+void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
+
+void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 
 #endif /* _STEAM_API_H */
