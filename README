@@ -1,1 +1,20 @@
+Steam for BitlBee is a plugin for the Steam chat protocol.
 
+Please note, this plugin is still under development.
+
+Usage:
+  ; account add steam <username> <password>
+  ; account <acc> set authcode <code>
+
+Building and Installing:
+  $ git clone https://github.com/jgeboski/bumblebee-steam.git
+  $ cd bumblebee-steam
+  $ autoreconf -fi
+  $ ./configure
+  $ make
+  $ make install
+
+Resources:
+  - API Dump:    http://pastebin.com/qsX36TMT
+  - SteamWebAPI: https://github.com/Overv/SteamWebAPI
+  - Valve Wiki:  https://developer.valvesoftware.com/wiki/Steam_Web_API
