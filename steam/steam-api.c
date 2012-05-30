@@ -47,7 +47,6 @@ typedef struct _SteamFuncPair SteamFuncPair;
 enum _SteamPairType
 {
     STEAM_PAIR_AUTH,
-    STEAM_PAIR_FRIENDS,
     STEAM_PAIR_LOGON,
     STEAM_PAIR_LOGOFF,
     STEAM_PAIR_POLL
@@ -259,6 +258,8 @@ static void steam_api_cb(struct http_request *req)
     
     g_return_if_fail(fp != NULL);
     
+    g_print(req->reply_body);
+    
     if((req->status_code != 200) || (req->reply_body == NULL)) {
         steam_api_func(fp, STEAM_ERROR_JSON_EMPTY);
         g_free(fp);
@@ -271,10 +272,6 @@ static void steam_api_cb(struct http_request *req)
     switch(fp->type) {
     case STEAM_PAIR_AUTH:
         steam_api_auth_cb(fp, jo);
-        break;
-    
-    case STEAM_PAIR_FRIENDS:
-        steam_api_friends_cb(fp, jo);
         break;
     
     case STEAM_PAIR_LOGON:
@@ -370,20 +367,6 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
     
     steam_api_req(STEAM_PATH_AUTH, ps, 7, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_AUTH, api, func, data));
-}
-
-void steam_api_friends(SteamAPI *api, SteamAPIFunc func, gpointer data)
-{
-    g_return_if_fail(api != NULL);
-    
-    SteamPair ps[3] = {
-        {"access_token", api->token},
-        {"steamid",      api->steamid},
-        {"relationship", "friend,request recipient"}
-    };
-    
-    steam_api_req(STEAM_PATH_FRIENDS, ps, 3, TRUE, FALSE,
-                  steam_pair_new(STEAM_PAIR_FRIENDS, api, func, data));
 }
 
 void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data)

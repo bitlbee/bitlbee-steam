@@ -26,25 +26,10 @@ static void steam_poll_cb(SteamAPI *api, SteamError err, gpointer data)
 
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 {
-    
     SteamData *sd = data;
     
     steam_api_poll(sd->api, steam_poll_cb, sd);
     return (sd->ic->flags & OPT_LOGGED_IN);
-}
-
-static void steam_friends_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-    
-    switch(err != STEAM_ERROR_SUCCESS) {
-        imcb_error(sd->ic, steam_api_error_str(err));
-        imc_logout(sd->ic, TRUE);
-        return;
-    }
-    
-    imcb_connected(sd->ic);
-    sd->ml_id = b_timeout_add(1000, steam_main_loop, sd);
 }
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -54,9 +39,13 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
     
     switch(err) {
     case STEAM_ERROR_SUCCESS:
-        imcb_log(sd->ic, "Logged in");
         imcb_log(sd->ic, "Requesting friends list");
-        steam_api_friends(api, steam_friends_cb, sd);
+        
+        steam_api_poll(api, steam_poll_cb, sd);
+        
+        /* Hard-coded timeout for now */
+        sd->ml_id = b_timeout_add(3000, steam_main_loop, sd);
+        imcb_connected(sd->ic);
         return;
     
     case STEAM_ERROR_LOGON_INVALID:

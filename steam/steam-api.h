@@ -24,7 +24,6 @@
 #define STEAM_API_AGENT     "Steam 1291812 / iPhone"
 
 #define STEAM_PATH_AUTH     "/ISteamOAuth2/GetTokenWithCredentials/v0001"
-#define STEAM_PATH_FRIENDS  "/ISteamUserOAuth/GetFriendList/v0001"
 #define STEAM_PATH_LOGON    "/ISteamWebUserPresenceOAuth/Logon/v0001"
 #define STEAM_PATH_LOGOFF   "/ISteamWebUserPresenceOAuth/Logoff/v0001"
 #define STEAM_PATH_POLL     "/ISteamWebUserPresenceOAuth/PollStatus/v0001"
