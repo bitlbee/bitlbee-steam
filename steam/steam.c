@@ -17,14 +17,23 @@
 
 #include "steam.h"
 
-static void steam_logon_cb(SteamAPI * api, SteamError err, gpointer data)
+static void steam_friends_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    imcb_error(sd->ic, steam_api_error_str(err));
+}
+
+static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     gboolean cont;
     
     switch(err) {
     case STEAM_ERROR_SUCCESS:
-        //imcb_connected(sd->ic);
+        imcb_log(sd->ic, "Logged in");
+        imcb_log(sd->ic, "Requesting friends list");
+        steam_api_friends(api, steam_friends_cb, sd);
         return;
     
     case STEAM_ERROR_LOGON_INVALID:
@@ -40,7 +49,7 @@ static void steam_logon_cb(SteamAPI * api, SteamError err, gpointer data)
     imc_logout(sd->ic, cont);
 }
 
-static void steam_auth_cb(SteamAPI * api, SteamError err, gpointer data)
+static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     gchar *msg;
@@ -52,7 +61,8 @@ static void steam_auth_cb(SteamAPI * api, SteamError err, gpointer data)
     case STEAM_ERROR_SUCCESS:
         set_setstr(&sd->acc->set, "token", api->token);
         imcb_log(sd->ic, "Authentication finished");
-        steam_api_logon(api, steam_logon_cb, NULL);
+        imcb_log(sd->ic, "Sending login request");
+        steam_api_logon(api, steam_logon_cb, sd);
         break;
     
     case STEAM_ERROR_AUTH_CODE_INVALID:
@@ -84,6 +94,7 @@ static char *steam_eval_authcode(set_t *set, char *value)
     account_t *acc = set->data;
     SteamData *sd  = acc->ic->proto_data;
     
+    imcb_log(sd->ic, "Authenticating");
     steam_api_auth(sd->api, value, steam_auth_cb, sd);
     return NULL;
 }
@@ -109,16 +120,19 @@ static void steam_login(account_t *acc)
     sd->api    = steam_api_new(acc);
     sd->prefix = "steam";
     
-    sd->api->token = set_getstr(&acc->set, "token");
+    sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
     
     ic->proto_data = sd;
     acc->ic        = ic;
+    
+    imcb_log(sd->ic, "Connecting");
     
     if(sd->api->token == NULL) {
         steam_api_auth(sd->api, NULL, steam_auth_cb, sd);
         return;
     }
     
+    imcb_log(sd->ic, "Sending logon request");
     steam_api_logon(sd->api, steam_logon_cb, sd);
 }
 
@@ -129,6 +143,7 @@ static void steam_logoff_cb(SteamAPI * api, SteamError err, gpointer data)
     if(err != STEAM_ERROR_SUCCESS)
         imcb_error(sd->ic, steam_api_error_str(err));
     
+    imcb_log(sd->ic, "Logged off");
     steam_api_free(sd->api);
     g_free(sd);
 }
@@ -137,7 +152,8 @@ static void steam_logout(struct im_connection *ic)
 {
     SteamData *sd = ic->proto_data;
     
-    if(sd->api->token != NULL) {
+    if(sd->api->connected) {
+        imcb_log(sd->ic, "Sending logoff request");
         steam_api_logoff(sd->api, steam_logoff_cb, sd);
         return;
     }
@@ -149,7 +165,7 @@ static void steam_logout(struct im_connection *ic)
 static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
-    //steam_api_auth(sd->api, message, steam_auth_cb, sd);
+    return 0;
 }
 
 static void steam_set_away(struct im_connection *ic, char *state,
