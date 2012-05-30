@@ -49,7 +49,8 @@ enum _SteamPairType
     STEAM_PAIR_AUTH,
     STEAM_PAIR_FRIENDS,
     STEAM_PAIR_LOGON,
-    STEAM_PAIR_LOGOFF
+    STEAM_PAIR_LOGOFF,
+    STEAM_PAIR_POLL
 };
 
 struct _SteamPair
@@ -114,8 +115,14 @@ gchar *steam_api_error_str(SteamError err)
     case STEAM_ERROR_LOGOFF_FAILED:
         return "Unkown logout failure";
     
+    case STEAM_ERROR_MESSAGE_EMPTY:
+        return "Message empty";
+    
     case STEAM_ERROR_STEAMID_EMPTY:
         return "SteamID empty";
+    
+    case STEAM_ERROR_UMQID_MISMATCH:
+        return "UMQID mismatch";
     
     case STEAM_ERROR_UMQID_EMPTY:
         return "UMQID empty";
@@ -178,7 +185,7 @@ static void steam_api_friends_cb(SteamFuncPair *fp, json_object *jo)
     json_object *so;
     const gchar *sm;
     
-    
+    steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
 static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
@@ -196,8 +203,10 @@ static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
     
     sm = json_object_get_string(so);
     
-    g_free(fp->api->umqid);
-    fp->api->umqid = g_strdup(sm);
+    if(g_strcmp0(fp->api->umqid, sm)) {
+        steam_api_func(fp, STEAM_ERROR_UMQID_MISMATCH);
+        return;
+    }
     
     if(!json_object_object_get_ex(jo, "steamid", &so)) {
         steam_api_func(fp, STEAM_ERROR_STEAMID_EMPTY);
@@ -208,6 +217,16 @@ static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
     
     g_free(fp->api->steamid);
     fp->api->steamid = g_strdup(sm);
+    
+    if(!json_object_object_get_ex(jo, "message", &so)) {
+        steam_api_func(fp, STEAM_ERROR_MESSAGE_EMPTY);
+        return;
+    }
+    
+    sm = json_object_get_string(so);
+    
+    g_free(fp->api->message);
+    fp->api->message = g_strdup(sm);
     steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
@@ -222,6 +241,14 @@ static void steam_api_logoff_cb(SteamFuncPair *fp, json_object *jo)
     }
     
     steam_api_func(fp, STEAM_ERROR_SUCCESS);
+}
+
+static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
+{
+    json_object *so;
+    const gchar *sm;
+    
+    
 }
 
 static void steam_api_cb(struct http_request *req)
@@ -256,6 +283,10 @@ static void steam_api_cb(struct http_request *req)
     
     case STEAM_PAIR_LOGOFF:
         steam_api_logoff_cb(fp, jo);
+        break;
+    
+    case STEAM_PAIR_POLL:
+        steam_api_poll_cb(fp, jo);
         break;
     }
     
@@ -359,11 +390,12 @@ void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data)
 {
     g_return_if_fail(api != NULL);
     
-    SteamPair ps[1] = {
-        {"access_token", api->token}
+    SteamPair ps[2] = {
+        {"access_token", api->token},
+        {"umqid",        api->umqid}
     };
     
-    steam_api_req(STEAM_PATH_LOGON, ps, 1, TRUE, TRUE,
+    steam_api_req(STEAM_PATH_LOGON, ps, 2, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_LOGON, api, func, data));
 }
 
@@ -371,10 +403,25 @@ void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
 {
     g_return_if_fail(api != NULL);
     
-    SteamPair ps[1] = {
-        {"access_token", api->token}
+    SteamPair ps[2] = {
+        {"access_token", api->token},
+        {"umqid",        api->umqid}
     };
     
-    steam_api_req(STEAM_PATH_LOGOFF, ps, 1, TRUE, TRUE,
+    steam_api_req(STEAM_PATH_LOGOFF, ps, 2, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data));
+}
+
+void steam_api_poll(SteamAPI *api, SteamAPIFunc func, gpointer data)
+{
+    g_return_if_fail(api != NULL);
+    
+    SteamPair ps[3] = {
+        {"steamid", api->steamid},
+        {"umqid",   api->umqid},
+        {"message", api->message}
+    };
+    
+    steam_api_req(STEAM_PATH_POLL, ps, 3, TRUE, TRUE,
+                  steam_pair_new(STEAM_PAIR_POLL, api, func, data));
 }

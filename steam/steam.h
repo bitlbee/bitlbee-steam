@@ -28,7 +28,12 @@ struct _SteamData
     struct im_connection *ic;
     SteamAPI *api;
     
-    gchar *prefix;
+    gint ml_id;
 };
+
+
+SteamData *steam_data_new(account_t *acc);
+
+void steam_data_free(SteamData *sd);
 
 #endif /* _STEAM_H */

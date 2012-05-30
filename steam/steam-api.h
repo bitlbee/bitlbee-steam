@@ -20,13 +20,14 @@
 
 #include <bitlbee/bitlbee.h>
 
-#define STEAM_API_HOST     "api.steampowered.com"
-#define STEAM_API_AGENT    "Steam 1291812 / iPhone"
+#define STEAM_API_HOST      "api.steampowered.com"
+#define STEAM_API_AGENT     "Steam 1291812 / iPhone"
 
-#define STEAM_PATH_AUTH    "/ISteamOAuth2/GetTokenWithCredentials/v0001"
-#define STEAM_PATH_FRIENDS "/ISteamUserOAuth/GetFriendList/v0001"
-#define STEAM_PATH_LOGON   "/ISteamWebUserPresenceOAuth/Logon/v0001"
-#define STEAM_PATH_LOGOFF  "/ISteamWebUserPresenceOAuth/Logoff/v0001"
+#define STEAM_PATH_AUTH     "/ISteamOAuth2/GetTokenWithCredentials/v0001"
+#define STEAM_PATH_FRIENDS  "/ISteamUserOAuth/GetFriendList/v0001"
+#define STEAM_PATH_LOGON    "/ISteamWebUserPresenceOAuth/Logon/v0001"
+#define STEAM_PATH_LOGOFF   "/ISteamWebUserPresenceOAuth/Logoff/v0001"
+#define STEAM_PATH_POLL     "/ISteamWebUserPresenceOAuth/PollStatus/v0001"
 
 
 typedef enum   _SteamError SteamError;
@@ -51,7 +52,10 @@ enum _SteamError
     
     STEAM_ERROR_LOGOFF_FAILED,
     
+    STEAM_ERROR_MESSAGE_EMPTY,
     STEAM_ERROR_STEAMID_EMPTY,
+    
+    STEAM_ERROR_UMQID_MISMATCH,
     STEAM_ERROR_UMQID_EMPTY
 };
 
@@ -62,8 +66,7 @@ struct _SteamAPI
     gchar *token;
     gchar *steamid;
     gchar *umqid;
-    
-    gboolean connected;
+    gchar *message;
 };
 
 
@@ -81,6 +84,8 @@ void steam_api_friends(SteamAPI *api, SteamAPIFunc func, gpointer data);
 void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
+
+void steam_api_poll(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 
 #endif /* _STEAM_API_H */
