@@ -48,7 +48,7 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
         imcb_connected(sd->ic);
         return;
     
-    case STEAM_ERROR_LOGON_INVALID:
+    case STEAM_ERROR_INVALID_LOGON:
         cont = FALSE;
         break;
     
@@ -77,12 +77,12 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
         steam_api_logon(api, steam_logon_cb, sd);
         break;
     
-    case STEAM_ERROR_AUTH_CODE_INVALID:
+    case STEAM_ERROR_INVALID_AUTH_CODE:
         imcb_error(sd->ic, "SteamGuard authentication code invalid");
         imc_logout(sd->ic, FALSE);
         break;
     
-    case STEAM_ERROR_AUTH_CODE_REQ:
+    case STEAM_ERROR_REQ_AUTH_CODE:
         acc = sd->acc->bee->accounts;
         
         for(i = 0; acc != NULL; acc = acc->next, i++) {

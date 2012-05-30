@@ -86,45 +86,34 @@ gchar *steam_api_error_str(SteamError err)
     switch(err) {
     case STEAM_ERROR_SUCCESS:
         return "Success";
-    
     case STEAM_ERROR_GENERIC:
         return "Something has gone terribly wrong";
-    
-    case STEAM_ERROR_AUTH_CODE_INVALID:
-        return "SteamGuard authentication code invalid";
-    
-    case STEAM_ERROR_AUTH_CODE_REQ:
-        return "SteamGuard authentication code required";
-    
-    case STEAM_ERROR_AUTH_FAILED:
-        return "Authentication failed";
-    
-    case STEAM_ERROR_JSON_EMPTY:
+    case STEAM_ERROR_EMPTY_JSON:
         return "Failed to receive JSON reply";
-    
-    case STEAM_ERROR_JSON_PARSE:
-        return "Failed to parse JSON reply";
-    
-    case STEAM_ERROR_LOGON_FAILED:
-        return "Unknown login failure";
-    
-    case STEAM_ERROR_LOGON_INVALID:
+    case STEAM_ERROR_EMPTY_MESSAGE:
+        return "Empty message";
+    case STEAM_ERROR_EMPTY_MESSAGES:
+        return "Empty set messages returned";
+    case STEAM_ERROR_EMPTY_STEAMID:
+        return "Empty SteamID";
+    case STEAM_ERROR_EMPTY_UMQID:
+        return "Empty UMQID";
+    case STEAM_ERROR_FAILED_AUTH:
+        return "Authentication failed";
+    case STEAM_ERROR_FAILED_LOGOFF:
+        return "Unknown logoff failure";
+    case STEAM_ERROR_FAILED_LOGON:
+        return "Unknown logon failure";
+    case STEAM_ERROR_INVALID_AUTH_CODE:
+        return "Invalid SteamGuard authentication code";
+    case STEAM_ERROR_INVALID_LOGON:
         return "Invalid login details";
-    
-    case STEAM_ERROR_LOGOFF_FAILED:
-        return "Unkown logout failure";
-    
-    case STEAM_ERROR_MESSAGE_EMPTY:
-        return "Message empty";
-    
-    case STEAM_ERROR_STEAMID_EMPTY:
-        return "SteamID empty";
-    
-    case STEAM_ERROR_UMQID_MISMATCH:
-        return "UMQID mismatch";
-    
-    case STEAM_ERROR_UMQID_EMPTY:
-        return "UMQID empty";
+    case STEAM_ERROR_PARSE_JSON:
+        return "Failed to parse JSON reply";
+    case STEAM_ERROR_REQ_AUTH_CODE:
+        return "SteamGuard authentication code required";
+    case STEAM_ERROR_MISMATCH_UMQID:
+        return "Mismatch in UMQIDs";
     }
     
     return "";
@@ -169,13 +158,13 @@ static void steam_api_auth_cb(SteamFuncPair *fp, json_object *jo)
         sm = json_object_get_string(so);
         
         if(!g_strcmp0("steamguard_code_required", sm))
-            steam_api_func(fp, STEAM_ERROR_AUTH_CODE_REQ);
+            steam_api_func(fp, STEAM_ERROR_REQ_AUTH_CODE);
         else if(!g_strcmp0("invalid_steamguard_code", sm))
-            steam_api_func(fp, STEAM_ERROR_AUTH_CODE_INVALID);
+            steam_api_func(fp, STEAM_ERROR_INVALID_AUTH_CODE);
         else
-            steam_api_func(fp, STEAM_ERROR_AUTH_FAILED);
+            steam_api_func(fp, STEAM_ERROR_FAILED_AUTH);
     } else {
-        steam_api_func(fp, STEAM_ERROR_AUTH_FAILED);
+        steam_api_func(fp, STEAM_ERROR_FAILED_AUTH);
     }
 }
 
@@ -196,19 +185,19 @@ static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
     g_return_if_fail(fp->data != NULL);
     
     if(!json_object_object_get_ex(jo, "umqid", &so)) {
-        steam_api_func(fp, STEAM_ERROR_UMQID_EMPTY);
+        steam_api_func(fp, STEAM_ERROR_EMPTY_UMQID);
         return;
     }
     
     sm = json_object_get_string(so);
     
     if(g_strcmp0(fp->api->umqid, sm)) {
-        steam_api_func(fp, STEAM_ERROR_UMQID_MISMATCH);
+        steam_api_func(fp, STEAM_ERROR_MISMATCH_UMQID);
         return;
     }
     
     if(!json_object_object_get_ex(jo, "steamid", &so)) {
-        steam_api_func(fp, STEAM_ERROR_STEAMID_EMPTY);
+        steam_api_func(fp, STEAM_ERROR_EMPTY_STEAMID);
         return;
     }
     
@@ -218,7 +207,7 @@ static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
     fp->api->steamid = g_strdup(sm);
     
     if(!json_object_object_get_ex(jo, "message", &so)) {
-        steam_api_func(fp, STEAM_ERROR_MESSAGE_EMPTY);
+        steam_api_func(fp, STEAM_ERROR_EMPTY_MESSAGE);
         return;
     }
     
@@ -235,7 +224,7 @@ static void steam_api_logoff_cb(SteamFuncPair *fp, json_object *jo)
     const gchar *sm;
     
     if(json_object_object_get_ex(jo, "error", &so)) {
-        steam_api_func(fp, STEAM_ERROR_LOGOFF_FAILED);
+        steam_api_func(fp, STEAM_ERROR_FAILED_LOGOFF);
         return;
     }
     
@@ -258,10 +247,8 @@ static void steam_api_cb(struct http_request *req)
     
     g_return_if_fail(fp != NULL);
     
-    g_print(req->reply_body);
-    
     if((req->status_code != 200) || (req->reply_body == NULL)) {
-        steam_api_func(fp, STEAM_ERROR_JSON_EMPTY);
+        steam_api_func(fp, STEAM_ERROR_EMPTY_JSON);
         g_free(fp);
         return;
     }
