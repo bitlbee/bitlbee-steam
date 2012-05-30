@@ -15,6 +15,7 @@ Building and Installing:
   $ make install
 
 Resources:
-  - API Dump:    http://pastebin.com/qsX36TMT
-  - SteamWebAPI: https://github.com/Overv/SteamWebAPI
-  - Valve Wiki:  https://developer.valvesoftware.com/wiki/Steam_Web_API
+  - API Dump:      http://pastebin.com/qsX36TMT
+  - canoon's docs: https://github.com/canoon/steam_mobile_protocol
+  - SteamWebAPI:   https://github.com/Overv/SteamWebAPI
+  - Valve Wiki:    https://developer.valvesoftware.com/wiki/Steam_Web_API
