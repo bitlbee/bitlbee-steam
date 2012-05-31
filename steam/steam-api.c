@@ -109,6 +109,18 @@ gchar *steam_persona_state_str(SteamPersonaState state)
     return "";
 }
 
+gchar *steam_message_type_str(SteamMessageType type)
+{
+    switch(type) {
+    case STEAM_MESSAGE_TYPE_SAYTEXT:
+        return "saytext";
+    case STEAM_MESSAGE_TYPE_EMOTE:
+        return "emote";
+    }
+    
+    return "";
+}
+
 SteamAPI *steam_api_new(account_t *acc)
 {
     SteamAPI *api;
@@ -347,6 +359,18 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
             um = g_new0(SteamUserMessage, 1);
             mu = g_slist_append(mu, um);
             
+            um->type    = STEAM_MESSAGE_TYPE_SAYTEXT;
+            um->steamid = id;
+            um->message = sm;
+        } else if(!g_strcmp0("emote", sm)) {
+            if(!json_object_object_get_ex(se, "text", &sv))
+                continue;
+            
+            sm = json_object_get_string(sv);
+            um = g_new0(SteamUserMessage, 1);
+            mu = g_slist_append(mu, um);
+            
+            um->type    = STEAM_MESSAGE_TYPE_EMOTE;
             um->steamid = id;
             um->message = sm;
         } else if(!g_strcmp0("personastate", sm)) {
@@ -568,15 +592,20 @@ void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
 }
 
 void steam_api_message(SteamAPI *api, const gchar *steamid,
-                       const gchar *message, SteamAPIFunc func, gpointer data)
+                       const gchar *message, SteamMessageType type,
+                       SteamAPIFunc func, gpointer data)
 {
+    gchar *stype;
+    
     g_return_if_fail(api != NULL);
+    
+    stype = steam_message_type_str(type);
     
     SteamPair ps[5] = {
         {"access_token", api->token},
         {"umqid",        api->umqid},
         {"steamid_dst",  steamid},
-        {"type",         "saytext"},
+        {"type",         stype},
         {"text",         message}
     };
     

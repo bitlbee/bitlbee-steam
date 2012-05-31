@@ -80,7 +80,16 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     
     for(l = m_updates; l != NULL; l = l->next) {
         um = l->data;
-        s  = g_strdup(um->message);
+        
+        switch(um->type) {
+        case STEAM_MESSAGE_TYPE_SAYTEXT:
+            s = g_strdup(um->message);
+            break;
+        
+        case STEAM_MESSAGE_TYPE_EMOTE:
+            s = g_strconcat("/me ", um->message, NULL);
+            break;
+        }
         
         imcb_buddy_msg(sd->ic, um->steamid, s, 0, 0);
         g_free(s);
@@ -265,8 +274,16 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
     SteamData *sd = ic->proto_data;
+    SteamMessageType type;
     
-    steam_api_message(sd->api, to, message, steam_message_cb, sd);
+    if(g_str_has_prefix(message, "/me")) {
+        type     = STEAM_MESSAGE_TYPE_EMOTE;
+        message += 3;
+    } else {
+        type = STEAM_MESSAGE_TYPE_SAYTEXT;
+    }
+    
+    steam_api_message(sd->api, to, message, type, steam_message_cb, sd);
     return 0;
 }
 
@@ -338,7 +355,7 @@ static void steam_buddy_data_free(struct bee_user *bu)
 
 static GList *steam_buddy_action_list(struct bee_user *bu)
 {
-    return NULL;
+    
 }
 
 static void *steam_buddy_action(struct bee_user *bu, const char *action,

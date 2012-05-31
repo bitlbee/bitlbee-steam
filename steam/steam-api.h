@@ -33,6 +33,7 @@
 
 typedef enum   _SteamError        SteamError;
 typedef enum   _SteamPersonaState SteamPersonaState;
+typedef enum   _SteamMessageType  SteamMessageType;
 typedef struct _SteamAPI          SteamAPI;
 typedef struct _SteamPersona      SteamPersona;
 typedef struct _SteamUserInfo     SteamUserInfo;
@@ -84,6 +85,12 @@ enum _SteamPersonaState
     STEAM_PERSONA_STATE_SNOOZE  = 4
 };
 
+enum _SteamMessageType
+{
+    STEAM_MESSAGE_TYPE_SAYTEXT = 0,
+    STEAM_MESSAGE_TYPE_EMOTE
+};
+
 struct _SteamAPI
 {
     account_t * acc;
@@ -114,6 +121,8 @@ struct _SteamUserInfo
 
 struct _SteamUserMessage
 {
+    SteamMessageType type;
+    
     const gchar *steamid;
     const gchar *message;
 };
@@ -121,14 +130,17 @@ struct _SteamUserMessage
 
 gchar *steam_persona_state_str(SteamPersonaState state);
 
+gchar *steam_message_type_str(SteamMessageType type);
+
 SteamAPI *steam_api_new(account_t *acc);
 
 void steam_api_free(SteamAPI *api);
 
 gchar *steam_api_error_str(SteamError err);
 
-void steam_api_auth(SteamAPI *api, const gchar *authcode,
-                    SteamAPIFunc func, gpointer data);
+void steam_api_message(SteamAPI *api, const gchar *steamid,
+                       const gchar *message, SteamMessageType type,
+                       SteamAPIFunc func, gpointer data);
 
 void steam_api_friends(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
