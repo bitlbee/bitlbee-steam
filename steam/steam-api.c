@@ -41,8 +41,8 @@ static json_bool json_object_object_get_ex(json_object *jo, const char *key,
 #define steam_api_func(p, e) \
     (((SteamAPIFunc) p->func) (p->api, e, p->data))
 
-#define steam_poll_func(p, pu, e) \
-    (((SteamPollFunc) p->func) (p->api, pu, e, p->data))
+#define steam_poll_func(p, pu, mu, e) \
+    (((SteamPollFunc) p->func) (p->api, pu, mu, e, p->data))
                                       
 #define steam_user_info_func(p, i, e) \
     (((SteamUserInfoFunc) p->func) (p->api, i, e, p->data))
@@ -296,21 +296,23 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
 {
     json_object *so, *se, *sv;
     SteamPersona *sp;
+    SteamUserMessage *um;
     
     const gchar *sm, *id;
     gint len, si, i;
     
+    GSList *mu = NULL;
     GSList *pu = NULL;
     
     if(!json_object_object_get_ex(jo, "messagelast", &so)) {
-        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
     sm = json_object_get_string(so);
     
     if(!g_strcmp0(fp->api->lmid, sm)) {
-        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -318,12 +320,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
     fp->api->lmid = g_strdup(sm);
     
     if(!json_object_object_get_ex(jo, "messages", &so)) {
-        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
     if(json_object_get_type(so) != json_type_array) {
-        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -337,22 +339,25 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
         
         sm = json_object_get_string(sv);
         
-        if(!g_strcmp0("my_saytext", sm)) {
-            if(!json_object_object_get_ex(se, "persona_name", &sv))
+        if(!json_object_object_get_ex(se, "steamid_from", &sv))
+            continue;
+        
+        id = json_object_get_string(sv);
+        
+        if(!g_strcmp0(fp->api->steamid, id))
+            continue;
+        
+        if(!g_strcmp0("saytext", sm)) {
+            if(!json_object_object_get_ex(se, "text", &sv))
                 continue;
             
             sm = json_object_get_string(sv);
+            um = g_new0(SteamUserMessage, 1);
+            mu = g_slist_append(mu, um);
             
-            g_print("New message, id: %s\n", sm);
+            um->steamid = id;
+            um->message = sm;
         } else if(!g_strcmp0("personastate", sm)) {
-            if(!json_object_object_get_ex(se, "steamid_from", &sv))
-                continue;
-            
-            id = json_object_get_string(sv);
-            
-            if(!g_strcmp0(fp->api->steamid, id))
-                continue;
-            
             if(!json_object_object_get_ex(se, "persona_name", &sv))
                 continue;
             
@@ -367,7 +372,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
         }
     }
     
-    steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
+    steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
     g_slist_free_full(pu, (GDestroyNotify) steam_persona_free);
 }
 

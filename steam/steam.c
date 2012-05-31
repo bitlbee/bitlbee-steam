@@ -17,15 +17,17 @@
 
 #include "steam.h"
 
-static void steam_poll_cb(SteamAPI *api, GSList *p_updates, SteamError err,
-                          gpointer data)
+static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
+                          SteamError err, gpointer data)
 {
-    SteamData    *sd = data;
-    SteamPersona *sp;
+    SteamData *sd = data;
     
     GSList *l;
     gchar  *s;
     gint f;
+    
+    SteamPersona     *sp;
+    SteamUserMessage *um;
     
     
     if(err != STEAM_ERROR_SUCCESS)
@@ -52,6 +54,14 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, SteamError err,
         imcb_add_buddy(sd->ic, sp->steamid, NULL);
         imcb_buddy_nick_hint(sd->ic, sp->steamid, sp->name);
         imcb_buddy_status(sd->ic, sp->steamid, f, s, NULL);
+    }
+    
+    for(l = m_updates; l != NULL; l = l->next) {
+        um = l->data;
+        s  = g_strdup(um->message);
+        
+        imcb_buddy_msg(sd->ic, um->steamid, s, 0, 0);
+        g_free(s);
     }
 }
 

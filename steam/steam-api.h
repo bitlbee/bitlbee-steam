@@ -36,12 +36,14 @@ typedef enum   _SteamPersonaState SteamPersonaState;
 typedef struct _SteamAPI          SteamAPI;
 typedef struct _SteamPersona      SteamPersona;
 typedef struct _SteamUserInfo     SteamUserInfo;
+typedef struct _SteamUserMessage  SteamUserMessage;
 
 typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
                                    gpointer data);
 
 typedef void (*SteamPollFunc)     (SteamAPI *api, GSList *p_updates,
-                                   SteamError err, gpointer data);
+                                   GSList *m_updates, SteamError err,
+                                   gpointer data);
 
 typedef void (*SteamUserInfoFunc) (SteamAPI *api, SteamUserInfo *uinfo,
                                    SteamError err, gpointer data);
@@ -108,6 +110,13 @@ struct _SteamUserInfo
     const gchar *realname;
     const gchar *profile;
 };
+
+struct _SteamUserMessage
+{
+    const gchar *steamid;
+    const gchar *message;
+};
+
 
 SteamPersona *steam_persona_new(const gchar *steamid, const gchar *name,
                                 SteamPersonaState state);
