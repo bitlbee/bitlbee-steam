@@ -353,7 +353,7 @@ static void steam_api_user_info_cb(SteamFuncPair *fp, json_object *jo)
     if(json_object_object_get_ex(so, "steamid", &sv))
         info.steamid  = json_object_get_string(sv);
     
-    if(json_object_object_get_ex(so, "profilestate", &sv))
+    if(json_object_object_get_ex(so, "personastate", &sv))
         info.state    = json_object_get_int(sv);
     
     if(json_object_object_get_ex(so, "personaname", &sv))
