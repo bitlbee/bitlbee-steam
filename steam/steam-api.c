@@ -38,12 +38,14 @@ static json_bool json_object_object_get_ex(json_object *jo, const char *key,
 
 #endif
 
+#define steam_api_func(p, e) \
+    (((SteamAPIFunc) p->func) (p->api, e, p->data))
 
-#define steam_api_func(p, e)      (((SteamAPIFunc) p->func) \
-                                      (p->api, e, p->data))
-
-#define steam_poll_func(p, pu, e) (((SteamPollFunc) p->func) \
-                                      (p->api, pu, e, p->data))
+#define steam_poll_func(p, pu, e) \
+    (((SteamPollFunc) p->func) (p->api, pu, e, p->data))
+                                      
+#define steam_user_info_func(p, i, e) \
+    (((SteamUserInfoFunc) p->func) (p->api, i, e, p->data))
 
 
 typedef enum   _SteamPairType SteamPairType;
@@ -55,7 +57,8 @@ enum _SteamPairType
     STEAM_PAIR_AUTH,
     STEAM_PAIR_LOGON,
     STEAM_PAIR_LOGOFF,
-    STEAM_PAIR_POLL
+    STEAM_PAIR_POLL,
+    STEAM_PAIR_USER_INFO
 };
 
 struct _SteamPair
@@ -165,6 +168,8 @@ gchar *steam_api_error_str(SteamError err)
         return "Empty SteamID";
     case STEAM_ERROR_EMPTY_UMQID:
         return "Empty UMQID";
+    case STEAM_ERROR_EMPTY_USER_INFO:
+        return "Empty user information";
     case STEAM_ERROR_FAILED_AUTH:
         return "Authentication failed";
     case STEAM_ERROR_FAILED_LOGOFF:
@@ -212,21 +217,10 @@ static void steam_api_auth_cb(SteamFuncPair *fp, json_object *jo)
     }
 }
 
-static void steam_api_friends_cb(SteamFuncPair *fp, json_object *jo)
-{
-    json_object *so;
-    const gchar *sm;
-    
-    steam_api_func(fp, STEAM_ERROR_SUCCESS);
-}
-
 static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
 {
     json_object *so;
     const gchar *sm;
-    
-    g_return_if_fail(fp != NULL);
-    g_return_if_fail(fp->data != NULL);
     
     if(!json_object_object_get_ex(jo, "umqid", &so)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_UMQID);
@@ -354,6 +348,48 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
     g_slist_free_full(pu, (GDestroyNotify) steam_persona_free);
 }
 
+static void steam_api_user_info_cb(SteamFuncPair *fp, json_object *jo)
+{
+    json_object *so, *sv;
+    SteamUserInfo info;
+    
+    memset(&info, 0, sizeof (SteamUserInfo));
+    
+    if(!json_object_object_get_ex(jo, "players", &so)) {
+        steam_user_info_func(fp, &info, STEAM_ERROR_EMPTY_USER_INFO);
+        return;
+    }
+    
+    if(json_object_get_type(so) != json_type_array) {
+        steam_user_info_func(fp, &info, STEAM_ERROR_EMPTY_USER_INFO);
+        return;
+    }
+    
+    if(json_object_array_length(so) < 1) {
+        steam_user_info_func(fp, &info, STEAM_ERROR_EMPTY_USER_INFO);
+        return;
+    }
+    
+    so = json_object_array_get_idx(so, 0);
+    
+    if(json_object_object_get_ex(so, "steamid", &sv))
+        info.steamid  = json_object_get_string(sv);
+    
+    if(json_object_object_get_ex(so, "profilestate", &sv))
+        info.state    = json_object_get_int(sv);
+    
+    if(json_object_object_get_ex(so, "personaname", &sv))
+        info.name     = json_object_get_string(sv);
+    
+    if(json_object_object_get_ex(so, "realname", &sv))
+        info.realname = json_object_get_string(sv);
+    
+    if(json_object_object_get_ex(so, "profileurl", &sv))
+        info.profile  = json_object_get_string(sv);
+    
+    steam_user_info_func(fp, &info, STEAM_ERROR_SUCCESS);
+}
+
 static void steam_api_cb(struct http_request *req)
 {
     SteamFuncPair *fp = req->data;
@@ -386,6 +422,10 @@ static void steam_api_cb(struct http_request *req)
     
     case STEAM_PAIR_POLL:
         steam_api_poll_cb(fp, jo);
+        break;
+    
+    case STEAM_PAIR_USER_INFO:
+        steam_api_user_info_cb(fp, jo);
         break;
     }
     
@@ -509,4 +549,18 @@ void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data)
     
     steam_api_req(STEAM_PATH_POLL, ps, 3, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_POLL, api, func, data));
+}
+
+void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
+                         gpointer data)
+{
+    g_return_if_fail(api != NULL);
+    
+    SteamPair ps[2] = {
+        {"access_token", api->token},
+        {"steamids",     steamid}
+    };
+    
+    steam_api_req(STEAM_PATH_USER_INFO, ps, 2, TRUE, FALSE,
+                  steam_pair_new(STEAM_PAIR_USER_INFO, api, func, data));
 }

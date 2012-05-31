@@ -23,20 +23,27 @@
 #define STEAM_API_HOST      "api.steampowered.com"
 #define STEAM_API_AGENT     "Steam 1291812 / iPhone"
 
-#define STEAM_PATH_AUTH     "/ISteamOAuth2/GetTokenWithCredentials/v0001"
-#define STEAM_PATH_LOGON    "/ISteamWebUserPresenceOAuth/Logon/v0001"
-#define STEAM_PATH_LOGOFF   "/ISteamWebUserPresenceOAuth/Logoff/v0001"
-#define STEAM_PATH_POLL     "/ISteamWebUserPresenceOAuth/PollStatus/v0001"
+#define STEAM_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
+#define STEAM_PATH_LOGON      "/ISteamWebUserPresenceOAuth/Logon/v0001"
+#define STEAM_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
+#define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/PollStatus/v0001"
+#define STEAM_PATH_USER_INFO  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
 
 typedef enum   _SteamError        SteamError;
 typedef enum   _SteamPersonaState SteamPersonaState;
 typedef struct _SteamAPI          SteamAPI;
 typedef struct _SteamPersona      SteamPersona;
+typedef struct _SteamUserInfo     SteamUserInfo;
 
-typedef void (*SteamAPIFunc)  (SteamAPI * api, SteamError err, gpointer data);
-typedef void (*SteamPollFunc) (SteamAPI * api, GSList *p_updates,
-                               SteamError err, gpointer data);
+typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
+                                   gpointer data);
+
+typedef void (*SteamPollFunc)     (SteamAPI *api, GSList *p_updates,
+                                   SteamError err, gpointer data);
+
+typedef void (*SteamUserInfoFunc) (SteamAPI *api, SteamUserInfo *uinfo,
+                                   SteamError err, gpointer data);
 
 enum _SteamError
 {
@@ -47,6 +54,7 @@ enum _SteamError
     STEAM_ERROR_EMPTY_MESSAGE,
     STEAM_ERROR_EMPTY_STEAMID,
     STEAM_ERROR_EMPTY_UMQID,
+    STEAM_ERROR_EMPTY_USER_INFO,
     
     STEAM_ERROR_FAILED_AUTH,
     STEAM_ERROR_FAILED_LOGOFF,
@@ -84,10 +92,19 @@ struct _SteamAPI
 struct _SteamPersona
 {
     gchar *steamid;
-    gchar *name;
     SteamPersonaState state;
     
-    gboolean active;
+    gchar *name;
+};
+
+struct _SteamUserInfo
+{
+    const gchar *steamid;
+    SteamPersonaState state;
+    
+    const gchar *name;
+    const gchar *realname;
+    const gchar *profile;
 };
 
 SteamPersona *steam_persona_new(const gchar *steamid, const gchar *name,
@@ -113,6 +130,9 @@ void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
 void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data);
+
+void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
+                         gpointer data);
 
 
 #endif /* _STEAM_API_H */

@@ -188,7 +188,7 @@ static void steam_login(account_t *acc)
     steam_api_logon(sd->api, steam_logon_cb, sd);
 }
 
-static void steam_logoff_cb(SteamAPI * api, SteamError err, gpointer data)
+static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
@@ -241,9 +241,36 @@ static void steam_remove_buddy(struct im_connection *ic, char *name,
     
 }
 
+static void steam_user_info_cb(SteamAPI *api, SteamUserInfo *uinfo,
+                               SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    if(err != STEAM_ERROR_SUCCESS) {
+        imcb_error(sd->ic, steam_api_error_str(err));
+        return;
+    }
+    
+    if(uinfo->name != NULL)
+        imcb_log(sd->ic, "Name:      %s", uinfo->name);
+    
+    if(uinfo->realname != NULL)
+        imcb_log(sd->ic, "Real Name: %s", uinfo->realname);
+    
+    if(uinfo->steamid != NULL)
+        imcb_log(sd->ic, "Steam ID:  %s", uinfo->steamid);
+    
+    imcb_log(sd->ic, "Status:    %s", steam_persona_state_str(uinfo->state));
+    
+    if(uinfo->profile != NULL)
+        imcb_log(sd->ic, "Profile:   %s", uinfo->profile);
+}
+
 static void steam_get_info(struct im_connection *ic, char *who)
 {
+    SteamData *sd = ic->proto_data;
     
+    steam_api_user_info(sd->api, who, steam_user_info_cb, sd);
 }
 
 static void steam_set_my_name(struct im_connection *ic, char *name)
