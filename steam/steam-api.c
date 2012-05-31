@@ -157,6 +157,8 @@ gchar *steam_api_error_str(SteamError err)
         return "Unknown logon failure";
     case STEAM_ERROR_FAILED_MESSAGE_SEND:
         return "Failed to send message";
+    case STEAM_ERROR_FAILED_POLL:
+        return "Failed to poll server";
     case STEAM_ERROR_INVALID_AUTH_CODE:
         return "Invalid SteamGuard authentication code";
     case STEAM_ERROR_INVALID_LOGON:
@@ -281,6 +283,18 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
     
     GSList *mu = NULL;
     GSList *pu = NULL;
+    
+    if(!json_object_object_get_ex(jo, "error", &so)) {
+        steam_poll_func(fp, pu, mu, STEAM_ERROR_FAILED_POLL);
+        return;
+    }
+    
+    sm = json_object_get_string(so);
+    
+    if(g_strcmp0("OK", sm) && g_strcmp0("Timeout", sm)) {
+        steam_poll_func(fp, pu, mu, STEAM_ERROR_FAILED_POLL);
+        return;
+    }
     
     if(!json_object_object_get_ex(jo, "messagelast", &so)) {
         steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
