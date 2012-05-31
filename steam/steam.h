@@ -29,6 +29,7 @@ struct _SteamData
     SteamAPI *api;
     
     gint ml_timeout;
+    gint ml_errors;
     gint ml_id;
 };
 
