@@ -38,7 +38,13 @@ static json_bool json_object_object_get_ex(json_object *jo, const char *key,
 
 #endif
 
-#define steam_api_func(p, e) (p->func(p->api, e, p->data))
+
+#define steam_api_func(p, e)      (((SteamAPIFunc) p->func) \
+                                      (p->api, e, p->data))
+
+#define steam_poll_func(p, pu, e) (((SteamPollFunc) p->func) \
+                                      (p->api, pu, e, p->data))
+
 
 typedef enum   _SteamPairType SteamPairType;
 typedef struct _SteamPair     SteamPair;
@@ -63,12 +69,12 @@ struct _SteamFuncPair
     SteamPairType type;
     SteamAPI *api;
     
-    SteamAPIFunc func;
+    gpointer func;
     gpointer data;
 };
 
 static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
-                                     SteamAPIFunc func, gpointer data)
+                                     gpointer func, gpointer data)
 {
     SteamFuncPair *fp;
     
@@ -79,6 +85,69 @@ static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
     fp->data = data;
     
     return fp;
+}
+
+SteamPersona *steam_persona_new(const gchar *steamid, const gchar *name,
+                                SteamPersonaState state)
+{
+    SteamPersona *sp;
+    
+    sp = g_new0(SteamPersona, 1);
+    sp->steamid = g_strdup(steamid);
+    sp->name    = g_strdup(name);
+    sp->state   = state;
+    
+    return sp;
+}
+
+void steam_persona_free(SteamPersona *sp)
+{
+    g_return_if_fail(sp != NULL);
+    
+    g_free(sp->steamid);
+    g_free(sp->name);
+    g_free(sp);
+}
+
+gchar *steam_persona_state_str(SteamPersonaState state)
+{
+    switch(state) {
+    case STEAM_PERSONA_STATE_OFFLINE:
+        return "Offline";
+    case STEAM_PERSONA_STATE_ONLINE:
+        return "Online";
+    case STEAM_PERSONA_STATE_BUSY:
+        return "Busy";
+    case STEAM_PERSONA_STATE_AWAY:
+        return "Away";
+    case STEAM_PERSONA_STATE_SNOOZE:
+        return "Snooze";
+    }
+    
+    return "";
+}
+
+SteamAPI *steam_api_new(account_t *acc)
+{
+    SteamAPI *api;
+    
+    g_return_val_if_fail(acc != NULL, NULL);
+    
+    api = g_new0(SteamAPI, 1);
+    api->acc = acc;
+    
+    return api;
+}
+
+void steam_api_free(SteamAPI *api)
+{
+    g_return_if_fail(api != NULL);
+    
+    g_free(api->token);
+    g_free(api->steamid);
+    g_free(api->umqid);
+    
+    g_free(api);
 }
 
 gchar *steam_api_error_str(SteamError err)
@@ -115,29 +184,6 @@ gchar *steam_api_error_str(SteamError err)
     }
     
     return "";
-}
-
-SteamAPI *steam_api_new(account_t *acc)
-{
-    SteamAPI *api;
-    
-    g_return_val_if_fail(acc != NULL, NULL);
-    
-    api = g_new0(SteamAPI, 1);
-    api->acc = acc;
-    
-    return api;
-}
-
-void steam_api_free(SteamAPI *api)
-{
-    g_return_if_fail(api != NULL);
-    
-    g_free(api->token);
-    g_free(api->steamid);
-    g_free(api->umqid);
-    
-    g_free(api);
 }
 
 static void steam_api_auth_cb(SteamFuncPair *fp, json_object *jo)
@@ -232,18 +278,22 @@ static void steam_api_logoff_cb(SteamFuncPair *fp, json_object *jo)
 static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
 {
     json_object *so, *se, *sv;
-    const gchar *sm;
+    SteamPersona *sp;
+    
+    const gchar *sm, *id;
     gint len, si, i;
     
+    GSList *pu = NULL;
+    
     if(!json_object_object_get_ex(jo, "messagelast", &so)) {
-        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
         return;
     }
     
     sm = json_object_get_string(so);
     
     if(!g_strcmp0(fp->api->lmid, sm)) {
-        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -251,12 +301,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
     fp->api->lmid = g_strdup(sm);
     
     if(!json_object_object_get_ex(jo, "messages", &so)) {
-        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
         return;
     }
     
     if(json_object_get_type(so) != json_type_array) {
-        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -281,9 +331,9 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
             if(!json_object_object_get_ex(se, "steamid_from", &sv))
                 continue;
             
-            sm = json_object_get_string(sv);
+            id = json_object_get_string(sv);
             
-            if(!g_strcmp0(fp->api->steamid, sm))
+            if(!g_strcmp0(fp->api->steamid, id))
                 continue;
             
             if(!json_object_object_get_ex(se, "persona_name", &sv))
@@ -295,12 +345,13 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
                 continue;
             
             si = json_object_get_int(sv);
-            
-            g_print("Persona state change(%d): %s\n", si, sm);
+            sp = steam_persona_new(id, sm, si);
+            pu = g_slist_append(pu, sp);
         }
     }
     
-    steam_api_func(fp, STEAM_ERROR_SUCCESS);
+    steam_poll_func(fp, pu, STEAM_ERROR_SUCCESS);
+    g_slist_free_full(pu, (GDestroyNotify) steam_persona_free);
 }
 
 static void steam_api_cb(struct http_request *req)
@@ -446,7 +497,7 @@ void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
                   steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data));
 }
 
-void steam_api_poll(SteamAPI *api, SteamAPIFunc func, gpointer data)
+void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data)
 {
     g_return_if_fail(api != NULL);
     

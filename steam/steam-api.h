@@ -32,8 +32,11 @@
 typedef enum   _SteamError        SteamError;
 typedef enum   _SteamPersonaState SteamPersonaState;
 typedef struct _SteamAPI          SteamAPI;
+typedef struct _SteamPersona      SteamPersona;
 
-typedef void (*SteamAPIFunc) (SteamAPI * api, SteamError err, gpointer data);
+typedef void (*SteamAPIFunc)  (SteamAPI * api, SteamError err, gpointer data);
+typedef void (*SteamPollFunc) (SteamAPI * api, GSList *p_updates,
+                               SteamError err, gpointer data);
 
 enum _SteamError
 {
@@ -78,12 +81,27 @@ struct _SteamAPI
     gchar *lmid;
 };
 
+struct _SteamPersona
+{
+    gchar *steamid;
+    gchar *name;
+    SteamPersonaState state;
+    
+    gboolean active;
+};
 
-gchar *steam_api_error_str(SteamError err);
+SteamPersona *steam_persona_new(const gchar *steamid, const gchar *name,
+                                SteamPersonaState state);
+
+void steam_persona_free(SteamPersona *sp);
+
+gchar *steam_persona_state_str(SteamPersonaState state);
 
 SteamAPI *steam_api_new(account_t *acc);
 
 void steam_api_free(SteamAPI *api);
+
+gchar *steam_api_error_str(SteamError err);
 
 void steam_api_auth(SteamAPI *api, const gchar *authcode,
                     SteamAPIFunc func, gpointer data);
@@ -94,7 +112,7 @@ void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
-void steam_api_poll(SteamAPI *api, SteamAPIFunc func, gpointer data);
+void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data);
 
 
 #endif /* _STEAM_API_H */

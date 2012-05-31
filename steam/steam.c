@@ -17,12 +17,42 @@
 
 #include "steam.h"
 
-static void steam_poll_cb(SteamAPI *api, SteamError err, gpointer data)
+static void steam_poll_cb(SteamAPI *api, GSList *p_updates, SteamError err,
+                          gpointer data)
 {
-    SteamData *sd = data;
+    SteamData    *sd = data;
+    SteamPersona *sp;
+    
+    GSList *l;
+    gchar  *s;
+    gint f;
+    
     
     if(err != STEAM_ERROR_SUCCESS)
-        g_print("ERROR: %s\n", steam_api_error_str(err));
+        return;
+    
+    for(l = p_updates; l != NULL; l = l->next) {
+        sp = l->data;
+        f  = OPT_LOGGED_IN;
+        
+        if(sp->state == STEAM_PERSONA_STATE_OFFLINE) {
+            if(imcb_buddy_by_handle(sd->ic, sp->steamid) != NULL)
+                imcb_buddy_status(sd->ic, sp->steamid, OPT_LOGGING_OUT,
+                                  NULL, NULL);
+            
+            imcb_remove_buddy(sd->ic, sp->steamid, NULL);
+            continue;
+        }
+        
+        if(sp->state != STEAM_PERSONA_STATE_ONLINE)
+            f |= OPT_AWAY;
+        
+        s = steam_persona_state_str(sp->state);
+        
+        imcb_add_buddy(sd->ic, sp->steamid, NULL);
+        imcb_buddy_nick_hint(sd->ic, sp->steamid, sp->name);
+        imcb_buddy_status(sd->ic, sp->steamid, f, s, NULL);
+    }
 }
 
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
