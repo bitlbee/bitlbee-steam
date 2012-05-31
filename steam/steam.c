@@ -186,6 +186,8 @@ static void steam_init(account_t *acc)
     
     s = set_add(&acc->set, "umqid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN;
+    
+    set_add(&acc->set, "pollfreq", NULL, NULL, acc);
 }
 
 static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -207,20 +209,22 @@ static void steam_login(account_t *acc)
     if(umqid == NULL) {
         rand  = g_rand_new();
         umqid = g_strdup_printf("%u", g_rand_int(rand));
-        g_rand_free(rand);
         
-        sd->api->umqid = umqid;
         set_setstr(&acc->set, "umqid", umqid);
+        g_rand_free(rand);
     } else {
         sd->api->umqid = g_strdup(umqid);
     }
     
-    sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
+    sd->ml_timeout = set_getint(&acc->set, "pollfreq");
     
-    /* Hard-coded timeout for now */
-    sd->ml_timeout = 3000;
+    if(sd->ml_timeout < 1) {
+        sd->ml_timeout = 3000;
+        set_setint(&acc->set, "pollfreq", sd->ml_timeout);
+    }
     
     imcb_log(sd->ic, "Connecting");
+    sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
     
     if(sd->api->token == NULL) {
         steam_api_auth(sd->api, NULL, steam_auth_cb, sd);
