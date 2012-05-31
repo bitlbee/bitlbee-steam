@@ -128,15 +128,9 @@ struct _SteamUserMessage
 };
 
 
-gchar *steam_persona_state_str(SteamPersonaState state);
-
-gchar *steam_message_type_str(SteamMessageType type);
-
 SteamAPI *steam_api_new(account_t *acc);
 
 void steam_api_free(SteamAPI *api);
-
-gchar *steam_api_error_str(SteamError err);
 
 void steam_api_message(SteamAPI *api, const gchar *steamid,
                        const gchar *message, SteamMessageType type,
@@ -152,6 +146,12 @@ void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data);
 
 void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
                          gpointer data);
+
+gchar *steam_api_error_str(SteamError err);
+
+gchar *steam_message_type_str(SteamMessageType type);
+
+gchar *steam_persona_state_str(SteamPersonaState state);
 
 
 #endif /* _STEAM_API_H */

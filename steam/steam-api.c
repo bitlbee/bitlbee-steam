@@ -91,36 +91,6 @@ static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
     return fp;
 }
 
-gchar *steam_persona_state_str(SteamPersonaState state)
-{
-    switch(state) {
-    case STEAM_PERSONA_STATE_OFFLINE:
-        return "Offline";
-    case STEAM_PERSONA_STATE_ONLINE:
-        return "Online";
-    case STEAM_PERSONA_STATE_BUSY:
-        return "Busy";
-    case STEAM_PERSONA_STATE_AWAY:
-        return "Away";
-    case STEAM_PERSONA_STATE_SNOOZE:
-        return "Snooze";
-    }
-    
-    return "";
-}
-
-gchar *steam_message_type_str(SteamMessageType type)
-{
-    switch(type) {
-    case STEAM_MESSAGE_TYPE_SAYTEXT:
-        return "saytext";
-    case STEAM_MESSAGE_TYPE_EMOTE:
-        return "emote";
-    }
-    
-    return "";
-}
-
 SteamAPI *steam_api_new(account_t *acc)
 {
     SteamAPI *api;
@@ -142,48 +112,6 @@ void steam_api_free(SteamAPI *api)
     g_free(api->umqid);
     
     g_free(api);
-}
-
-gchar *steam_api_error_str(SteamError err)
-{
-    switch(err) {
-    case STEAM_ERROR_SUCCESS:
-        return "Success";
-    case STEAM_ERROR_GENERIC:
-        return "Something has gone terribly wrong";
-    case STEAM_ERROR_EMPTY_JSON:
-        return "Failed to receive JSON reply";
-    case STEAM_ERROR_EMPTY_MESSAGE:
-        return "Empty message";
-    case STEAM_ERROR_EMPTY_STEAMID:
-        return "Empty SteamID";
-    case STEAM_ERROR_EMPTY_UMQID:
-        return "Empty UMQID";
-    case STEAM_ERROR_EMPTY_USER_INFO:
-        return "Empty user information";
-    case STEAM_ERROR_FAILED_AUTH:
-        return "Authentication failed";
-    case STEAM_ERROR_FAILED_LOGOFF:
-        return "Unknown logoff failure";
-    case STEAM_ERROR_FAILED_LOGON:
-        return "Unknown logon failure";
-    case STEAM_ERROR_FAILED_MESSAGE_SEND:
-        return "Failed to send message";
-    case STEAM_ERROR_FAILED_POLL:
-        return "Failed to poll server";
-    case STEAM_ERROR_INVALID_AUTH_CODE:
-        return "Invalid SteamGuard authentication code";
-    case STEAM_ERROR_INVALID_LOGON:
-        return "Invalid login details";
-    case STEAM_ERROR_PARSE_JSON:
-        return "Failed to parse JSON reply";
-    case STEAM_ERROR_REQ_AUTH_CODE:
-        return "SteamGuard authentication code required";
-    case STEAM_ERROR_MISMATCH_UMQID:
-        return "Mismatch in UMQIDs";
-    }
-    
-    return "";
 }
 
 static void steam_api_auth_cb(SteamFuncPair *fp, json_object *jo)
@@ -639,4 +567,76 @@ void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
     
     steam_api_req(STEAM_PATH_USER_INFO, ps, 2, TRUE, FALSE,
                   steam_pair_new(STEAM_PAIR_USER_INFO, api, func, data));
+}
+
+gchar *steam_api_error_str(SteamError err)
+{
+    switch(err) {
+    case STEAM_ERROR_SUCCESS:
+        return "Success";
+    case STEAM_ERROR_GENERIC:
+        return "Something has gone terribly wrong";
+    case STEAM_ERROR_EMPTY_JSON:
+        return "Failed to receive JSON reply";
+    case STEAM_ERROR_EMPTY_MESSAGE:
+        return "Empty message";
+    case STEAM_ERROR_EMPTY_STEAMID:
+        return "Empty SteamID";
+    case STEAM_ERROR_EMPTY_UMQID:
+        return "Empty UMQID";
+    case STEAM_ERROR_EMPTY_USER_INFO:
+        return "Empty user information";
+    case STEAM_ERROR_FAILED_AUTH:
+        return "Authentication failed";
+    case STEAM_ERROR_FAILED_LOGOFF:
+        return "Unknown logoff failure";
+    case STEAM_ERROR_FAILED_LOGON:
+        return "Unknown logon failure";
+    case STEAM_ERROR_FAILED_MESSAGE_SEND:
+        return "Failed to send message";
+    case STEAM_ERROR_FAILED_POLL:
+        return "Failed to poll server";
+    case STEAM_ERROR_INVALID_AUTH_CODE:
+        return "Invalid SteamGuard authentication code";
+    case STEAM_ERROR_INVALID_LOGON:
+        return "Invalid login details";
+    case STEAM_ERROR_PARSE_JSON:
+        return "Failed to parse JSON reply";
+    case STEAM_ERROR_REQ_AUTH_CODE:
+        return "SteamGuard authentication code required";
+    case STEAM_ERROR_MISMATCH_UMQID:
+        return "Mismatch in UMQIDs";
+    }
+    
+    return "";
+}
+
+gchar *steam_message_type_str(SteamMessageType type)
+{
+    switch(type) {
+    case STEAM_MESSAGE_TYPE_SAYTEXT:
+        return "saytext";
+    case STEAM_MESSAGE_TYPE_EMOTE:
+        return "emote";
+    }
+    
+    return "";
+}
+
+gchar *steam_persona_state_str(SteamPersonaState state)
+{
+    switch(state) {
+    case STEAM_PERSONA_STATE_OFFLINE:
+        return "Offline";
+    case STEAM_PERSONA_STATE_ONLINE:
+        return "Online";
+    case STEAM_PERSONA_STATE_BUSY:
+        return "Busy";
+    case STEAM_PERSONA_STATE_AWAY:
+        return "Away";
+    case STEAM_PERSONA_STATE_SNOOZE:
+        return "Snooze";
+    }
+    
+    return "";
 }
