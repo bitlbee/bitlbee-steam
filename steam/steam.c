@@ -208,9 +208,20 @@ static void steam_logout(struct im_connection *ic)
     steam_data_free(sd);
 }
 
+static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    if(err != STEAM_ERROR_SUCCESS)
+        imcb_error(sd->ic, steam_api_error_str(err));
+}
+
 static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
+    SteamData *sd = ic->proto_data;
+    
+    steam_api_message(sd->api, to, message, steam_message_cb, sd);
     return 0;
 }
 

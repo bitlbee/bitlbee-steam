@@ -57,6 +57,7 @@ enum _SteamPairType
     STEAM_PAIR_AUTH,
     STEAM_PAIR_LOGON,
     STEAM_PAIR_LOGOFF,
+    STEAM_PAIR_MESSAGE,
     STEAM_PAIR_POLL,
     STEAM_PAIR_USER_INFO
 };
@@ -176,6 +177,8 @@ gchar *steam_api_error_str(SteamError err)
         return "Unknown logoff failure";
     case STEAM_ERROR_FAILED_LOGON:
         return "Unknown logon failure";
+    case STEAM_ERROR_FAILED_MESSAGE_SEND:
+        return "Failed to send message";
     case STEAM_ERROR_INVALID_AUTH_CODE:
         return "Invalid SteamGuard authentication code";
     case STEAM_ERROR_INVALID_LOGON:
@@ -263,6 +266,26 @@ static void steam_api_logoff_cb(SteamFuncPair *fp, json_object *jo)
     
     if(json_object_object_get_ex(jo, "error", &so)) {
         steam_api_func(fp, STEAM_ERROR_FAILED_LOGOFF);
+        return;
+    }
+    
+    steam_api_func(fp, STEAM_ERROR_SUCCESS);
+}
+
+static void steam_api_message_cb(SteamFuncPair *fp, json_object *jo)
+{
+    json_object *so;
+    const gchar *sm;
+    
+    if(!json_object_object_get_ex(jo, "error", &so)) {
+        steam_api_func(fp, STEAM_ERROR_FAILED_MESSAGE_SEND);
+        return;
+    }
+    
+    sm = json_object_get_string(so);
+    
+    if(g_strcmp0("OK", sm)) {
+        steam_api_func(fp, STEAM_ERROR_FAILED_MESSAGE_SEND);
         return;
     }
     
@@ -420,6 +443,10 @@ static void steam_api_cb(struct http_request *req)
         steam_api_logoff_cb(fp, jo);
         break;
     
+    case STEAM_PAIR_MESSAGE:
+        steam_api_message_cb(fp, jo);
+        break;
+    
     case STEAM_PAIR_POLL:
         steam_api_poll_cb(fp, jo);
         break;
@@ -535,6 +562,23 @@ void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
     
     steam_api_req(STEAM_PATH_LOGOFF, ps, 2, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data));
+}
+
+void steam_api_message(SteamAPI *api, const gchar *steamid,
+                       const gchar *message, SteamAPIFunc func, gpointer data)
+{
+    g_return_if_fail(api != NULL);
+    
+    SteamPair ps[5] = {
+        {"access_token", api->token},
+        {"umqid",        api->umqid},
+        {"steamid_dst",  steamid},
+        {"type",         "saytext"},
+        {"text",         message}
+    };
+    
+    steam_api_req(STEAM_PATH_MESSAGE, ps, 5, TRUE, TRUE,
+                  steam_pair_new(STEAM_PAIR_MESSAGE, api, func, data));
 }
 
 void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data)
