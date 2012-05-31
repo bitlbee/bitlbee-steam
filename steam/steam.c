@@ -277,8 +277,11 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
     SteamMessageType type;
     
     if(g_str_has_prefix(message, "/me")) {
+        if(strlen(message) < 5)
+            return 0;
+        
         type     = STEAM_MESSAGE_TYPE_EMOTE;
-        message += 3;
+        message += 4;
     } else {
         type = STEAM_MESSAGE_TYPE_SAYTEXT;
     }
