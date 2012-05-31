@@ -226,6 +226,17 @@ static void steam_logout(struct im_connection *ic)
     steam_data_free(sd);
 }
 
+static GList *steam_away_states(struct im_connection *ic)
+{
+    GList *ss;
+    guint i;
+    
+    for(i = 2; i <= 4; i++)
+        ss = g_list_append(ss, steam_persona_state_str(i));
+    
+    return ss;
+}
+
 static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
@@ -246,28 +257,25 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
 static void steam_set_away(struct im_connection *ic, char *state,
                            char *message)
 {
-    
-}
-
-static void steam_get_away(struct im_connection *ic, char *who)
-{
-    
+    /* Set away status if possible via API */
 }
 
 static int steam_send_typing(struct im_connection *ic, char *who, int flags)
 {
+    /* Send typing state, is this really needed? */
+    
     return 0;
 }
 
 static void steam_add_buddy(struct im_connection *ic, char *name, char * group)
 {
-    
+    /* Add/search for a buddy if possible via API */
 }
 
 static void steam_remove_buddy(struct im_connection *ic, char *name,
                                char * group)
 {
-    
+    /* It looks like this can be done via the Steam Community AJAX API */
 }
 
 static void steam_user_info_cb(SteamAPI *api, SteamUserInfo *uinfo,
@@ -302,11 +310,6 @@ static void steam_get_info(struct im_connection *ic, char *who)
     steam_api_user_info(sd->api, who, steam_user_info_cb, sd);
 }
 
-static void steam_set_my_name(struct im_connection *ic, char *name)
-{
-    
-}
-
 static void steam_chat_invite(struct groupchat *c, char *who, char *message)
 {
     
@@ -339,11 +342,6 @@ static void steam_chat_topic(struct groupchat *c, char *topic)
     
 }
 
-static GList *steam_away_states(struct im_connection *ic)
-{
-    return NULL;
-}
-
 static void steam_buddy_data_add(struct bee_user *bu)
 {
     
@@ -374,9 +372,9 @@ void init_plugin()
     ret->init              = steam_init;
     ret->login             = steam_login;
     ret->logout            = steam_logout;
+    ret->away_states       = steam_away_states;
     ret->buddy_msg         = steam_buddy_msg;
     ret->set_away          = steam_set_away;
-    ret->get_away          = steam_get_away;
     ret->send_typing       = steam_send_typing;
     ret->add_buddy         = steam_add_buddy;
     ret->remove_buddy      = steam_remove_buddy;
@@ -387,7 +385,6 @@ void init_plugin()
     ret->chat_with         = steam_chat_with;
     ret->chat_join         = steam_chat_join;
     ret->chat_topic        = steam_chat_topic;
-    ret->away_states       = steam_away_states;
     ret->buddy_data_add    = steam_buddy_data_add;
     ret->buddy_data_free   = steam_buddy_data_free;
     ret->buddy_action_list = steam_buddy_action_list;
