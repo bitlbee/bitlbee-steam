@@ -95,10 +95,10 @@ struct _SteamAPI
 
 struct _SteamPersona
 {
-    gchar *steamid;
+    const gchar *steamid;
     SteamPersonaState state;
     
-    gchar *name;
+    const gchar *name;
 };
 
 struct _SteamUserInfo
@@ -117,11 +117,6 @@ struct _SteamUserMessage
     const gchar *message;
 };
 
-
-SteamPersona *steam_persona_new(const gchar *steamid, const gchar *name,
-                                SteamPersonaState state);
-
-void steam_persona_free(SteamPersona *sp);
 
 gchar *steam_persona_state_str(SteamPersonaState state);
 
