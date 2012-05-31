@@ -326,38 +326,6 @@ static void steam_get_info(struct im_connection *ic, char *who)
     steam_api_user_info(sd->api, who, steam_user_info_cb, sd);
 }
 
-static void steam_chat_invite(struct groupchat *c, char *who, char *message)
-{
-    
-}
-
-static void steam_chat_leave(struct groupchat *c)
-{
-    
-}
-
-static void steam_chat_msg(struct groupchat *c, char *message, int flags)
-{
-    
-}
-
-static struct groupchat *steam_chat_with(struct im_connection *ic, char *who)
-{
-    return NULL;
-}
-
-static struct groupchat *steam_chat_join(struct im_connection *ic,
-                                         const char *room, const char *nick,
-                                         const char *password, set_t **sets)
-{
-    return NULL;
-}
-
-static void steam_chat_topic(struct groupchat *c, char *topic)
-{
-    
-}
-
 static void steam_buddy_data_add(struct bee_user *bu)
 {
     
@@ -395,12 +363,6 @@ void init_plugin()
     ret->add_buddy         = steam_add_buddy;
     ret->remove_buddy      = steam_remove_buddy;
     ret->get_info          = steam_get_info;
-    ret->chat_invite       = steam_chat_invite;
-    ret->chat_leave        = steam_chat_leave;
-    ret->chat_msg          = steam_chat_msg;
-    ret->chat_with         = steam_chat_with;
-    ret->chat_join         = steam_chat_join;
-    ret->chat_topic        = steam_chat_topic;
     ret->buddy_data_add    = steam_buddy_data_add;
     ret->buddy_data_free   = steam_buddy_data_free;
     ret->buddy_action_list = steam_buddy_action_list;
