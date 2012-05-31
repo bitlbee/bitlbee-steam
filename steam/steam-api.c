@@ -433,8 +433,7 @@ static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
             if(params[i].value == NULL)
                 params[i].value = "";
             
-            //esc   = g_uri_escape_string(params[i].value, NULL, FALSE);
-            esc   = g_strdup(params[i].value);
+            esc   = g_uri_escape_string(params[i].value, NULL, FALSE);
             sp[i] = g_strdup_printf("%s=%s", params[i].key, esc);
             
             g_free(esc);
