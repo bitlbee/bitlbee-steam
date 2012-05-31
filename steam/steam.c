@@ -42,6 +42,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     
     
     if(err != STEAM_ERROR_SUCCESS) {
+        imcb_error(sd->ic, steam_api_error_str(err));
         sd->ml_id = b_timeout_add(sd->ml_timeout, steam_main_loop, sd);
         return;
     }
