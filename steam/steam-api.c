@@ -586,9 +586,9 @@ void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data)
     g_return_if_fail(api != NULL);
     
     SteamPair ps[3] = {
-        {"steamid", api->steamid},
-        {"umqid",   api->umqid},
-        {"message", api->lmid}
+        {"access_token", api->token},
+        {"umqid",        api->umqid},
+        {"message",      api->lmid}
     };
     
     steam_api_req(STEAM_PATH_POLL, ps, 3, TRUE, TRUE,

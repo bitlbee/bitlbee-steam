@@ -27,7 +27,7 @@
 #define STEAM_PATH_LOGON      "/ISteamWebUserPresenceOAuth/Logon/v0001"
 #define STEAM_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
 #define STEAM_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
-#define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/PollStatus/v0001"
+#define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
 #define STEAM_PATH_USER_INFO  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
 
