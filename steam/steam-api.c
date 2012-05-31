@@ -92,8 +92,6 @@ gchar *steam_api_error_str(SteamError err)
         return "Failed to receive JSON reply";
     case STEAM_ERROR_EMPTY_MESSAGE:
         return "Empty message";
-    case STEAM_ERROR_EMPTY_MESSAGES:
-        return "Empty set messages returned";
     case STEAM_ERROR_EMPTY_STEAMID:
         return "Empty SteamID";
     case STEAM_ERROR_EMPTY_UMQID:
@@ -213,8 +211,8 @@ static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
     
     sm = json_object_get_string(so);
     
-    g_free(fp->api->message);
-    fp->api->message = g_strdup(sm);
+    g_free(fp->api->lmid);
+    fp->api->lmid = g_strdup(sm);
     steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
@@ -233,10 +231,76 @@ static void steam_api_logoff_cb(SteamFuncPair *fp, json_object *jo)
 
 static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
 {
-    json_object *so;
+    json_object *so, *se, *sv;
     const gchar *sm;
+    gint len, si, i;
     
+    if(!json_object_object_get_ex(jo, "messagelast", &so)) {
+        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        return;
+    }
     
+    sm = json_object_get_string(so);
+    
+    if(!g_strcmp0(fp->api->lmid, sm)) {
+        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        return;
+    }
+    
+    g_free(fp->api->lmid);
+    fp->api->lmid = g_strdup(sm);
+    
+    if(!json_object_object_get_ex(jo, "messages", &so)) {
+        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        return;
+    }
+    
+    if(json_object_get_type(so) != json_type_array) {
+        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        return;
+    }
+    
+    len = json_object_array_length(so);
+    
+    for(i = 0; i < len; i++) {
+        se = json_object_array_get_idx(so, i);
+        
+        if(!json_object_object_get_ex(se, "type", &sv))
+            continue;
+        
+        sm = json_object_get_string(sv);
+        
+        if(!g_strcmp0("my_saytext", sm)) {
+            if(!json_object_object_get_ex(se, "persona_name", &sv))
+                continue;
+            
+            sm = json_object_get_string(sv);
+            
+            g_print("New message, id: %s\n", sm);
+        } else if(!g_strcmp0("personastate", sm)) {
+            if(!json_object_object_get_ex(se, "steamid_from", &sv))
+                continue;
+            
+            sm = json_object_get_string(sv);
+            
+            if(!g_strcmp0(fp->api->steamid, sm))
+                continue;
+            
+            if(!json_object_object_get_ex(se, "persona_name", &sv))
+                continue;
+            
+            sm = json_object_get_string(sv);
+            
+            if(!json_object_object_get_ex(se, "persona_state", &sv))
+                continue;
+            
+            si = json_object_get_int(sv);
+            
+            g_print("Persona state change(%d): %s\n", si, sm);
+        }
+    }
+    
+    steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
 static void steam_api_cb(struct http_request *req)
@@ -389,7 +453,7 @@ void steam_api_poll(SteamAPI *api, SteamAPIFunc func, gpointer data)
     SteamPair ps[3] = {
         {"steamid", api->steamid},
         {"umqid",   api->umqid},
-        {"message", api->message}
+        {"message", api->lmid}
     };
     
     steam_api_req(STEAM_PATH_POLL, ps, 3, TRUE, TRUE,

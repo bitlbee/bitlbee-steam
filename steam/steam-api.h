@@ -29,8 +29,9 @@
 #define STEAM_PATH_POLL     "/ISteamWebUserPresenceOAuth/PollStatus/v0001"
 
 
-typedef enum   _SteamError SteamError;
-typedef struct _SteamAPI   SteamAPI;
+typedef enum   _SteamError        SteamError;
+typedef enum   _SteamPersonaState SteamPersonaState;
+typedef struct _SteamAPI          SteamAPI;
 
 typedef void (*SteamAPIFunc) (SteamAPI * api, SteamError err, gpointer data);
 
@@ -41,7 +42,6 @@ enum _SteamError
     
     STEAM_ERROR_EMPTY_JSON,
     STEAM_ERROR_EMPTY_MESSAGE,
-    STEAM_ERROR_EMPTY_MESSAGES,
     STEAM_ERROR_EMPTY_STEAMID,
     STEAM_ERROR_EMPTY_UMQID,
     
@@ -59,6 +59,15 @@ enum _SteamError
     STEAM_ERROR_MISMATCH_UMQID
 };
 
+enum _SteamPersonaState
+{
+    STEAM_PERSONA_STATE_OFFLINE = 0,
+    STEAM_PERSONA_STATE_ONLINE  = 1,
+    STEAM_PERSONA_STATE_BUSY    = 2,
+    STEAM_PERSONA_STATE_AWAY    = 3,
+    STEAM_PERSONA_STATE_SNOOZE  = 4
+};
+
 struct _SteamAPI
 {
     account_t * acc;
@@ -66,7 +75,7 @@ struct _SteamAPI
     gchar *token;
     gchar *steamid;
     gchar *umqid;
-    gchar *message;
+    gchar *lmid;
 };
 
 

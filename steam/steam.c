@@ -21,7 +21,8 @@ static void steam_poll_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
-    
+    if(err != STEAM_ERROR_SUCCESS)
+        g_print("ERROR: %s\n", steam_api_error_str(err));
 }
 
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
