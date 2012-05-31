@@ -156,6 +156,14 @@ static void steam_init(account_t *acc)
     s->flags = SET_NULL_OK | SET_HIDDEN;
 }
 
+static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    imcb_log(sd->ic, "Sending logon request");
+    steam_api_logon(sd->api, steam_logon_cb, sd);
+}
+
 static void steam_login(account_t *acc)
 {
     SteamData *sd  = steam_data_new(acc);
@@ -184,8 +192,8 @@ static void steam_login(account_t *acc)
         return;
     }
     
-    imcb_log(sd->ic, "Sending logon request");
-    steam_api_logon(sd->api, steam_logon_cb, sd);
+    imcb_log(sd->ic, "Resetting UMQID");
+    steam_api_logoff(sd->api, steam_reset_cb, sd);
 }
 
 static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
