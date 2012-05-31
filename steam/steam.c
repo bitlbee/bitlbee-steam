@@ -18,6 +18,17 @@
 #include "steam.h"
 
 static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
+                          SteamError err, gpointer data);
+
+static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
+{
+    SteamData *sd = data;
+    
+    steam_api_poll(sd->api, steam_poll_cb, sd);
+    return FALSE;
+}
+
+static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
                           SteamError err, gpointer data)
 {
     SteamData *sd = data;
@@ -30,8 +41,10 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     SteamUserMessage *um;
     
     
-    if(err != STEAM_ERROR_SUCCESS)
+    if(err != STEAM_ERROR_SUCCESS) {
+        sd->ml_id = b_timeout_add(sd->ml_timeout, steam_main_loop, sd);
         return;
+    }
     
     for(l = p_updates; l != NULL; l = l->next) {
         sp = l->data;
@@ -63,14 +76,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
         imcb_buddy_msg(sd->ic, um->steamid, s, 0, 0);
         g_free(s);
     }
-}
-
-static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
-{
-    SteamData *sd = data;
     
-    steam_api_poll(sd->api, steam_poll_cb, sd);
-    return (sd->ic->flags & OPT_LOGGED_IN);
+    sd->ml_id = b_timeout_add(sd->ml_timeout, steam_main_loop, sd);
 }
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -82,10 +89,7 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
     case STEAM_ERROR_SUCCESS:
         imcb_log(sd->ic, "Requesting friends list");
         
-        steam_api_poll(api, steam_poll_cb, sd);
-        
-        /* Hard-coded timeout for now */
-        sd->ml_id = b_timeout_add(3000, steam_main_loop, sd);
+        steam_api_poll(sd->api, steam_poll_cb, sd);
         imcb_connected(sd->ic);
         return;
     
@@ -194,6 +198,9 @@ static void steam_login(account_t *acc)
     }
     
     sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
+    
+    /* Hard-coded timeout for now */
+    sd->ml_timeout = 3000;
     
     imcb_log(sd->ic, "Connecting");
     

@@ -28,6 +28,7 @@ struct _SteamData
     struct im_connection *ic;
     SteamAPI *api;
     
+    gint ml_timeout;
     gint ml_id;
 };
 
