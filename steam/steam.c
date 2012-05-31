@@ -343,27 +343,6 @@ static void steam_get_info(struct im_connection *ic, char *who)
     steam_api_user_info(sd->api, who, steam_user_info_cb, sd);
 }
 
-static void steam_buddy_data_add(struct bee_user *bu)
-{
-    
-}
-
-static void steam_buddy_data_free(struct bee_user *bu)
-{
-    
-}
-
-static GList *steam_buddy_action_list(struct bee_user *bu)
-{
-    
-}
-
-static void *steam_buddy_action(struct bee_user *bu, const char *action,
-                                char * const args[], void *data)
-{
-    return NULL;
-}
-
 void init_plugin()
 {
     struct prpl *ret = g_new0(struct prpl, 1);
@@ -380,10 +359,6 @@ void init_plugin()
     ret->add_buddy         = steam_add_buddy;
     ret->remove_buddy      = steam_remove_buddy;
     ret->get_info          = steam_get_info;
-    ret->buddy_data_add    = steam_buddy_data_add;
-    ret->buddy_data_free   = steam_buddy_data_free;
-    ret->buddy_action_list = steam_buddy_action_list;
-    ret->buddy_action      = steam_buddy_action;
     ret->handle_cmp        = g_strcmp0;
     
     register_protocol(ret);
