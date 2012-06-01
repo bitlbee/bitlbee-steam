@@ -39,13 +39,16 @@ static json_bool json_object_object_get_ex(json_object *jo, const char *key,
 #endif
 
 #define steam_api_func(p, e) \
-    (((SteamAPIFunc) p->func) (p->api, e, p->data))
+    if(p->func != NULL) \
+        (((SteamAPIFunc) p->func) (p->api, e, p->data))
 
 #define steam_poll_func(p, pu, mu, e) \
-    (((SteamPollFunc) p->func) (p->api, pu, mu, e, p->data))
+    if(p->func != NULL) \
+        (((SteamPollFunc) p->func) (p->api, pu, mu, e, p->data))
                                       
 #define steam_user_info_func(p, i, e) \
-    (((SteamUserInfoFunc) p->func) (p->api, i, e, p->data))
+    if(p->func != NULL) \
+        (((SteamUserInfoFunc) p->func) (p->api, i, e, p->data))
 
 
 typedef enum   _SteamPairType SteamPairType;
@@ -374,8 +377,6 @@ static void steam_api_cb(struct http_request *req)
     json_tokener *jt;
     json_object  *jo;
     
-    g_return_if_fail(fp != NULL);
-    
     if((req->status_code != 200) || (req->reply_body == NULL)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_JSON);
         g_free(fp);
@@ -524,7 +525,8 @@ void steam_api_message(SteamAPI *api, const gchar *steamid,
 {
     gchar *stype;
     
-    g_return_if_fail(api != NULL);
+    g_return_if_fail(api     != NULL);
+    g_reutnr_if_fail(steamid != NULL);
     
     stype = steam_message_type_str(type);
     
@@ -557,7 +559,8 @@ void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data)
 void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
                          gpointer data)
 {
-    g_return_if_fail(api != NULL);
+    g_return_if_fail(api     != NULL);
+    g_return_if_fail(steamid != NULL);
     
     SteamPair ps[2] = {
         {"access_token", api->token},
