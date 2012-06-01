@@ -11,6 +11,12 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
+AC_ARG_WITH([plugindir],
+            [AS_HELP_STRING([--with-plugindir],
+                            [BitlBee plugin directory])],
+            [plugindir="$with_plugindir"],
+            [plugindir="$libdir/bitlbee"])
+
 PKG_CHECK_MODULES([GLIB],    [glib-2.0])
 PKG_CHECK_MODULES([JSON],    [json])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee])
@@ -19,3 +25,5 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_CONFIG_FILES([Makefile steam/Makefile])
 AC_OUTPUT
+
+AC_SUBST([plugindir])
