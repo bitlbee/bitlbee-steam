@@ -136,8 +136,6 @@ void steam_api_message(SteamAPI *api, const gchar *steamid,
                        const gchar *message, SteamMessageType type,
                        SteamAPIFunc func, gpointer data);
 
-void steam_api_friends(SteamAPI *api, SteamAPIFunc func, gpointer data);
-
 void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
