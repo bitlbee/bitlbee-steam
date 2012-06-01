@@ -9,7 +9,7 @@ Building and Installing:
     - json-c: http://oss.metaparadigm.com/json-c/
   
   $ git clone https://github.com/jgeboski/bitlbee-steam.git
-  $ cd bumblebee-steam
+  $ cd bitlbee-steam
   $ autoreconf -fi
   $ ./configure
   $ make
