@@ -20,8 +20,8 @@
 
 #include <bitlbee/bitlbee.h>
 
-#define STEAM_API_HOST      "api.steampowered.com"
-#define STEAM_API_AGENT     "Steam 1291812 / iPhone"
+#define STEAM_API_HOST        "api.steampowered.com"
+#define STEAM_API_AGENT       "Steam 1291812 / iPhone"
 
 #define STEAM_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
 #define STEAM_PATH_LOGON      "/ISteamWebUserPresenceOAuth/Logon/v0001"
@@ -43,8 +43,8 @@ typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
                                    gpointer data);
 
 typedef void (*SteamPollFunc)     (SteamAPI *api, GSList *p_updates,
-                                   GSList *m_updates, SteamError err,
-                                   gpointer data);
+                                   GSList *m_updates, gint timeout,
+                                   SteamError err, gpointer data);
 
 typedef void (*SteamUserInfoFunc) (SteamAPI *api, SteamUserInfo *uinfo,
                                    SteamError err, gpointer data);

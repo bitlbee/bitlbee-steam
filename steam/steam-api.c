@@ -42,9 +42,9 @@ static json_bool json_object_object_get_ex(json_object *jo, const char *key,
     if(p->func != NULL) \
         (((SteamAPIFunc) p->func) (p->api, e, p->data))
 
-#define steam_poll_func(p, pu, mu, e) \
+#define steam_poll_func(p, pu, mu, t, e) \
     if(p->func != NULL) \
-        (((SteamPollFunc) p->func) (p->api, pu, mu, e, p->data))
+        (((SteamPollFunc) p->func) (p->api, pu, mu, t, e, p->data))
                                       
 #define steam_user_info_func(p, i, e) \
     if(p->func != NULL) \
@@ -223,31 +223,28 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
     
     const gchar *sm, *id;
     gint len, si, i;
+    gint to;
     
     GSList *mu = NULL;
     GSList *pu = NULL;
     
-    if(!json_object_object_get_ex(jo, "error", &so)) {
-        steam_poll_func(fp, pu, mu, STEAM_ERROR_FAILED_POLL);
+    if(!json_object_object_get_ex(jo, "sectimeout", &so)) {
+        steam_poll_func(fp, pu, mu, 3000, STEAM_ERROR_FAILED_POLL);
         return;
     }
     
-    sm = json_object_get_string(so);
-    
-    if(g_strcmp0("OK", sm) && g_strcmp0("Timeout", sm)) {
-        steam_poll_func(fp, pu, mu, STEAM_ERROR_FAILED_POLL);
-        return;
-    }
+    to = json_object_get_int(so);
+    to = ((to >= 1) && (to <= 30)) ? (to * 1000) : 3000;
     
     if(!json_object_object_get_ex(jo, "messagelast", &so)) {
-        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
     sm = json_object_get_string(so);
     
     if(!g_strcmp0(fp->api->lmid, sm)) {
-        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -255,12 +252,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
     fp->api->lmid = g_strdup(sm);
     
     if(!json_object_object_get_ex(jo, "messages", &so)) {
-        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
     if(json_object_get_type(so) != json_type_array) {
-        steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -323,7 +320,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
         }
     }
     
-    steam_poll_func(fp, pu, mu, STEAM_ERROR_SUCCESS);
+    steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
     
     g_slist_free_full(mu, g_free);
     g_slist_free_full(pu, g_free);
@@ -526,7 +523,7 @@ void steam_api_message(SteamAPI *api, const gchar *steamid,
     gchar *stype;
     
     g_return_if_fail(api     != NULL);
-    g_reutnr_if_fail(steamid != NULL);
+    g_return_if_fail(steamid != NULL);
     
     stype = steam_message_type_str(type);
     

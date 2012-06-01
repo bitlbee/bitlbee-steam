@@ -18,7 +18,7 @@
 #include "steam.h"
 
 static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
-                          SteamError err, gpointer data);
+                          gint timeoute, SteamError err, gpointer data);
 
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 {
@@ -29,7 +29,7 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 }
 
 static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
-                          SteamError err, gpointer data)
+                          gint timeout, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
@@ -40,14 +40,13 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     SteamPersona     *sp;
     SteamUserMessage *um;
     
-    
     if(err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         
         if(sd->ml_errors > 5)
             imc_logout(sd->ic, TRUE);
         else
-            sd->ml_id = b_timeout_add(sd->ml_timeout, steam_main_loop, sd);
+            sd->ml_id = b_timeout_add(timeout, steam_main_loop, sd);
         
         sd->ml_errors++;
         return;
@@ -95,7 +94,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
         g_free(s);
     }
     
-    sd->ml_id = b_timeout_add(sd->ml_timeout, steam_main_loop, sd);
+    sd->ml_id = b_timeout_add(timeout, steam_main_loop, sd);
 }
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -186,8 +185,6 @@ static void steam_init(account_t *acc)
     
     s = set_add(&acc->set, "umqid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN;
-    
-    set_add(&acc->set, "pollfreq", NULL, NULL, acc);
 }
 
 static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -214,13 +211,6 @@ static void steam_login(account_t *acc)
         g_rand_free(rand);
     } else {
         sd->api->umqid = g_strdup(umqid);
-    }
-    
-    sd->ml_timeout = set_getint(&acc->set, "pollfreq");
-    
-    if(sd->ml_timeout < 1) {
-        sd->ml_timeout = 3000;
-        set_setint(&acc->set, "pollfreq", sd->ml_timeout);
     }
     
     imcb_log(sd->ic, "Connecting");
