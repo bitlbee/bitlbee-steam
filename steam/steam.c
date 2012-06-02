@@ -24,7 +24,13 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 {
     SteamData *sd = data;
     
-    steam_api_poll(sd->api, steam_poll_cb, sd);
+    g_return_val_if_fail(sd != NULL, FALSE);
+    
+    sd->ml_id = 0;
+    
+    if(sd->ic != NULL)
+        steam_api_poll(sd->api, steam_poll_cb, sd);
+    
     return FALSE;
 }
 
@@ -39,6 +45,9 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     
     SteamPersona     *sp;
     SteamUserMessage *um;
+    
+    g_return_if_fail(sd     != NULL);
+    g_return_if_fail(sd->ic != NULL);
     
     if(err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
@@ -102,6 +111,9 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
     SteamData *sd = data;
     gboolean cont;
     
+    g_return_if_fail(sd     != NULL);
+    g_return_if_fail(sd->ic != NULL);
+    
     switch(err) {
     case STEAM_ERROR_SUCCESS:
         imcb_log(sd->ic, "Requesting friends list");
@@ -130,6 +142,10 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
     
     account_t *acc;
     guint i;
+    
+    g_return_if_fail(sd      != NULL);
+    g_return_if_fail(sd->acc != NULL);
+    g_return_if_fail(sd->ic  != NULL);
     
     switch(err) {
     case STEAM_ERROR_SUCCESS:
@@ -166,7 +182,13 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
 static char *steam_eval_authcode(set_t *set, char *value)
 {
     account_t *acc = set->data;
-    SteamData *sd  = acc->ic->proto_data;
+    SteamData *sd;
+    
+    g_return_val_if_fail(acc != NULL, value);
+    
+    sd = acc->ic->proto_data;
+    
+    g_return_if_fail(sd != NULL);
     
     imcb_log(sd->ic, "Authenticating");
     steam_api_auth(sd->api, value, steam_auth_cb, sd);
@@ -191,13 +213,16 @@ static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
+    g_return_if_fail(sd     != NULL);
+    g_return_if_fail(sd->ic != NULL);
+    
     imcb_log(sd->ic, "Sending logon request");
     steam_api_logon(sd->api, steam_logon_cb, sd);
 }
 
 static void steam_login(account_t *acc)
 {
-    SteamData *sd  = steam_data_new(acc);
+    SteamData *sd = steam_data_new(acc);
     GRand *rand;
     gchar *umqid;
     
@@ -229,6 +254,8 @@ static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
+    g_return_if_fail(sd != NULL);
+    
     steam_data_free(sd);
 }
 
@@ -236,8 +263,15 @@ static void steam_logout(struct im_connection *ic)
 {
     SteamData *sd = ic->proto_data;
     
-    if(ic->flags & OPT_LOGGED_IN) {
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ml_id >= 1)
         b_event_remove(sd->ml_id);
+    
+    sd->acc = NULL;
+    sd->ic  = NULL;
+    
+    if(ic->flags & OPT_LOGGED_IN) {
         steam_api_logoff(sd->api, steam_logoff_cb, sd);
         return;
     }
@@ -260,6 +294,9 @@ static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
+    g_return_if_fail(sd     != NULL);
+    g_return_if_fail(sd->ic != NULL);
+    
     if(err != STEAM_ERROR_SUCCESS)
         imcb_error(sd->ic, steam_api_error_str(err));
 }
@@ -269,6 +306,8 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
 {
     SteamData *sd = ic->proto_data;
     SteamMessageType type;
+    
+    g_return_val_if_fail(sd != NULL, 0);
     
     if(g_str_has_prefix(message, "/me")) {
         if(strlen(message) < 5)
@@ -313,6 +352,9 @@ static void steam_user_info_cb(SteamAPI *api, SteamUserInfo *uinfo,
 {
     SteamData *sd = data;
     
+    g_return_if_fail(sd     != NULL);
+    g_return_if_fail(sd->ic != NULL);
+    
     if(err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         return;
@@ -337,6 +379,8 @@ static void steam_get_info(struct im_connection *ic, char *who)
 {
     SteamData *sd = ic->proto_data;
     
+    g_return_if_fail(sd != NULL);
+    
     steam_api_user_info(sd->api, who, steam_user_info_cb, sd);
 }
 
@@ -344,19 +388,19 @@ void init_plugin()
 {
     struct prpl *ret = g_new0(struct prpl, 1);
     
-    ret->name              = "steam";
-    ret->mms               = 0;
-    ret->init              = steam_init;
-    ret->login             = steam_login;
-    ret->logout            = steam_logout;
-    ret->away_states       = steam_away_states;
-    ret->buddy_msg         = steam_buddy_msg;
-    ret->set_away          = steam_set_away;
-    ret->send_typing       = steam_send_typing;
-    ret->add_buddy         = steam_add_buddy;
-    ret->remove_buddy      = steam_remove_buddy;
-    ret->get_info          = steam_get_info;
-    ret->handle_cmp        = g_strcmp0;
+    ret->name         = "steam";
+    ret->mms          = 0;
+    ret->init         = steam_init;
+    ret->login        = steam_login;
+    ret->logout       = steam_logout;
+    ret->away_states  = steam_away_states;
+    ret->buddy_msg    = steam_buddy_msg;
+    ret->set_away     = steam_set_away;
+    ret->send_typing  = steam_send_typing;
+    ret->add_buddy    = steam_add_buddy;
+    ret->remove_buddy = steam_remove_buddy;
+    ret->get_info     = steam_get_info;
+    ret->handle_cmp   = g_strcmp0;
     
     register_protocol(ret);
 }
