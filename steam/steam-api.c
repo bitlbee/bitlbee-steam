@@ -375,7 +375,23 @@ static void steam_api_cb(struct http_request *req)
     json_object  *jo;
     
     if((req->status_code != 200) || (req->reply_body == NULL)) {
-        steam_api_func(fp, STEAM_ERROR_EMPTY_JSON);
+        switch(fp->type) {
+        case STEAM_PAIR_AUTH:
+        case STEAM_PAIR_LOGON:
+        case STEAM_PAIR_LOGOFF:
+        case STEAM_PAIR_MESSAGE:
+            steam_api_func(fp, STEAM_ERROR_EMPTY_JSON);
+            break;
+        
+        case STEAM_PAIR_POLL:
+            steam_poll_func(fp, NULL, NULL, 3000, STEAM_ERROR_SUCCESS);
+            break;
+        
+        case STEAM_PAIR_USER_INFO:
+            steam_user_info_func(fp, NULL, STEAM_ERROR_EMPTY_JSON);
+            break;
+        }
+        
         g_free(fp);
         return;
     }
