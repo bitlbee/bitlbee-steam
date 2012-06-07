@@ -20,6 +20,9 @@
 static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
                           gint timeoute, SteamError err, gpointer data);
 
+static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data);
+
+
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 {
     SteamData *sd = data;
@@ -48,6 +51,11 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     
     g_return_if_fail(sd     != NULL);
     g_return_if_fail(sd->ic != NULL);
+    
+    if(err == STEAM_ERROR_NOT_AUTHORIZED) {
+        steam_api_logon(api, steam_renew_cb, sd);
+        return;
+    }
     
     if(err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
@@ -104,6 +112,22 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     }
     
     sd->ml_id = b_timeout_add(timeout, steam_main_loop, sd);
+}
+
+static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    g_return_if_fail(sd     != NULL);
+    g_return_if_fail(sd->ic != NULL);
+    
+    if(err == STEAM_ERROR_SUCCESS) {
+        steam_api_poll(sd->api, steam_poll_cb, sd);
+        return;
+    }
+    
+    imcb_error(sd->ic, steam_api_error_str(err));
+    imc_logout(sd->ic, TRUE);
 }
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)

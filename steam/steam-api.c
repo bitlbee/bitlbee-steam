@@ -371,10 +371,17 @@ static void steam_api_user_info_cb(SteamFuncPair *fp, json_object *jo)
 static void steam_api_cb(struct http_request *req)
 {
     SteamFuncPair *fp = req->data;
+    SteamError err;
+    
     json_tokener *jt;
     json_object  *jo;
     
     if((req->status_code != 200) || (req->reply_body == NULL)) {
+        if(req->status_code == 401)
+            err = STEAM_ERROR_NOT_AUTHORIZED;
+        else
+            err = STEAM_ERROR_EMPTY_JSON;
+        
         switch(fp->type) {
         case STEAM_PAIR_AUTH:
         case STEAM_PAIR_LOGON:
@@ -615,12 +622,14 @@ gchar *steam_api_error_str(SteamError err)
         return "Invalid SteamGuard authentication code";
     case STEAM_ERROR_INVALID_LOGON:
         return "Invalid login details";
+    case STEAM_ERROR_MISMATCH_UMQID:
+        return "Mismatch in UMQIDs";
+    case STEAM_ERROR_NOT_AUTHORIZED:
+        return "Not Authorized";
     case STEAM_ERROR_PARSE_JSON:
         return "Failed to parse JSON reply";
     case STEAM_ERROR_REQ_AUTH_CODE:
         return "SteamGuard authentication code required";
-    case STEAM_ERROR_MISMATCH_UMQID:
-        return "Mismatch in UMQIDs";
     }
     
     return "";
