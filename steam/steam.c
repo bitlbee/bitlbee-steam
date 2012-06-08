@@ -64,17 +64,9 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     
     if(err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
-        
-        if(sd->ml_errors > 5)
-            imc_logout(sd->ic, TRUE);
-        else
-            sd->ml_id = b_timeout_add(timeout, steam_main_loop, sd);
-        
-        sd->ml_errors++;
+        imc_logout(sd->ic, TRUE);
         return;
     }
-    
-    sd->ml_errors = 0;
     
     for(l = p_updates; l != NULL; l = l->next) {
         sp = l->data;
