@@ -31,7 +31,7 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
     
     sd->ml_id = 0;
     
-    if(sd->ic != NULL)
+    if((sd->ic->flags & OPT_LOGGED_IN) && !(sd->ic->flags & OPT_LOGGING_OUT))
         steam_api_poll(sd->api, steam_poll_cb, sd);
     
     return FALSE;
@@ -295,12 +295,7 @@ static void steam_logout(struct im_connection *ic)
     sd->acc = NULL;
     sd->ic  = NULL;
     
-    if(ic->flags & OPT_LOGGED_IN) {
-        steam_api_logoff(sd->api, steam_logoff_cb, sd);
-        return;
-    }
-    
-    steam_data_free(sd);
+    steam_api_logoff(sd->api, steam_logoff_cb, sd);
 }
 
 static GList *steam_away_states(struct im_connection *ic)
