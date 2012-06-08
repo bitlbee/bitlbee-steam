@@ -17,26 +17,9 @@
 
 #include <bitlbee/http_client.h>
 #include <glib-object.h>
-#include <json.h>
 
 #include "steam-api.h"
-
-#ifndef json_bool
-
-typedef int json_bool;
-
-#endif
-
-#ifndef json_object_object_get_ex
-
-static json_bool json_object_object_get_ex(json_object *jo, const char *key,
-                                           json_object **value)
-{
-    *value = json_object_object_get(jo, key);
-    return (*value != NULL);
-}
-
-#endif
+#include "xmltree.h"
 
 #define steam_api_func(p, e) \
     if(p->func != NULL) \
@@ -94,6 +77,13 @@ static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
     return fp;
 }
 
+static gboolean steam_xt_node_get(struct xt_node *xr, const gchar *name,
+                                  struct xt_node **xn)
+{
+    *xn = xt_find_node(xr->children, name);
+    return (*xn != NULL);
+}
+
 SteamAPI *steam_api_new(account_t *acc)
 {
     SteamAPI *api;
@@ -117,24 +107,19 @@ void steam_api_free(SteamAPI *api)
     g_free(api);
 }
 
-static void steam_api_auth_cb(SteamFuncPair *fp, json_object *jo)
+static void steam_api_auth_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    json_object *so;
-    const gchar *sm;
+    struct xt_node *xn;
     
-    if(json_object_object_get_ex(jo, "access_token", &so)) {
-        sm = json_object_get_string(so);
-        
+    if(steam_xt_node_get(xr, "access_token", &xn)) {
         g_free(fp->api->token);
-        fp->api->token = g_strdup(sm);
+        fp->api->token = g_strdup(xn->text);
         
         steam_api_func(fp, STEAM_ERROR_SUCCESS);
-    } else if(json_object_object_get_ex(jo, "x_errorcode", &so)) {
-        sm = json_object_get_string(so);
-        
-        if(!g_strcmp0("steamguard_code_required", sm))
+    } else if(steam_xt_node_get(xr, "x_errorcode", &xn)) {
+        if(!g_strcmp0("steamguard_code_required", xn->text))
             steam_api_func(fp, STEAM_ERROR_REQ_AUTH_CODE);
-        else if(!g_strcmp0("invalid_steamguard_code", sm))
+        else if(!g_strcmp0("invalid_steamguard_code", xn->text))
             steam_api_func(fp, STEAM_ERROR_INVALID_AUTH_CODE);
         else
             steam_api_func(fp, STEAM_ERROR_FAILED_AUTH);
@@ -143,180 +128,160 @@ static void steam_api_auth_cb(SteamFuncPair *fp, json_object *jo)
     }
 }
 
-static void steam_api_logon_cb(SteamFuncPair *fp, json_object *jo)
+static void steam_api_logon_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    json_object *so;
-    const gchar *sm;
+    struct xt_node *xn;
     
-    if(!json_object_object_get_ex(jo, "umqid", &so)) {
+    if(!steam_xt_node_get(xr, "umqid", &xn)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_UMQID);
         return;
     }
     
-    sm = json_object_get_string(so);
-    
-    if(g_strcmp0(fp->api->umqid, sm)) {
+    if(g_strcmp0(fp->api->umqid, xn->text)) {
         steam_api_func(fp, STEAM_ERROR_MISMATCH_UMQID);
         return;
     }
     
-    if(!json_object_object_get_ex(jo, "steamid", &so)) {
+    if(!steam_xt_node_get(xr, "steamid", &xn)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_STEAMID);
         return;
     }
     
-    sm = json_object_get_string(so);
-    
     g_free(fp->api->steamid);
-    fp->api->steamid = g_strdup(sm);
+    fp->api->steamid = g_strdup(xn->text);
     
-    if(!json_object_object_get_ex(jo, "message", &so)) {
+    if(!steam_xt_node_get(xr, "message", &xn)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_MESSAGE);
         return;
     }
     
-    sm = json_object_get_string(so);
-    
     g_free(fp->api->lmid);
-    fp->api->lmid = g_strdup(sm);
+    fp->api->lmid = g_strdup(xn->text);
+    
     steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
-static void steam_api_logoff_cb(SteamFuncPair *fp, json_object *jo)
+static void steam_api_logoff_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    json_object *so;
-    const gchar *sm;
+    struct xt_node *xn;
     
-    if(json_object_object_get_ex(jo, "error", &so)) {
+    if(!steam_xt_node_get(xr, "error", &xn)) {
         steam_api_func(fp, STEAM_ERROR_FAILED_LOGOFF);
         return;
     }
     
-    steam_api_func(fp, STEAM_ERROR_SUCCESS);
+    if(g_strcmp0("OK", xn->text))
+        steam_api_func(fp, STEAM_ERROR_FAILED_LOGOFF);
+    else
+        steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
-static void steam_api_message_cb(SteamFuncPair *fp, json_object *jo)
+static void steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    json_object *so;
-    const gchar *sm;
+    struct xt_node *xn;
     
-    if(!json_object_object_get_ex(jo, "error", &so)) {
+    if(!steam_xt_node_get(xr, "error", &xn)) {
         steam_api_func(fp, STEAM_ERROR_FAILED_MESSAGE_SEND);
         return;
     }
     
-    sm = json_object_get_string(so);
-    
-    if(g_strcmp0("OK", sm)) {
+    if(g_strcmp0("OK", xn->text))
         steam_api_func(fp, STEAM_ERROR_FAILED_MESSAGE_SEND);
-        return;
-    }
-    
-    steam_api_func(fp, STEAM_ERROR_SUCCESS);
+    else
+        steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
-static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
+static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    json_object *so, *se, *sv;
-    SteamPersona *sp;
+    SteamPersona     *sp;
     SteamUserMessage *um;
     
-    const gchar *sm, *id;
-    gint len, si, i;
-    gint to;
+    struct xt_node *xn, *xe;
+    const gchar    *xm, *id;
     
     GSList *mu = NULL;
     GSList *pu = NULL;
     
-    if(!json_object_object_get_ex(jo, "sectimeout", &so)) {
+    gint to = 0;
+    
+    if(!steam_xt_node_get(xr, "sectimeout", &xn)) {
         steam_poll_func(fp, pu, mu, 3000, STEAM_ERROR_FAILED_POLL);
         return;
     }
     
-    to = json_object_get_int(so);
+    to = g_ascii_strtoll(xn->text, NULL, 10);
     to = ((to >= 1) && (to <= 30)) ? (to * 1000) : 3000;
     
-    if(!json_object_object_get_ex(jo, "messagelast", &so)) {
+    if(!steam_xt_node_get(xr, "messagelast", &xn)) {
         steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
-    sm = json_object_get_string(so);
-    
-    if(!g_strcmp0(fp->api->lmid, sm)) {
+    if(!g_strcmp0(fp->api->lmid, xn->text)) {
         steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
     g_free(fp->api->lmid);
-    fp->api->lmid = g_strdup(sm);
+    fp->api->lmid = g_strdup(xn->text);
     
-    if(!json_object_object_get_ex(jo, "messages", &so)) {
+    if(!steam_xt_node_get(xr, "messages", &xn)) {
         steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
-    if(json_object_get_type(so) != json_type_array) {
+    if(xn->children == NULL) {
         steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
-    len = json_object_array_length(so);
-    
-    for(i = 0; i < len; i++) {
-        se = json_object_array_get_idx(so, i);
-        
-        if(!json_object_object_get_ex(se, "type", &sv))
+    for(xn = xn->children; xn != NULL; xn = xn->next) {
+        if(!steam_xt_node_get(xn, "steamid_from", &xe))
             continue;
         
-        sm = json_object_get_string(sv);
-        
-        if(!json_object_object_get_ex(se, "steamid_from", &sv))
-            continue;
-        
-        id = json_object_get_string(sv);
+        id = xe->text;
         
         if(!g_strcmp0(fp->api->steamid, id))
             continue;
         
-        if(!g_strcmp0("saytext", sm)) {
-            if(!json_object_object_get_ex(se, "text", &sv))
+        if(!steam_xt_node_get(xn, "type", &xe))
+            continue;
+        
+        if(!g_strcmp0("saytext", xe->text)) {
+            if(!steam_xt_node_get(xn, "text", &xe))
                 continue;
             
-            sm = json_object_get_string(sv);
             um = g_new0(SteamUserMessage, 1);
             mu = g_slist_append(mu, um);
             
             um->type    = STEAM_MESSAGE_TYPE_SAYTEXT;
             um->steamid = id;
-            um->message = sm;
-        } else if(!g_strcmp0("emote", sm)) {
-            if(!json_object_object_get_ex(se, "text", &sv))
+            um->message = xe->text;
+        } else if(!g_strcmp0("emote", xe->text)) {
+            if(!steam_xt_node_get(xn, "text", &xe))
                 continue;
             
-            sm = json_object_get_string(sv);
             um = g_new0(SteamUserMessage, 1);
             mu = g_slist_append(mu, um);
             
             um->type    = STEAM_MESSAGE_TYPE_EMOTE;
             um->steamid = id;
-            um->message = sm;
-        } else if(!g_strcmp0("personastate", sm)) {
-            if(!json_object_object_get_ex(se, "persona_name", &sv))
+            um->message = xe->text;
+        } else if(!g_strcmp0("personastate", xe->text)) {
+            if(!steam_xt_node_get(xn, "persona_name", &xe))
                 continue;
             
-            sm = json_object_get_string(sv);
+            xm = xe->text;
             
-            if(!json_object_object_get_ex(se, "persona_state", &sv))
+            if(!steam_xt_node_get(xn, "persona_state", &xe))
                 continue;
             
-            si = json_object_get_int(sv);
             sp = g_new0(SteamPersona, 1);
             pu = g_slist_append(pu, sp);
             
             sp->steamid = id;
-            sp->state   = si;
-            sp->name    = sm;
+            sp->state   = g_ascii_strtoll(xe->text, NULL, 10);
+            sp->name    = xm;
         }
     }
     
@@ -326,46 +291,61 @@ static void steam_api_poll_cb(SteamFuncPair *fp, json_object *jo)
     g_slist_free_full(pu, g_free);
 }
 
-static void steam_api_user_info_cb(SteamFuncPair *fp, json_object *jo)
+static void steam_api_user_info_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    json_object *so, *sv;
     SteamUserInfo info;
+    struct xt_node *xn, *xe;
+    
+    if(!steam_xt_node_get(xr, "players", &xn)) {
+        steam_user_info_func(fp, NULL, STEAM_ERROR_EMPTY_USER_INFO);
+        return;
+    }
+    
+    xn = xn->children;
+    
+    if(xn == NULL) {
+        steam_user_info_func(fp, NULL, STEAM_ERROR_EMPTY_USER_INFO);
+        return;
+    }
     
     memset(&info, 0, sizeof (SteamUserInfo));
     
-    if(!json_object_object_get_ex(jo, "players", &so)) {
-        steam_user_info_func(fp, &info, STEAM_ERROR_EMPTY_USER_INFO);
-        return;
-    }
+    if(steam_xt_node_get(xn, "steamid", &xe))
+        info.steamid  = xe->text;
     
-    if(json_object_get_type(so) != json_type_array) {
-        steam_user_info_func(fp, &info, STEAM_ERROR_EMPTY_USER_INFO);
-        return;
-    }
+    if(steam_xt_node_get(xn, "personastate", &xe))
+        info.state    = g_ascii_strtoll(xe->text, NULL, 10);
     
-    if(json_object_array_length(so) < 1) {
-        steam_user_info_func(fp, &info, STEAM_ERROR_EMPTY_USER_INFO);
-        return;
-    }
+    if(steam_xt_node_get(xn, "personaname", &xe))
+        info.name     = xe->text;
     
-    so = json_object_array_get_idx(so, 0);
+    if(steam_xt_node_get(xn, "realname", &xe))
+        info.realname = xe->text;
     
-    if(json_object_object_get_ex(so, "steamid", &sv))
-        info.steamid  = json_object_get_string(sv);
-    
-    if(json_object_object_get_ex(so, "personastate", &sv))
-        info.state    = json_object_get_int(sv);
-    
-    if(json_object_object_get_ex(so, "personaname", &sv))
-        info.name     = json_object_get_string(sv);
-    
-    if(json_object_object_get_ex(so, "realname", &sv))
-        info.realname = json_object_get_string(sv);
-    
-    if(json_object_object_get_ex(so, "profileurl", &sv))
-        info.profile  = json_object_get_string(sv);
+    if(steam_xt_node_get(xn, "profileurl", &xe))
+        info.profile  = xe->text;
     
     steam_user_info_func(fp, &info, STEAM_ERROR_SUCCESS);
+}
+
+static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
+{
+    switch(fp->type) {
+    case STEAM_PAIR_AUTH:
+    case STEAM_PAIR_LOGON:
+    case STEAM_PAIR_LOGOFF:
+    case STEAM_PAIR_MESSAGE:
+        steam_api_func(fp, err);
+        break;
+    
+    case STEAM_PAIR_POLL:
+        steam_poll_func(fp, NULL, NULL, 3000, err);
+        break;
+    
+    case STEAM_PAIR_USER_INFO:
+        steam_user_info_func(fp, NULL, err);
+        break;
+    }
 }
 
 static void steam_api_cb(struct http_request *req)
@@ -373,98 +353,86 @@ static void steam_api_cb(struct http_request *req)
     SteamFuncPair *fp = req->data;
     SteamError err;
     
-    json_tokener *jt;
-    json_object  *jo;
+    struct xt_parser *xt;
     
-    if((req->status_code != 200) || (req->reply_body == NULL)) {
+    if((req->status_code != 200) || (req->body_size < 1)) {
         if(req->status_code == 401)
             err = STEAM_ERROR_NOT_AUTHORIZED;
         else
-            err = STEAM_ERROR_EMPTY_JSON;
+            err = STEAM_ERROR_EMPTY_XML;
         
-        switch(fp->type) {
-        case STEAM_PAIR_AUTH:
-        case STEAM_PAIR_LOGON:
-        case STEAM_PAIR_LOGOFF:
-        case STEAM_PAIR_MESSAGE:
-            steam_api_func(fp, STEAM_ERROR_EMPTY_JSON);
-            break;
-        
-        case STEAM_PAIR_POLL:
-            steam_poll_func(fp, NULL, NULL, 3000, STEAM_ERROR_SUCCESS);
-            break;
-        
-        case STEAM_PAIR_USER_INFO:
-            steam_user_info_func(fp, NULL, STEAM_ERROR_EMPTY_JSON);
-            break;
-        }
-        
+        steam_api_cb_error(fp, err);
         g_free(fp);
         return;
     }
     
-    jt = json_tokener_new();
-    jo = json_tokener_parse_ex(jt, req->reply_body, req->body_size);
+    xt = xt_new(NULL, NULL);
+    xt_feed(xt, req->reply_body, req->body_size);
+    
+    if(g_strcmp0("response", xt->root->name)) {
+        steam_api_cb_error(fp, STEAM_ERROR_PARSE_XML);
+        
+        xt_free(xt);
+        g_free(fp);
+    }
     
     switch(fp->type) {
     case STEAM_PAIR_AUTH:
-        steam_api_auth_cb(fp, jo);
+        steam_api_auth_cb(fp, xt->root);
         break;
     
     case STEAM_PAIR_LOGON:
-        steam_api_logon_cb(fp, jo);
+        steam_api_logon_cb(fp, xt->root);
         break;
     
     case STEAM_PAIR_LOGOFF:
-        steam_api_logoff_cb(fp, jo);
+        steam_api_logoff_cb(fp, xt->root);
         break;
     
     case STEAM_PAIR_MESSAGE:
-        steam_api_message_cb(fp, jo);
+        steam_api_message_cb(fp, xt->root);
         break;
     
     case STEAM_PAIR_POLL:
-        steam_api_poll_cb(fp, jo);
+        steam_api_poll_cb(fp, xt->root);
         break;
     
     case STEAM_PAIR_USER_INFO:
-        steam_api_user_info_cb(fp, jo);
+        steam_api_user_info_cb(fp, xt->root);
         break;
     }
     
-    json_object_put(jo);
-    json_tokener_free(jt);
+    xt_free(xt);
     g_free(fp);
 }
 
 static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
                           gboolean ssl, gboolean post, SteamFuncPair *fp)
 {
-    gchar *rd = NULL;
-    gsize len = 0;
-    gchar *req;
+    gchar **sp, *esc;
+    gchar *req, *rd;
     
-    if(psize >= 1) {
-        gchar **sp, *esc;
-        guint i;
+    gsize len = 0;
+    guint i;
+    
+    sp = g_new0(gchar*, (psize + 2));
+    
+    for(i = 0; i < psize; i++) {
+        if(params[i].value == NULL)
+            params[i].value = "";
         
-        sp = g_new0(gchar*, (psize + 1));
+        esc   = g_uri_escape_string(params[i].value, NULL, FALSE);
+        sp[i] = g_strdup_printf("%s=%s", params[i].key, esc);
         
-        for(i = 0; i < psize; i++) {
-            if(params[i].value == NULL)
-                params[i].value = "";
-            
-            esc   = g_uri_escape_string(params[i].value, NULL, FALSE);
-            sp[i] = g_strdup_printf("%s=%s", params[i].key, esc);
-            
-            g_free(esc);
-        }
-        
-        rd  = g_strjoinv("&", sp);
-        len = strlen(rd);
-        
-        g_strfreev(sp);
+        g_free(esc);
     }
+    
+    sp[psize] = g_strdup("format=xml");
+    
+    rd  = g_strjoinv("&", sp);
+    len = strlen(rd);
+    
+    g_strfreev(sp);
     
     if(post) {
         req = g_strdup_printf(
@@ -598,8 +566,6 @@ gchar *steam_api_error_str(SteamError err)
         return "Success";
     case STEAM_ERROR_GENERIC:
         return "Something has gone terribly wrong";
-    case STEAM_ERROR_EMPTY_JSON:
-        return "Failed to receive JSON reply";
     case STEAM_ERROR_EMPTY_MESSAGE:
         return "Empty message";
     case STEAM_ERROR_EMPTY_STEAMID:
@@ -608,6 +574,8 @@ gchar *steam_api_error_str(SteamError err)
         return "Empty UMQID";
     case STEAM_ERROR_EMPTY_USER_INFO:
         return "Empty user information";
+    case STEAM_ERROR_EMPTY_XML:
+        return "Failed to receive XML reply";
     case STEAM_ERROR_FAILED_AUTH:
         return "Authentication failed";
     case STEAM_ERROR_FAILED_LOGOFF:
@@ -626,8 +594,8 @@ gchar *steam_api_error_str(SteamError err)
         return "Mismatch in UMQIDs";
     case STEAM_ERROR_NOT_AUTHORIZED:
         return "Not Authorized";
-    case STEAM_ERROR_PARSE_JSON:
-        return "Failed to parse JSON reply";
+    case STEAM_ERROR_PARSE_XML:
+        return "Failed to parse XML reply";
     case STEAM_ERROR_REQ_AUTH_CODE:
         return "SteamGuard authentication code required";
     }

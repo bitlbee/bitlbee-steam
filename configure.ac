@@ -18,7 +18,6 @@ AC_ARG_WITH([plugindir],
             [plugindir="$libdir/bitlbee"])
 
 PKG_CHECK_MODULES([GLIB],    [glib-2.0])
-PKG_CHECK_MODULES([JSON],    [json])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])

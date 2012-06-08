@@ -5,9 +5,6 @@ Usage:
   ; account <acc> set authcode <code>
 
 Building and Installing:
-  Dependencies:
-    - json-c: http://oss.metaparadigm.com/json-c/
-  
   $ git clone https://github.com/jgeboski/bitlbee-steam.git
   $ cd bitlbee-steam
   $ autoreconf -fi
