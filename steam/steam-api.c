@@ -170,10 +170,12 @@ static void steam_api_logoff_cb(SteamFuncPair *fp, struct xt_node *xr)
         return;
     }
     
-    if(g_strcmp0("OK", xn->text))
+    if(g_strcmp0("OK", xn->text)) {
         steam_api_func(fp, STEAM_ERROR_FAILED_LOGOFF);
-    else
-        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        return;
+    }
+    
+    steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
 static void steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
@@ -185,10 +187,12 @@ static void steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
         return;
     }
     
-    if(g_strcmp0("OK", xn->text))
+    if(g_strcmp0("OK", xn->text)) {
         steam_api_func(fp, STEAM_ERROR_FAILED_MESSAGE_SEND);
-    else
-        steam_api_func(fp, STEAM_ERROR_SUCCESS);
+        return;
+    }
+    
+    steam_api_func(fp, STEAM_ERROR_SUCCESS);
 }
 
 static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
