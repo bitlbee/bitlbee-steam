@@ -307,7 +307,10 @@ static void steam_logout(struct im_connection *ic)
     sd->acc = NULL;
     sd->ic  = NULL;
     
-    steam_api_logoff(sd->api, steam_logoff_cb, sd);
+    if(ic->flags & OPT_LOGGING_OUT)
+        steam_api_logoff(sd->api, steam_logoff_cb, sd);
+    else
+        steam_data_free(sd);
 }
 
 static GList *steam_away_states(struct im_connection *ic)
