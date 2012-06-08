@@ -31,6 +31,9 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
     
     sd->ml_id = 0;
     
+    if(sd->ic == NULL)
+        return FALSE;
+    
     if((sd->ic->flags & OPT_LOGGED_IN) && !(sd->ic->flags & OPT_LOGGING_OUT))
         steam_api_poll(sd->api, steam_poll_cb, sd);
     
@@ -49,8 +52,10 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     SteamPersona     *sp;
     SteamUserMessage *um;
     
-    g_return_if_fail(sd     != NULL);
-    g_return_if_fail(sd->ic != NULL);
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ic == NULL)
+        return;
     
     if(err == STEAM_ERROR_NOT_AUTHORIZED) {
         steam_api_logon(api, steam_renew_cb, sd);
@@ -118,8 +123,10 @@ static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
-    g_return_if_fail(sd     != NULL);
-    g_return_if_fail(sd->ic != NULL);
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ic == NULL)
+        return;
     
     if(err == STEAM_ERROR_SUCCESS) {
         steam_api_poll(sd->api, steam_poll_cb, sd);
@@ -135,8 +142,10 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
     SteamData *sd = data;
     gboolean cont;
     
-    g_return_if_fail(sd     != NULL);
-    g_return_if_fail(sd->ic != NULL);
+    g_return_if_fail(sd != NULL);
+    
+    if((sd->acc == NULL) || (sd->ic == NULL))
+        return;
     
     switch(err) {
     case STEAM_ERROR_SUCCESS:
@@ -167,9 +176,10 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
     account_t *acc;
     guint i;
     
-    g_return_if_fail(sd      != NULL);
-    g_return_if_fail(sd->acc != NULL);
-    g_return_if_fail(sd->ic  != NULL);
+    g_return_if_fail(sd != NULL);
+    
+    if((sd->acc == NULL) || (sd->ic == NULL))
+        return;
     
     switch(err) {
     case STEAM_ERROR_SUCCESS:
@@ -237,8 +247,10 @@ static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
-    g_return_if_fail(sd     != NULL);
-    g_return_if_fail(sd->ic != NULL);
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ic == NULL)
+        return;
     
     imcb_log(sd->ic, "Sending logon request");
     steam_api_logon(sd->api, steam_logon_cb, sd);
@@ -313,8 +325,10 @@ static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     
-    g_return_if_fail(sd     != NULL);
-    g_return_if_fail(sd->ic != NULL);
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ic == NULL)
+        return;
     
     if(err != STEAM_ERROR_SUCCESS)
         imcb_error(sd->ic, steam_api_error_str(err));
@@ -371,8 +385,10 @@ static void steam_user_info_cb(SteamAPI *api, SteamUserInfo *uinfo,
 {
     SteamData *sd = data;
     
-    g_return_if_fail(sd     != NULL);
-    g_return_if_fail(sd->ic != NULL);
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ic == NULL)
+        return;
     
     if(err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
