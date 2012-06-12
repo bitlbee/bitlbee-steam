@@ -374,8 +374,11 @@ static void steam_set_away(struct im_connection *ic, char *state,
 
 static int steam_send_typing(struct im_connection *ic, char *who, int flags)
 {
-    /* Send typing state, is this really needed? */
+    SteamData *sd = ic->proto_data;
     
+    g_return_val_if_fail(sd != NULL, 0);
+    
+    steam_api_message(sd->api, who, NULL, STEAM_MESSAGE_TYPE_TYPING, NULL, sd);
     return 0;
 }
 
