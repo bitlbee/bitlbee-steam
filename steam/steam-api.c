@@ -251,17 +251,8 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
         if(!steam_xt_node_get(xn, "type", &xe))
             continue;
         
-        if(!g_strcmp0("saytext", xe->text)) {
-            if(!steam_xt_node_get(xn, "text", &xe))
-                continue;
-            
-            um = g_new0(SteamUserMessage, 1);
-            mu = g_slist_append(mu, um);
-            
-            um->type    = STEAM_MESSAGE_TYPE_SAYTEXT;
-            um->steamid = id;
-            um->message = xe->text;
-        } else if(!g_strcmp0("emote", xe->text)) {
+        
+        if(!g_strcmp0("emote", xe->text)) {
             if(!steam_xt_node_get(xn, "text", &xe))
                 continue;
             
@@ -271,6 +262,28 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
             um->type    = STEAM_MESSAGE_TYPE_EMOTE;
             um->steamid = id;
             um->message = xe->text;
+        } else if(!g_strcmp0("leftconversation", xe->text)) {
+            um = g_new0(SteamUserMessage, 1);
+            mu = g_slist_append(mu, um);
+            
+            um->type    = STEAM_MESSAGE_TYPE_EMOTE;
+            um->steamid = id;
+        } else if(!g_strcmp0("saytext", xe->text)) {
+            if(!steam_xt_node_get(xn, "text", &xe))
+                continue;
+            
+            um = g_new0(SteamUserMessage, 1);
+            mu = g_slist_append(mu, um);
+            
+            um->type    = STEAM_MESSAGE_TYPE_SAYTEXT;
+            um->steamid = id;
+            um->message = xe->text;
+        } else if(!g_strcmp0("typing", xe->text)) {
+            um = g_new0(SteamUserMessage, 1);
+            mu = g_slist_append(mu, um);
+            
+            um->type    = STEAM_MESSAGE_TYPE_TYPING;
+            um->steamid = id;
         } else if(!g_strcmp0("personastate", xe->text)) {
             if(!steam_xt_node_get(xn, "persona_name", &xe))
                 continue;
@@ -358,6 +371,8 @@ static void steam_api_cb(struct http_request *req)
     SteamError err;
     
     struct xt_parser *xt;
+    
+    g_print("%s\n", req->reply_body);
     
     if((req->status_code != 200) || (req->body_size < 1)) {
         if(req->status_code == 401)

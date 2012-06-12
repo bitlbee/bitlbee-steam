@@ -87,7 +87,9 @@ enum _SteamPersonaState
 enum _SteamMessageType
 {
     STEAM_MESSAGE_TYPE_SAYTEXT = 0,
-    STEAM_MESSAGE_TYPE_EMOTE
+    STEAM_MESSAGE_TYPE_EMOTE,
+    STEAM_MESSAGE_TYPE_LEFT_CONV,
+    STEAM_MESSAGE_TYPE_TYPING
 };
 
 struct _SteamAPI

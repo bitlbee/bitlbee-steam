@@ -46,9 +46,10 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
     SteamData *sd = data;
     
     GSList *l;
-    gchar  *s;
-    gint f;
+    gchar  *m;
+    gint    f;
     
+    bee_user_t       *bu;
     SteamPersona     *sp;
     SteamUserMessage *um;
     
@@ -84,28 +85,46 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
         if(sp->state != STEAM_PERSONA_STATE_ONLINE)
             f |= OPT_AWAY;
         
-        s = steam_persona_state_str(sp->state);
+        m = steam_persona_state_str(sp->state);
         
         imcb_add_buddy(sd->ic, sp->steamid, NULL);
         imcb_buddy_nick_hint(sd->ic, sp->steamid, sp->name);
-        imcb_buddy_status(sd->ic, sp->steamid, f, s, NULL);
+        imcb_buddy_status(sd->ic, sp->steamid, f, m, NULL);
     }
     
     for(l = m_updates; l != NULL; l = l->next) {
         um = l->data;
         
         switch(um->type) {
+        case STEAM_MESSAGE_TYPE_EMOTE:
         case STEAM_MESSAGE_TYPE_SAYTEXT:
-            s = g_strdup(um->message);
+            if(um->type == STEAM_MESSAGE_TYPE_EMOTE)
+                m = g_strconcat("/me ", um->message, NULL);
+            else
+                m = g_strdup(um->message);
+            
+            imcb_buddy_msg(sd->ic, um->steamid, m, 0, 0);
+            imcb_buddy_typing(sd->ic, um->steamid, 0);
+            
+            g_free(m);
             break;
         
-        case STEAM_MESSAGE_TYPE_EMOTE:
-            s = g_strconcat("/me ", um->message, NULL);
+        case STEAM_MESSAGE_TYPE_LEFT_CONV:
+            imcb_buddy_typing(sd->ic, um->steamid, 0);
+            break;
+        
+        case STEAM_MESSAGE_TYPE_TYPING:
+            bu = imcb_buddy_by_handle(sd->ic, um->steamid);
+            
+            if(bu == NULL)
+                break;
+            
+            if(bu->flags & OPT_TYPING)
+                imcb_buddy_typing(sd->ic, um->steamid, 0);
+            else
+                imcb_buddy_typing(sd->ic, um->steamid, OPT_TYPING);
             break;
         }
-        
-        imcb_buddy_msg(sd->ic, um->steamid, s, 0, 0);
-        g_free(s);
     }
     
     sd->ml_id = b_timeout_add(timeout, steam_main_loop, sd);
