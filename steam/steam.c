@@ -17,8 +17,8 @@
 
 #include "steam.h"
 
-static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
-                          gint timeoute, SteamError err, gpointer data);
+static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
+                          SteamError err, gpointer data);
 
 static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data);
 
@@ -40,18 +40,16 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
     return FALSE;
 }
 
-static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
-                          gint timeout, SteamError err, gpointer data)
+static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
+                          SteamError err, gpointer data)
 {
-    SteamData *sd = data;
+    SteamData    *sd = data;
+    SteamMessage *sm;
+    bee_user_t   *bu;
     
     GSList *l;
     gchar  *m;
     gint    f;
-    
-    bee_user_t       *bu;
-    SteamPersona     *sp;
-    SteamUserMessage *um;
     
     g_return_if_fail(sd != NULL);
     
@@ -69,60 +67,58 @@ static void steam_poll_cb(SteamAPI *api, GSList *p_updates, GSList *m_updates,
         return;
     }
     
-    for(l = p_updates; l != NULL; l = l->next) {
-        sp = l->data;
-        f  = OPT_LOGGED_IN;
-        
-        if(sp->state == STEAM_PERSONA_STATE_OFFLINE) {
-            if(imcb_buddy_by_handle(sd->ic, sp->steamid) != NULL)
-                imcb_buddy_status(sd->ic, sp->steamid, OPT_LOGGING_OUT,
-                                  NULL, NULL);
-            
-            imcb_remove_buddy(sd->ic, sp->steamid, NULL);
-            continue;
-        }
-        
-        if(sp->state != STEAM_PERSONA_STATE_ONLINE)
-            f |= OPT_AWAY;
-        
-        m = steam_persona_state_str(sp->state);
-        
-        imcb_add_buddy(sd->ic, sp->steamid, NULL);
-        imcb_buddy_nick_hint(sd->ic, sp->steamid, sp->name);
-        imcb_buddy_status(sd->ic, sp->steamid, f, m, NULL);
-    }
-    
     for(l = m_updates; l != NULL; l = l->next) {
-        um = l->data;
+        sm = l->data;
         
-        switch(um->type) {
+        switch(sm->type) {
         case STEAM_MESSAGE_TYPE_EMOTE:
         case STEAM_MESSAGE_TYPE_SAYTEXT:
-            if(um->type == STEAM_MESSAGE_TYPE_EMOTE)
-                m = g_strconcat("/me ", um->message, NULL);
+            if(sm->type == STEAM_MESSAGE_TYPE_EMOTE)
+                m = g_strconcat("/me ", sm->text, NULL);
             else
-                m = g_strdup(um->message);
+                m = g_strdup(sm->text);
             
-            imcb_buddy_msg(sd->ic, um->steamid, m, 0, 0);
-            imcb_buddy_typing(sd->ic, um->steamid, 0);
+            imcb_buddy_msg(sd->ic, sm->steamid, m, 0, 0);
+            imcb_buddy_typing(sd->ic, sm->steamid, 0);
             
             g_free(m);
             break;
         
         case STEAM_MESSAGE_TYPE_LEFT_CONV:
-            imcb_buddy_typing(sd->ic, um->steamid, 0);
+            imcb_buddy_typing(sd->ic, sm->steamid, 0);
+            break;
+        
+        case STEAM_MESSAGE_TYPE_STATE:
+            if(sm->state == STEAM_PERSONA_STATE_OFFLINE) {
+                if(imcb_buddy_by_handle(sd->ic, sm->steamid) != NULL)
+                    imcb_buddy_status(sd->ic, sm->steamid, OPT_LOGGING_OUT,
+                                      NULL, NULL);
+                
+                imcb_remove_buddy(sd->ic, sm->steamid, NULL);
+                break;
+            }
+            
+            m = steam_persona_state_str(sm->state);
+            f = OPT_LOGGED_IN;
+            
+            if(sm->state != STEAM_PERSONA_STATE_ONLINE)
+                f |= OPT_AWAY;
+            
+            imcb_add_buddy(sd->ic, sm->steamid, NULL);
+            imcb_buddy_nick_hint(sd->ic, sm->steamid, sm->name);
+            imcb_buddy_status(sd->ic, sm->steamid, f, m, NULL);
             break;
         
         case STEAM_MESSAGE_TYPE_TYPING:
-            bu = imcb_buddy_by_handle(sd->ic, um->steamid);
+            bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
             
             if(bu == NULL)
                 break;
             
             if(bu->flags & OPT_TYPING)
-                imcb_buddy_typing(sd->ic, um->steamid, 0);
+                imcb_buddy_typing(sd->ic, sm->steamid, 0);
             else
-                imcb_buddy_typing(sd->ic, um->steamid, OPT_TYPING);
+                imcb_buddy_typing(sd->ic, sm->steamid, OPT_TYPING);
             break;
         }
     }

@@ -35,16 +35,15 @@ typedef enum   _SteamError        SteamError;
 typedef enum   _SteamPersonaState SteamPersonaState;
 typedef enum   _SteamMessageType  SteamMessageType;
 typedef struct _SteamAPI          SteamAPI;
-typedef struct _SteamPersona      SteamPersona;
+typedef struct _SteamMessage      SteamMessage;
 typedef struct _SteamUserInfo     SteamUserInfo;
-typedef struct _SteamUserMessage  SteamUserMessage;
 
 typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
                                    gpointer data);
 
-typedef void (*SteamPollFunc)     (SteamAPI *api, GSList *p_updates,
-                                   GSList *m_updates, gint timeout,
-                                   SteamError err, gpointer data);
+typedef void (*SteamPollFunc)     (SteamAPI *api, GSList *m_updates,
+                                   gint timeout, SteamError err,
+                                   gpointer data);
 
 typedef void (*SteamUserInfoFunc) (SteamAPI *api, SteamUserInfo *uinfo,
                                    SteamError err, gpointer data);
@@ -89,6 +88,7 @@ enum _SteamMessageType
     STEAM_MESSAGE_TYPE_SAYTEXT = 0,
     STEAM_MESSAGE_TYPE_EMOTE,
     STEAM_MESSAGE_TYPE_LEFT_CONV,
+    STEAM_MESSAGE_TYPE_STATE,
     STEAM_MESSAGE_TYPE_TYPING
 };
 
@@ -102,11 +102,14 @@ struct _SteamAPI
     gchar *lmid;
 };
 
-struct _SteamPersona
+struct _SteamMessage
 {
-    const gchar *steamid;
-    SteamPersonaState state;
+    SteamMessageType type;
     
+    const gchar *steamid;
+    const gchar *text;
+    
+    SteamPersonaState state;
     const gchar *name;
 };
 
@@ -118,14 +121,6 @@ struct _SteamUserInfo
     const gchar *name;
     const gchar *realname;
     const gchar *profile;
-};
-
-struct _SteamUserMessage
-{
-    SteamMessageType type;
-    
-    const gchar *steamid;
-    const gchar *message;
 };
 
 

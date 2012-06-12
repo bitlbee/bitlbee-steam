@@ -25,9 +25,9 @@
     if(p->func != NULL) \
         (((SteamAPIFunc) p->func) (p->api, e, p->data))
 
-#define steam_poll_func(p, pu, mu, t, e) \
+#define steam_poll_func(p, mu, t, e) \
     if(p->func != NULL) \
-        (((SteamPollFunc) p->func) (p->api, pu, mu, t, e, p->data))
+        (((SteamPollFunc) p->func) (p->api, mu, t, e, p->data))
                                       
 #define steam_user_info_func(p, i, e) \
     if(p->func != NULL) \
@@ -197,19 +197,14 @@ static void steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
 
 static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    SteamPersona     *sp;
-    SteamUserMessage *um;
-    
     struct xt_node *xn, *xe;
-    const gchar    *xm, *id;
+    SteamMessage   *sm;
     
     GSList *mu = NULL;
-    GSList *pu = NULL;
-    
-    gint to = 0;
+    gint    to = 0;
     
     if(!steam_xt_node_get(xr, "sectimeout", &xn)) {
-        steam_poll_func(fp, pu, mu, 3000, STEAM_ERROR_FAILED_POLL);
+        steam_poll_func(fp, mu, 3000, STEAM_ERROR_FAILED_POLL);
         return;
     }
     
@@ -217,12 +212,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     to = ((to >= 1) && (to <= 30)) ? (to * 1000) : 3000;
     
     if(!steam_xt_node_get(xr, "messagelast", &xn)) {
-        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
     if(!g_strcmp0(fp->api->lmid, xn->text)) {
-        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -230,12 +225,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     fp->api->lmid = g_strdup(xn->text);
     
     if(!steam_xt_node_get(xr, "messages", &xn)) {
-        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
     if(xn->children == NULL) {
-        steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -243,69 +238,62 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
         if(!steam_xt_node_get(xn, "steamid_from", &xe))
             continue;
         
-        id = xe->text;
-        
-        if(!g_strcmp0(fp->api->steamid, id))
+        if(!g_strcmp0(fp->api->steamid, xe->text))
             continue;
         
-        if(!steam_xt_node_get(xn, "type", &xe))
-            continue;
+        sm = g_new0(SteamMessage, 1);
+        sm->steamid = xe->text;
         
+        if(!steam_xt_node_get(xn, "type", &xe)) {
+            g_free(sm);
+            continue;
+        }
         
         if(!g_strcmp0("emote", xe->text)) {
-            if(!steam_xt_node_get(xn, "text", &xe))
+            if(!steam_xt_node_get(xn, "text", &xe)) {
+                g_free(sm);
                 continue;
+            }
             
-            um = g_new0(SteamUserMessage, 1);
-            mu = g_slist_append(mu, um);
-            
-            um->type    = STEAM_MESSAGE_TYPE_EMOTE;
-            um->steamid = id;
-            um->message = xe->text;
+            sm->type = STEAM_MESSAGE_TYPE_EMOTE;
+            sm->text = xe->text;
         } else if(!g_strcmp0("leftconversation", xe->text)) {
-            um = g_new0(SteamUserMessage, 1);
-            mu = g_slist_append(mu, um);
-            
-            um->type    = STEAM_MESSAGE_TYPE_EMOTE;
-            um->steamid = id;
+            sm->type = STEAM_MESSAGE_TYPE_LEFT_CONV;
         } else if(!g_strcmp0("saytext", xe->text)) {
-            if(!steam_xt_node_get(xn, "text", &xe))
+            if(!steam_xt_node_get(xn, "text", &xe)) {
+                g_free(sm);
                 continue;
+            }
             
-            um = g_new0(SteamUserMessage, 1);
-            mu = g_slist_append(mu, um);
-            
-            um->type    = STEAM_MESSAGE_TYPE_SAYTEXT;
-            um->steamid = id;
-            um->message = xe->text;
+            sm->type = STEAM_MESSAGE_TYPE_SAYTEXT;
+            sm->text = xe->text;
         } else if(!g_strcmp0("typing", xe->text)) {
-            um = g_new0(SteamUserMessage, 1);
-            mu = g_slist_append(mu, um);
-            
-            um->type    = STEAM_MESSAGE_TYPE_TYPING;
-            um->steamid = id;
+            sm->type = STEAM_MESSAGE_TYPE_TYPING;
         } else if(!g_strcmp0("personastate", xe->text)) {
-            if(!steam_xt_node_get(xn, "persona_name", &xe))
+            if(!steam_xt_node_get(xn, "persona_name", &xe)) {
+                g_free(sm);
                 continue;
+            }
             
-            xm = xe->text;
+            sm->name = xe->text;
             
-            if(!steam_xt_node_get(xn, "persona_state", &xe))
+            if(!steam_xt_node_get(xn, "persona_state", &xe)) {
+                g_free(sm);
                 continue;
+            }
             
-            sp = g_new0(SteamPersona, 1);
-            pu = g_slist_append(pu, sp);
-            
-            sp->steamid = id;
-            sp->state   = g_ascii_strtoll(xe->text, NULL, 10);
-            sp->name    = xm;
+            sm->type  = STEAM_MESSAGE_TYPE_STATE;
+            sm->state = g_ascii_strtoll(xe->text, NULL, 10);
+        } else {
+            g_free(sm);
+            continue;
         }
+        
+        mu = g_slist_append(mu, sm);
     }
     
-    steam_poll_func(fp, pu, mu, to, STEAM_ERROR_SUCCESS);
-    
+    steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
     g_slist_free_full(mu, g_free);
-    g_slist_free_full(pu, g_free);
 }
 
 static void steam_api_user_info_cb(SteamFuncPair *fp, struct xt_node *xr)
@@ -356,7 +344,7 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
         break;
     
     case STEAM_PAIR_POLL:
-        steam_poll_func(fp, NULL, NULL, 3000, err);
+        steam_poll_func(fp, NULL, 3000, err);
         break;
     
     case STEAM_PAIR_USER_INFO:
@@ -629,6 +617,12 @@ gchar *steam_message_type_str(SteamMessageType type)
         return "saytext";
     case STEAM_MESSAGE_TYPE_EMOTE:
         return "emote";
+    case STEAM_MESSAGE_TYPE_LEFT_CONV:
+        return "leftconversation";
+    case STEAM_MESSAGE_TYPE_STATE:
+        return "personastate";
+    case STEAM_MESSAGE_TYPE_TYPING:
+        return "typing";
     }
     
     return "";
