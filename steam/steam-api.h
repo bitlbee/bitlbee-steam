@@ -31,12 +31,12 @@
 #define STEAM_PATH_USER_INFO  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
 
-typedef enum   _SteamError        SteamError;
-typedef enum   _SteamPersonaState SteamPersonaState;
-typedef enum   _SteamMessageType  SteamMessageType;
-typedef struct _SteamAPI          SteamAPI;
-typedef struct _SteamMessage      SteamMessage;
-typedef struct _SteamUserInfo     SteamUserInfo;
+typedef enum   _SteamError       SteamError;
+typedef enum   _SteamState       SteamState;
+typedef enum   _SteamMessageType SteamMessageType;
+typedef struct _SteamAPI         SteamAPI;
+typedef struct _SteamMessage     SteamMessage;
+typedef struct _SteamUserInfo    SteamUserInfo;
 
 typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
                                    gpointer data);
@@ -74,13 +74,13 @@ enum _SteamError
     STEAM_ERROR_REQ_AUTH_CODE
 };
 
-enum _SteamPersonaState
+enum _SteamState
 {
-    STEAM_PERSONA_STATE_OFFLINE = 0,
-    STEAM_PERSONA_STATE_ONLINE  = 1,
-    STEAM_PERSONA_STATE_BUSY    = 2,
-    STEAM_PERSONA_STATE_AWAY    = 3,
-    STEAM_PERSONA_STATE_SNOOZE  = 4
+    STEAM_STATE_OFFLINE = 0,
+    STEAM_STATE_ONLINE  = 1,
+    STEAM_STATE_BUSY    = 2,
+    STEAM_STATE_AWAY    = 3,
+    STEAM_STATE_SNOOZE  = 4
 };
 
 enum _SteamMessageType
@@ -109,14 +109,14 @@ struct _SteamMessage
     const gchar *steamid;
     const gchar *text;
     
-    SteamPersonaState state;
+    SteamState state;
     const gchar *name;
 };
 
 struct _SteamUserInfo
 {
     const gchar *steamid;
-    SteamPersonaState state;
+    SteamState state;
     
     const gchar *name;
     const gchar *realname;
@@ -145,7 +145,7 @@ gchar *steam_api_error_str(SteamError err);
 
 gchar *steam_message_type_str(SteamMessageType type);
 
-gchar *steam_persona_state_str(SteamPersonaState state);
+gchar *steam_state_str(SteamState state);
 
 
 #endif /* _STEAM_API_H */

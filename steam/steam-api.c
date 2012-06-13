@@ -626,18 +626,18 @@ gchar *steam_message_type_str(SteamMessageType type)
     return "";
 }
 
-gchar *steam_persona_state_str(SteamPersonaState state)
+gchar *steam_state_str(SteamState state)
 {
     switch(state) {
-    case STEAM_PERSONA_STATE_OFFLINE:
+    case STEAM_STATE_OFFLINE:
         return "Offline";
-    case STEAM_PERSONA_STATE_ONLINE:
+    case STEAM_STATE_ONLINE:
         return "Online";
-    case STEAM_PERSONA_STATE_BUSY:
+    case STEAM_STATE_BUSY:
         return "Busy";
-    case STEAM_PERSONA_STATE_AWAY:
+    case STEAM_STATE_AWAY:
         return "Away";
-    case STEAM_PERSONA_STATE_SNOOZE:
+    case STEAM_STATE_SNOOZE:
         return "Snooze";
     }
     

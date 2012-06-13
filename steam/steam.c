@@ -89,7 +89,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
             break;
         
         case STEAM_MESSAGE_TYPE_STATE:
-            if(sm->state == STEAM_PERSONA_STATE_OFFLINE) {
+            if(sm->state == STEAM_STATE_OFFLINE) {
                 if(imcb_buddy_by_handle(sd->ic, sm->steamid) != NULL)
                     imcb_buddy_status(sd->ic, sm->steamid, OPT_LOGGING_OUT,
                                       NULL, NULL);
@@ -98,10 +98,10 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
                 break;
             }
             
-            m = steam_persona_state_str(sm->state);
+            m = steam_state_str(sm->state);
             f = OPT_LOGGED_IN;
             
-            if(sm->state != STEAM_PERSONA_STATE_ONLINE)
+            if(sm->state != STEAM_STATE_ONLINE)
                 f |= OPT_AWAY;
             
             imcb_add_buddy(sd->ic, sm->steamid, NULL);
@@ -324,9 +324,9 @@ static GList *steam_away_states(struct im_connection *ic)
 {
     GList *l = NULL;
     
-    l = g_list_append(l, steam_persona_state_str(STEAM_PERSONA_STATE_AWAY));
-    l = g_list_append(l, steam_persona_state_str(STEAM_PERSONA_STATE_BUSY));
-    l = g_list_append(l, steam_persona_state_str(STEAM_PERSONA_STATE_SNOOZE));
+    l = g_list_append(l, steam_state_str(STEAM_STATE_AWAY));
+    l = g_list_append(l, steam_state_str(STEAM_STATE_BUSY));
+    l = g_list_append(l, steam_state_str(STEAM_STATE_SNOOZE));
     
     return l;
 }
@@ -417,7 +417,7 @@ static void steam_user_info_cb(SteamAPI *api, SteamUserInfo *uinfo,
     if(uinfo->steamid != NULL)
         imcb_log(sd->ic, "Steam ID:  %s", uinfo->steamid);
     
-    imcb_log(sd->ic, "Status:    %s", steam_persona_state_str(uinfo->state));
+    imcb_log(sd->ic, "Status:    %s", steam_state_str(uinfo->state));
     
     if(uinfo->profile != NULL)
         imcb_log(sd->ic, "Profile:   %s", uinfo->profile);
