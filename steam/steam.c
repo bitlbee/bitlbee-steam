@@ -322,13 +322,13 @@ static void steam_logout(struct im_connection *ic)
 
 static GList *steam_away_states(struct im_connection *ic)
 {
-    GList *ss;
-    guint i;
+    GList *l = NULL;
     
-    for(i = 2; i <= 4; i++)
-        ss = g_list_append(ss, steam_persona_state_str(i));
+    l = g_list_append(l, steam_persona_state_str(STEAM_PERSONA_STATE_AWAY));
+    l = g_list_append(l, steam_persona_state_str(STEAM_PERSONA_STATE_BUSY));
+    l = g_list_append(l, steam_persona_state_str(STEAM_PERSONA_STATE_SNOOZE));
     
-    return ss;
+    return l;
 }
 
 static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)

@@ -360,8 +360,6 @@ static void steam_api_cb(struct http_request *req)
     
     struct xt_parser *xt;
     
-    g_print("%s\n", req->reply_body);
-    
     if((req->status_code != 200) || (req->body_size < 1)) {
         if(req->status_code == 401)
             err = STEAM_ERROR_NOT_AUTHORIZED;
