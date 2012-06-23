@@ -42,8 +42,7 @@ typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
                                    gpointer data);
 
 typedef void (*SteamPollFunc)     (SteamAPI *api, GSList *m_updates,
-                                   gint timeout, SteamError err,
-                                   gpointer data);
+                                   SteamError err, gpointer data);
 
 typedef void (*SteamUserInfoFunc) (SteamAPI *api, SteamUserInfo *uinfo,
                                    SteamError err, gpointer data);

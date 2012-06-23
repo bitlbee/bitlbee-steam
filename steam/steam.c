@@ -17,8 +17,8 @@
 
 #include "steam.h"
 
-static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
-                          SteamError err, gpointer data);
+static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
+                          gpointer data);
 
 static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data);
 
@@ -40,8 +40,8 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
     return FALSE;
 }
 
-static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
-                          SteamError err, gpointer data)
+static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
+                          gpointer data)
 {
     SteamData    *sd = data;
     SteamMessage *sm;
@@ -50,6 +50,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
     GSList *l;
     gchar  *m;
     gint    f;
+    guint   ts;
     
     g_return_if_fail(sd != NULL);
     
@@ -68,7 +69,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
     }
     
     for(l = m_updates; l != NULL; l = l->next) {
-        sm = l->data;
+        sm  = l->data;
+        ts |= sm->type;
         
         switch(sm->type) {
         case STEAM_MESSAGE_TYPE_EMOTE:
@@ -123,7 +125,16 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, gint timeout,
         }
     }
     
-    sd->ml_id = b_timeout_add(timeout, steam_main_loop, sd);
+    if((ts & STEAM_MESSAGE_TYPE_EMOTE) || (ts & STEAM_MESSAGE_TYPE_SAYTEXT)) {
+        sd->timeout = 3;
+    } else if(ts & STEAM_MESSAGE_TYPE_TYPING) {
+        sd->timeout = 2;
+    } else {
+        if(sd->timeout < 20)
+            sd->timeout++;
+    }
+    
+    sd->ml_id = b_timeout_add(sd->timeout, steam_main_loop, sd);
 }
 
 static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data)

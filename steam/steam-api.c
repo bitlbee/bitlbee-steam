@@ -25,9 +25,9 @@
     if(p->func != NULL) \
         (((SteamAPIFunc) p->func) (p->api, e, p->data))
 
-#define steam_poll_func(p, mu, t, e) \
+#define steam_poll_func(p, mu, e) \
     if(p->func != NULL) \
-        (((SteamPollFunc) p->func) (p->api, mu, t, e, p->data))
+        (((SteamPollFunc) p->func) (p->api, mu, e, p->data))
                                       
 #define steam_user_info_func(p, i, e) \
     if(p->func != NULL) \
@@ -201,23 +201,14 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     SteamMessage   *sm;
     
     GSList *mu = NULL;
-    gint    to = 0;
-    
-    if(!steam_xt_node_get(xr, "sectimeout", &xn)) {
-        steam_poll_func(fp, mu, 3000, STEAM_ERROR_FAILED_POLL);
-        return;
-    }
-    
-    to = g_ascii_strtoll(xn->text, NULL, 10);
-    to = ((to >= 1) && (to <= 30)) ? (to * 1000) : 3000;
     
     if(!steam_xt_node_get(xr, "messagelast", &xn)) {
-        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
     if(!g_strcmp0(fp->api->lmid, xn->text)) {
-        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -225,12 +216,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     fp->api->lmid = g_strdup(xn->text);
     
     if(!steam_xt_node_get(xr, "messages", &xn)) {
-        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
     if(xn->children == NULL) {
-        steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
+        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
     
@@ -289,10 +280,10 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
             continue;
         }
         
-        mu = g_slist_append(mu, sm);
+        mu  = g_slist_append(mu, sm);
     }
     
-    steam_poll_func(fp, mu, to, STEAM_ERROR_SUCCESS);
+    steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
     g_slist_free_full(mu, g_free);
 }
 
@@ -344,7 +335,7 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
         break;
     
     case STEAM_PAIR_POLL:
-        steam_poll_func(fp, NULL, 3000, err);
+        steam_poll_func(fp, NULL, err);
         break;
     
     case STEAM_PAIR_USER_INFO:
