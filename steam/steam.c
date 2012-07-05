@@ -17,11 +17,10 @@
 
 #include "steam.h"
 
+static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data);
+
 static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
                           gpointer data);
-
-static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data);
-
 
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 {
@@ -38,6 +37,122 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
         steam_api_poll(sd->api, steam_poll_cb, sd);
     
     return FALSE;
+}
+
+static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    gchar *msg;
+    
+    account_t *acc;
+    guint i;
+    
+    g_return_if_fail(sd != NULL);
+    
+    if((sd->acc == NULL) || (sd->ic == NULL))
+        return;
+    
+    switch(err) {
+    case STEAM_ERROR_SUCCESS:
+        set_setstr(&sd->acc->set, "token", api->token);
+        imcb_log(sd->ic, "Authentication finished");
+        imcb_log(sd->ic, "Sending login request");
+        steam_api_logon(api, steam_logon_cb, sd);
+        break;
+    
+    case STEAM_ERROR_INVALID_AUTH_CODE:
+        imcb_error(sd->ic, "SteamGuard authentication code invalid");
+        imc_logout(sd->ic, FALSE);
+        break;
+    
+    case STEAM_ERROR_REQ_AUTH_CODE:
+        acc = sd->acc->bee->accounts;
+        
+        for(i = 0; acc != NULL; acc = acc->next, i++) {
+            if(sd->acc == acc)
+                break;
+        }
+        
+        imcb_log(sd->ic, "SteamGuard requires an authentication code");
+        imcb_log(sd->ic, "An authentication code has been emailed to you");
+        imcb_log(sd->ic, "Run: account %d set authcode <code>", i);
+        break;
+    
+    default:
+        imcb_error(sd->ic, steam_api_error_str(err));
+        imc_logout(sd->ic, FALSE);
+    }
+}
+
+static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    gboolean cont;
+    
+    g_return_if_fail(sd != NULL);
+    
+    if((sd->acc == NULL) || (sd->ic == NULL))
+        return;
+    
+    switch(err) {
+    case STEAM_ERROR_SUCCESS:
+        imcb_log(sd->ic, "Requesting friends list");
+        
+        steam_api_poll(sd->api, steam_poll_cb, sd);
+        imcb_connected(sd->ic);
+        return;
+    
+    case STEAM_ERROR_INVALID_LOGON:
+        cont = FALSE;
+        break;
+    
+    default:
+        cont = TRUE;
+        break;
+    }
+    
+    imcb_error(sd->ic, steam_api_error_str(err));
+    imc_logout(sd->ic, cont);
+}
+
+static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ic == NULL)
+        return;
+    
+    imcb_log(sd->ic, "Sending logon request");
+    steam_api_logon(sd->api, steam_logon_cb, sd);
+}
+
+static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    g_return_if_fail(sd != NULL);
+    
+    if(sd->ic == NULL)
+        return;
+    
+    if(err == STEAM_ERROR_SUCCESS) {
+        steam_api_poll(sd->api, steam_poll_cb, sd);
+        return;
+    }
+    
+    imcb_error(sd->ic, steam_api_error_str(err));
+    imc_logout(sd->ic, TRUE);
+}
+
+static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+    
+    g_return_if_fail(sd != NULL);
+    
+    steam_data_free(sd);
 }
 
 static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
@@ -137,100 +252,6 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
     sd->ml_id = b_timeout_add(sd->timeout, steam_main_loop, sd);
 }
 
-static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-    
-    g_return_if_fail(sd != NULL);
-    
-    if(sd->ic == NULL)
-        return;
-    
-    if(err == STEAM_ERROR_SUCCESS) {
-        steam_api_poll(sd->api, steam_poll_cb, sd);
-        return;
-    }
-    
-    imcb_error(sd->ic, steam_api_error_str(err));
-    imc_logout(sd->ic, TRUE);
-}
-
-static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-    gboolean cont;
-    
-    g_return_if_fail(sd != NULL);
-    
-    if((sd->acc == NULL) || (sd->ic == NULL))
-        return;
-    
-    switch(err) {
-    case STEAM_ERROR_SUCCESS:
-        imcb_log(sd->ic, "Requesting friends list");
-        
-        steam_api_poll(sd->api, steam_poll_cb, sd);
-        imcb_connected(sd->ic);
-        return;
-    
-    case STEAM_ERROR_INVALID_LOGON:
-        cont = FALSE;
-        break;
-    
-    default:
-        cont = TRUE;
-        break;
-    }
-    
-    imcb_error(sd->ic, steam_api_error_str(err));
-    imc_logout(sd->ic, cont);
-}
-
-static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-    gchar *msg;
-    
-    account_t *acc;
-    guint i;
-    
-    g_return_if_fail(sd != NULL);
-    
-    if((sd->acc == NULL) || (sd->ic == NULL))
-        return;
-    
-    switch(err) {
-    case STEAM_ERROR_SUCCESS:
-        set_setstr(&sd->acc->set, "token", api->token);
-        imcb_log(sd->ic, "Authentication finished");
-        imcb_log(sd->ic, "Sending login request");
-        steam_api_logon(api, steam_logon_cb, sd);
-        break;
-    
-    case STEAM_ERROR_INVALID_AUTH_CODE:
-        imcb_error(sd->ic, "SteamGuard authentication code invalid");
-        imc_logout(sd->ic, FALSE);
-        break;
-    
-    case STEAM_ERROR_REQ_AUTH_CODE:
-        acc = sd->acc->bee->accounts;
-        
-        for(i = 0; acc != NULL; acc = acc->next, i++) {
-            if(sd->acc == acc)
-                break;
-        }
-        
-        imcb_log(sd->ic, "SteamGuard requires an authentication code");
-        imcb_log(sd->ic, "An authentication code has been emailed to you");
-        imcb_log(sd->ic, "Run: account %d set authcode <code>", i);
-        break;
-    
-    default:
-        imcb_error(sd->ic, steam_api_error_str(err));
-        imc_logout(sd->ic, FALSE);
-    }
-}
-
 static char *steam_eval_authcode(set_t *set, char *value)
 {
     account_t *acc = set->data;
@@ -261,19 +282,6 @@ static void steam_init(account_t *acc)
     s->flags = SET_NULL_OK | SET_HIDDEN;
 }
 
-static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-    
-    g_return_if_fail(sd != NULL);
-    
-    if(sd->ic == NULL)
-        return;
-    
-    imcb_log(sd->ic, "Sending logon request");
-    steam_api_logon(sd->api, steam_logon_cb, sd);
-}
-
 static void steam_login(account_t *acc)
 {
     SteamData *sd = steam_data_new(acc);
@@ -302,15 +310,6 @@ static void steam_login(account_t *acc)
     
     imcb_log(sd->ic, "Resetting UMQID");
     steam_api_logoff(sd->api, steam_reset_cb, sd);
-}
-
-static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-    
-    g_return_if_fail(sd != NULL);
-    
-    steam_data_free(sd);
 }
 
 static void steam_logout(struct im_connection *ic)
