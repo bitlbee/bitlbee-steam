@@ -1,16 +1,16 @@
 /*
  * Copyright 2012 James Geboski <jgeboski@gmail.com>
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -51,22 +51,22 @@ enum _SteamError
 {
     STEAM_ERROR_SUCCESS = 0,
     STEAM_ERROR_GENERIC,
-    
+
     STEAM_ERROR_EMPTY_MESSAGE,
     STEAM_ERROR_EMPTY_STEAMID,
     STEAM_ERROR_EMPTY_UMQID,
     STEAM_ERROR_EMPTY_USER_INFO,
     STEAM_ERROR_EMPTY_XML,
-    
+
     STEAM_ERROR_FAILED_AUTH,
     STEAM_ERROR_FAILED_LOGOFF,
     STEAM_ERROR_FAILED_LOGON,
     STEAM_ERROR_FAILED_MESSAGE_SEND,
     STEAM_ERROR_FAILED_POLL,
-    
+
     STEAM_ERROR_INVALID_AUTH_CODE,
     STEAM_ERROR_INVALID_LOGON,
-    
+
     STEAM_ERROR_MISMATCH_UMQID,
     STEAM_ERROR_NOT_AUTHORIZED,
     STEAM_ERROR_PARSE_XML,
@@ -94,7 +94,7 @@ enum _SteamMessageType
 struct _SteamAPI
 {
     account_t * acc;
-    
+
     gchar *token;
     gchar *steamid;
     gchar *umqid;
@@ -104,10 +104,10 @@ struct _SteamAPI
 struct _SteamMessage
 {
     SteamMessageType type;
-    
+
     const gchar *steamid;
     const gchar *text;
-    
+
     SteamState state;
     const gchar *name;
 };
@@ -116,7 +116,7 @@ struct _SteamUserInfo
 {
     const gchar *steamid;
     SteamState state;
-    
+
     const gchar *name;
     const gchar *realname;
     const gchar *profile;
