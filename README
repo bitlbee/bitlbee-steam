@@ -7,8 +7,7 @@ Usage:
 Building and Installing:
   $ git clone https://github.com/jgeboski/bitlbee-steam.git
   $ cd bitlbee-steam
-  $ autoreconf -fi
-  $ ./configure
+  $ ./autogen.sh
   $ make
   $ make install
 
