@@ -117,10 +117,12 @@ static void steam_api_auth_cb(SteamFuncPair *fp, struct xt_node *xr)
 
         steam_api_func(fp, STEAM_ERROR_SUCCESS);
     } else if(steam_xt_node_get(xr, "x_errorcode", &xn)) {
-        if(!g_strcmp0("steamguard_code_required", xn->text))
-            steam_api_func(fp, STEAM_ERROR_REQ_AUTH_CODE);
+        if(!g_strcmp0("incorrect_login", xn->text))
+            steam_api_func(fp, STEAM_ERROR_INVALID_LOGON);
         else if(!g_strcmp0("invalid_steamguard_code", xn->text))
             steam_api_func(fp, STEAM_ERROR_INVALID_AUTH_CODE);
+        else if(!g_strcmp0("steamguard_code_required", xn->text))
+            steam_api_func(fp, STEAM_ERROR_REQ_AUTH_CODE);
         else
             steam_api_func(fp, STEAM_ERROR_FAILED_AUTH);
     } else {
