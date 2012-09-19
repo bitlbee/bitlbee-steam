@@ -21,17 +21,20 @@
 #include "steam-api.h"
 #include "xmltree.h"
 
-#define steam_api_func(p, e) \
-    if(p->func != NULL) \
-        (((SteamAPIFunc) p->func) (p->api, e, p->data))
+#define steam_api_func(p, e) G_STMT_START{                       \
+    if(p->func != NULL)                                          \
+        (((SteamAPIFunc) p->func) (p->api, e, p->data));         \
+}G_STMT_END
 
-#define steam_poll_func(p, mu, e) \
-    if(p->func != NULL) \
-        (((SteamPollFunc) p->func) (p->api, mu, e, p->data))
+#define steam_poll_func(p, mu, e) G_STMT_START{                  \
+    if(p->func != NULL)                                          \
+        (((SteamPollFunc) p->func) (p->api, mu, e, p->data));    \
+}G_STMT_END
 
-#define steam_user_info_func(p, i, e) \
-    if(p->func != NULL) \
-        (((SteamUserInfoFunc) p->func) (p->api, i, e, p->data))
+#define steam_user_info_func(p, i, e) G_STMT_START{              \
+    if(p->func != NULL)                                          \
+        (((SteamUserInfoFunc) p->func) (p->api, i, e, p->data)); \
+}G_STMT_END
 
 
 typedef enum   _SteamPairType SteamPairType;
