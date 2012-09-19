@@ -32,7 +32,7 @@ CPPFLAGS="$GLIB_CFLAGS $BITLBEE_CFLAGS"
 AC_MSG_CHECKING([for bitlbee >= 3.0.1])
 AC_PREPROC_IFELSE(
     [AC_LANG_PROGRAM([[
-        #include <bitlbee/bitlbee.h>
+        #include <bitlbee.h>
         #if BITLBEE_VERSION_CODE < BITLBEE_VER(3, 0, 1)
         #error outdated bitlbee version
         #endif]], [])],
