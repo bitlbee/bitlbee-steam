@@ -18,7 +18,7 @@
 #ifndef _STEAM_API_H
 #define _STEAM_API_H
 
-#include <bitlbee/bitlbee.h>
+#include <bitlbee.h>
 
 #define STEAM_API_HOST        "api.steampowered.com"
 #define STEAM_API_AGENT       "Steam 1291812 / iPhone"

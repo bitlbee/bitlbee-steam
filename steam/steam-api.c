@@ -15,8 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <bitlbee/http_client.h>
 #include <glib-object.h>
+#include <http_client.h>
 
 #include "steam-api.h"
 #include "xmltree.h"
