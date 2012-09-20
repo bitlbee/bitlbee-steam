@@ -16,6 +16,8 @@
  */
 
 #include <glib-object.h>
+
+#include <bitlbee.h>
 #include <http_client.h>
 
 #include "steam-api.h"
@@ -72,6 +74,7 @@ static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
     SteamFuncPair *fp;
 
     fp = g_new0(SteamFuncPair, 1);
+
     fp->type = type;
     fp->api  = api;
     fp->func = func;
@@ -87,15 +90,12 @@ static gboolean steam_xt_node_get(struct xt_node *xr, const gchar *name,
     return (*xn != NULL);
 }
 
-SteamAPI *steam_api_new(account_t *acc, const gchar *umqid)
+SteamAPI *steam_api_new(const gchar *umqid)
 {
     SteamAPI *api;
     GRand *rand;
 
-    g_return_val_if_fail(acc != NULL, NULL);
-
     api = g_new0(SteamAPI, 1);
-    api->acc = acc;
 
     if(umqid == NULL) {
         rand       = g_rand_new();
@@ -213,7 +213,7 @@ static void steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
 static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
-    SteamMessage   *sm;
+    SteamMessage *sm;
 
     GSList *mu = NULL;
     GSList *l;
@@ -481,6 +481,7 @@ static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
 }
 
 void steam_api_auth(SteamAPI *api, const gchar *authcode,
+                    const gchar *user, const gchar *pass,
                     SteamAPIFunc func, gpointer data)
 {
     g_return_if_fail(api != NULL);
@@ -488,8 +489,8 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
     SteamPair ps[7] = {
         {"client_id",       "DE45CD61"},
         {"grant_type",      "password"},
-        {"username",        api->acc->user},
-        {"password",        api->acc->pass},
+        {"username",        user},
+        {"password",        pass},
         {"x_emailauthcode", authcode},
         {"x_webcookie",     ""},
         {"scope",           "read_profile write_profile "

@@ -18,8 +18,6 @@
 #ifndef _STEAM_API_H
 #define _STEAM_API_H
 
-#include <bitlbee.h>
-
 #define STEAM_API_HOST        "api.steampowered.com"
 #define STEAM_API_AGENT       "Steam 1291812 / iPhone"
 
@@ -93,8 +91,6 @@ enum _SteamMessageType
 
 struct _SteamAPI
 {
-    account_t * acc;
-
     gchar *token;
     gchar *steamid;
     gchar *umqid;
@@ -123,22 +119,26 @@ struct _SteamUserInfo
 };
 
 
-SteamAPI *steam_api_new(account_t *acc, const gchar *umqid);
+SteamAPI *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamAPI *api);
 
-void steam_api_message(SteamAPI *api, const gchar *steamid,
-                       const gchar *message, SteamMessageType type,
-                       SteamAPIFunc func, gpointer data);
+void steam_api_auth(SteamAPI *api, const gchar *authcode,
+                    const gchar *user, const gchar *pass,
+                    SteamAPIFunc func, gpointer data);
 
 void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
+void steam_api_message(SteamAPI *api, const gchar *steamid,
+                       const gchar *message, SteamMessageType type,
+                       SteamAPIFunc func, gpointer data);
+
 void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data);
 
-void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
-                         gpointer data);
+void steam_api_user_info(SteamAPI *api, gchar *steamid,
+                         SteamUserInfoFunc func, gpointer data);
 
 gchar *steam_api_error_str(SteamError err);
 

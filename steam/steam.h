@@ -18,13 +18,14 @@
 #ifndef _STEAM_H
 #define _STEAM_H
 
+#include <bitlbee.h>
+
 #include "steam-api.h"
 
 typedef struct _SteamData SteamData;
 
 struct _SteamData
 {
-    account_t *acc;
     struct im_connection *ic;
     SteamAPI *api;
 
