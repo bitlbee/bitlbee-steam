@@ -87,14 +87,24 @@ static gboolean steam_xt_node_get(struct xt_node *xr, const gchar *name,
     return (*xn != NULL);
 }
 
-SteamAPI *steam_api_new(account_t *acc)
+SteamAPI *steam_api_new(account_t *acc, const gchar *umqid)
 {
     SteamAPI *api;
+    GRand *rand;
 
     g_return_val_if_fail(acc != NULL, NULL);
 
     api = g_new0(SteamAPI, 1);
     api->acc = acc;
+
+    if(umqid == NULL) {
+        rand       = g_rand_new();
+        api->umqid = g_strdup_printf("%u", g_rand_int(rand));
+
+        g_rand_free(rand);
+    } else {
+        api->umqid = g_strdup(umqid);
+    }
 
     return api;
 }

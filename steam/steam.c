@@ -284,21 +284,14 @@ static void steam_init(account_t *acc)
 
 static void steam_login(account_t *acc)
 {
-    SteamData *sd = steam_data_new(acc);
+    SteamData *sd;
     GRand *rand;
     gchar *umqid;
 
     umqid = set_getstr(&acc->set, "umqid");
+    sd    = steam_data_new(acc, umqid);
 
-    if(umqid == NULL) {
-        rand  = g_rand_new();
-        umqid = g_strdup_printf("%u", g_rand_int(rand));
-
-        set_setstr(&acc->set, "umqid", umqid);
-        g_rand_free(rand);
-    } else {
-        sd->api->umqid = g_strdup(umqid);
-    }
+    set_setstr(&acc->set, "umqid", sd->api->umqid);
 
     imcb_log(sd->ic, "Connecting");
     sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
@@ -463,7 +456,7 @@ void init_plugin()
     register_protocol(ret);
 }
 
-SteamData *steam_data_new(account_t *acc)
+SteamData *steam_data_new(account_t *acc, const gchar *umqid)
 {
     SteamData *sd;
 
@@ -472,7 +465,7 @@ SteamData *steam_data_new(account_t *acc)
     sd = g_new0(SteamData, 1);
     sd->acc = acc;
     sd->ic  = imcb_new(acc);
-    sd->api = steam_api_new(acc);
+    sd->api = steam_api_new(acc, umqid);
 
     acc->ic            = sd->ic;
     sd->ic->proto_data = sd;

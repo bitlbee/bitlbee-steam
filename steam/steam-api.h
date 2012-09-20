@@ -123,7 +123,7 @@ struct _SteamUserInfo
 };
 
 
-SteamAPI *steam_api_new(account_t *acc);
+SteamAPI *steam_api_new(account_t *acc, const gchar *umqid);
 
 void steam_api_free(SteamAPI *api);
 
