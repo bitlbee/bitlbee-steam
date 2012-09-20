@@ -116,6 +116,7 @@ void steam_api_free(SteamAPI *api)
     g_free(api->token);
     g_free(api->steamid);
     g_free(api->umqid);
+    g_free(api->lmid);
 
     g_free(api);
 }
