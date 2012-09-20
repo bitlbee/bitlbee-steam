@@ -206,6 +206,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     SteamMessage   *sm;
 
     GSList *mu = NULL;
+    GSList *l;
 
     if(!steam_xt_node_get(xr, "messagelast", &xn)) {
         steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
@@ -289,7 +290,14 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     }
 
     steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
-    g_slist_free_full(mu, g_free);
+
+    /* Do not use g_slist_free_full(), no support in older glib versions */
+    for(l = mu; l != NULL; l = l->next) {
+        if(l->data != NULL)
+            g_free(l->data);
+    }
+
+    g_slist_free(mu);
 }
 
 static void steam_api_user_info_cb(SteamFuncPair *fp, struct xt_node *xr)
