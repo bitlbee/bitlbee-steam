@@ -31,6 +31,8 @@ struct _SteamData
 
     gint  ml_id;
     guint timeout;
+
+    gboolean poll;
 };
 
 
