@@ -95,6 +95,8 @@ struct _SteamAPI
     gchar *steamid;
     gchar *umqid;
     gchar *lmid;
+
+    GSList *reqs;
 };
 
 struct _SteamMessage

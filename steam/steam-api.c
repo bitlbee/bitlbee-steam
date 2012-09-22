@@ -66,6 +66,8 @@ struct _SteamFuncPair
 
     gpointer func;
     gpointer data;
+
+    struct http_request *req;
 };
 
 static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
@@ -109,9 +111,30 @@ SteamAPI *steam_api_new(const gchar *umqid)
     return api;
 }
 
+static void steam_api_cb_null(struct http_request *req)
+{
+    /* Fake callback for http_request */
+}
+
 void steam_api_free(SteamAPI *api)
 {
+    GSList *l;
+    struct http_request *req;
+
     g_return_if_fail(api != NULL);
+
+    /* Set a fake callback for each http_request that is still active.
+     * This allows the request to be correctly cleaned up after, but
+     * stops steam-api from handling the request with invalid pointers.
+     */
+    for(l = api->reqs; l != NULL; l = l->next) {
+        req = l->data;
+
+        req->func = steam_api_cb_null;
+        req->data = NULL;
+    }
+
+    g_slist_free(api->reqs);
 
     g_free(api->token);
     g_free(api->steamid);
@@ -366,14 +389,17 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
         steam_user_info_func(fp, NULL, err);
         break;
     }
+
+    g_free(fp);
 }
 
 static void steam_api_cb(struct http_request *req)
 {
     SteamFuncPair *fp = req->data;
     SteamError err;
-
     struct xt_parser *xt;
+
+    fp->api->reqs = g_slist_remove(fp->api->reqs, fp->req);
 
     if((req->status_code != 200) || (req->body_size < 1)) {
         if(req->status_code == 401)
@@ -382,7 +408,6 @@ static void steam_api_cb(struct http_request *req)
             err = STEAM_ERROR_EMPTY_XML;
 
         steam_api_cb_error(fp, err);
-        g_free(fp);
         return;
     }
 
@@ -391,9 +416,7 @@ static void steam_api_cb(struct http_request *req)
 
     if(g_strcmp0("response", xt->root->name)) {
         steam_api_cb_error(fp, STEAM_ERROR_PARSE_XML);
-
         xt_free(xt);
-        g_free(fp);
     }
 
     switch(fp->type) {
@@ -474,8 +497,10 @@ static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
             "\r\n", path, rd);
     }
 
-    http_dorequest(STEAM_API_HOST, (ssl ? 443 : 80), ssl, req,
-                   steam_api_cb, fp);
+    fp->req = http_dorequest(STEAM_API_HOST, (ssl ? 443 : 80), ssl, req,
+                             steam_api_cb, fp);
+
+    fp->api->reqs = g_slist_append(fp->api->reqs, fp->req);
 
     g_free(rd);
     g_free(req);
