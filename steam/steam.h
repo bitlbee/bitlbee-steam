@@ -27,7 +27,7 @@ typedef struct _SteamData SteamData;
 struct _SteamData
 {
     struct im_connection *ic;
-    SteamAPI *api;
+    SteamAPI             *api;
 
     gint  ml_id;
     guint timeout;

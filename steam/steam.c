@@ -40,7 +40,8 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     account_t *acc;
-    gchar *msg;
+    gchar     *msg;
+
     guint i;
 
     g_return_if_fail(sd != NULL);
@@ -138,8 +139,9 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
 
     GSList *l;
     gchar  *m;
-    gint    f;
-    guint   ts;
+
+    gint  f;
+    guint ts;
 
     g_return_if_fail(sd != NULL);
 
@@ -260,8 +262,8 @@ static void steam_init(account_t *acc)
 static void steam_login(account_t *acc)
 {
     SteamData *sd;
-    GRand *rand;
-    gchar *umqid;
+    GRand     *rand;
+    gchar     *umqid;
 
     umqid = set_getstr(&acc->set, "umqid");
     sd    = steam_data_new(acc, umqid);
@@ -321,8 +323,8 @@ static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
 static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
-    SteamData *sd = ic->proto_data;
-    SteamMessageType type;
+    SteamData        *sd = ic->proto_data;
+    SteamMessageType  type;
 
     g_return_val_if_fail(sd != NULL, 0);
 
@@ -438,7 +440,7 @@ SteamData *steam_data_new(account_t *acc, const gchar *umqid)
     sd->api  = steam_api_new(umqid);
     sd->poll = TRUE;
 
-    acc->ic = sd->ic;
+    acc->ic            = sd->ic;
     sd->ic->proto_data = sd;
 
     return sd;

@@ -61,8 +61,8 @@ struct _SteamPair
 
 struct _SteamFuncPair
 {
-    SteamPairType type;
-    SteamAPI *api;
+    SteamAPI      *api;
+    SteamPairType  type;
 
     gpointer func;
     gpointer data;
@@ -77,8 +77,8 @@ static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
 
     fp = g_new0(SteamFuncPair, 1);
 
-    fp->type = type;
     fp->api  = api;
+    fp->type = type;
     fp->func = func;
     fp->data = data;
 
@@ -95,7 +95,7 @@ static gboolean steam_xt_node_get(struct xt_node *xr, const gchar *name,
 SteamAPI *steam_api_new(const gchar *umqid)
 {
     SteamAPI *api;
-    GRand *rand;
+    GRand    *rand;
 
     api = g_new0(SteamAPI, 1);
 
@@ -118,8 +118,8 @@ static void steam_api_cb_null(struct http_request *req)
 
 void steam_api_free(SteamAPI *api)
 {
-    GSList *l;
     struct http_request *req;
+    GSList *l;
 
     g_return_if_fail(api != NULL);
 
@@ -237,7 +237,7 @@ static void steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
 static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
-    SteamMessage *sm;
+    SteamMessage   *sm;
 
     GSList *mu = NULL;
     GSList *l;
@@ -336,8 +336,8 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
 
 static void steam_api_user_info_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
-    SteamUserInfo info;
     struct xt_node *xn, *xe;
+    SteamUserInfo   info;
 
     if(!steam_xt_node_get(xr, "players", &xn)) {
         steam_user_info_func(fp, NULL, STEAM_ERROR_EMPTY_USER_INFO);
@@ -395,9 +395,9 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
 
 static void steam_api_cb(struct http_request *req)
 {
-    SteamFuncPair *fp = req->data;
-    SteamError err;
+    SteamFuncPair    *fp = req->data;
     struct xt_parser *xt;
+    SteamError        err;
 
     fp->api->reqs = g_slist_remove(fp->api->reqs, fp->req);
 
@@ -452,10 +452,10 @@ static void steam_api_cb(struct http_request *req)
 static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
                           gboolean ssl, gboolean post, SteamFuncPair *fp)
 {
-    gchar **sp, *esc;
-    gchar *req, *rd;
+    gchar **sp,  *esc;
+    gchar  *req, *rd;
 
-    gsize len = 0;
+    gsize len;
     guint i;
 
     sp = g_new0(gchar*, (psize + 2));

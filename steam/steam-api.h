@@ -102,19 +102,18 @@ struct _SteamAPI
 struct _SteamMessage
 {
     SteamMessageType type;
+    SteamState       state;
 
     const gchar *steamid;
     const gchar *text;
-
-    SteamState state;
     const gchar *name;
 };
 
 struct _SteamUserInfo
 {
-    const gchar *steamid;
     SteamState state;
 
+    const gchar *steamid;
     const gchar *name;
     const gchar *realname;
     const gchar *profile;
