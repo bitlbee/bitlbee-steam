@@ -293,10 +293,12 @@ static void steam_logout(struct im_connection *ic)
     if(sd->ml_id >= 1)
         b_event_remove(sd->ml_id);
 
-    if(ic->flags & OPT_LOGGING_OUT)
+    if(ic->flags & OPT_LOGGING_OUT) {
+        steam_api_free_cs(sd->api);
         steam_api_logoff(sd->api, steam_logoff_cb, sd);
-    else
+    } else {
         steam_data_free(sd);
+    }
 }
 
 static GList *steam_away_states(struct im_connection *ic)

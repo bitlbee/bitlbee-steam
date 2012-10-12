@@ -116,7 +116,7 @@ static void steam_api_cb_null(struct http_request *req)
     /* Fake callback for http_request */
 }
 
-void steam_api_free(SteamAPI *api)
+void steam_api_free_cs(SteamAPI *api)
 {
     struct http_request *req;
     GSList *l;
@@ -135,6 +135,14 @@ void steam_api_free(SteamAPI *api)
     }
 
     g_slist_free(api->reqs);
+    api->reqs = NULL;
+}
+
+void steam_api_free(SteamAPI *api)
+{
+    g_return_if_fail(api != NULL);
+
+    steam_api_free_cs(api);
 
     g_free(api->token);
     g_free(api->steamid);

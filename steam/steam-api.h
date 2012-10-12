@@ -122,6 +122,8 @@ struct _SteamUserInfo
 
 SteamAPI *steam_api_new(const gchar *umqid);
 
+void steam_api_free_cs(SteamAPI *api);
+
 void steam_api_free(SteamAPI *api);
 
 void steam_api_auth(SteamAPI *api, const gchar *authcode,
