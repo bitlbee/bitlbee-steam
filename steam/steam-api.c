@@ -294,6 +294,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     SteamMessage   *sm;
 
     GSList *mu = NULL;
+    GSList *fl;
 
     if(!steam_xt_node_get(xr, "messagelast", &xn)) {
         steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
@@ -323,6 +324,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
             continue;
 
         if(!g_strcmp0(fp->api->steamid, xe->text))
+            continue;
+
+        fl = g_slist_find_custom(fp->api->friends, xe->text,
+                                 (GCompareFunc) g_strcmp0);
+
+        if(fl == NULL)
             continue;
 
         sm = g_new0(SteamMessage, 1);

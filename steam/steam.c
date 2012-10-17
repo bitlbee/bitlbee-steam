@@ -79,21 +79,37 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
     }
 }
 
+static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
+                             gpointer data)
+{
+    SteamData *sd = data;
+
+    g_return_if_fail(sd != NULL);
+
+    if(err != STEAM_ERROR_SUCCESS) {
+        imcb_error(sd->ic, steam_api_error_str(err));
+        imc_logout(sd->ic, TRUE);
+        return;
+    }
+
+    steam_api_poll(sd->api, steam_poll_cb, sd);
+    imcb_connected(sd->ic);
+}
+
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
 
     g_return_if_fail(sd != NULL);
 
-   if(err != STEAM_ERROR_SUCCESS) {
+    if(err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         imc_logout(sd->ic, TRUE);
         return;
     }
 
     imcb_log(sd->ic, "Requesting friends list");
-    steam_api_poll(sd->api, steam_poll_cb, sd);
-    imcb_connected(sd->ic);
+    steam_api_friends(sd->api, steam_friends_cb, data);
 }
 
 static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
