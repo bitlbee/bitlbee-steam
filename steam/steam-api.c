@@ -23,14 +23,24 @@
 #include "steam-api.h"
 #include "xmltree.h"
 
+
+#ifndef g_slist_free_full
+void g_slist_free_full(GSList *list, GDestroyNotify free_func)
+{
+    g_slist_foreach(list, (GFunc) free_func, NULL);
+    g_slist_free(list);
+}
+#endif
+
+
 #define steam_api_func(p, e) G_STMT_START{                       \
     if(p->func != NULL)                                          \
         (((SteamAPIFunc) p->func) (p->api, e, p->data));         \
 }G_STMT_END
 
-#define steam_poll_func(p, mu, e) G_STMT_START{                  \
+#define steam_list_func(p, l, e) G_STMT_START{                   \
     if(p->func != NULL)                                          \
-        (((SteamPollFunc) p->func) (p->api, mu, e, p->data));    \
+        (((SteamListFunc) p->func) (p->api, l, e, p->data));     \
 }G_STMT_END
 
 #define steam_user_info_func(p, i, e) G_STMT_START{              \
@@ -46,6 +56,7 @@ typedef struct _SteamFuncPair SteamFuncPair;
 enum _SteamPairType
 {
     STEAM_PAIR_AUTH,
+    STEAM_PAIR_FRIENDS,
     STEAM_PAIR_LOGON,
     STEAM_PAIR_LOGOFF,
     STEAM_PAIR_MESSAGE,
@@ -142,6 +153,7 @@ void steam_api_free(SteamAPI *api)
 {
     g_return_if_fail(api != NULL);
 
+    g_slist_free_full(api->friends, g_free);
     steam_api_free_cs(api);
 
     g_free(api->token);
@@ -173,6 +185,40 @@ static void steam_api_auth_cb(SteamFuncPair *fp, struct xt_node *xr)
     } else {
         steam_api_func(fp, STEAM_ERROR_FAILED_AUTH);
     }
+}
+
+static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
+{
+    struct xt_node *xn, *xe;
+
+    g_slist_free_full(fp->api->friends, g_free);
+    fp->api->friends = NULL;
+
+    if(!steam_xt_node_get(xr, "friends", &xn)) {
+        steam_list_func(fp, fp->api->friends, STEAM_ERROR_SUCCESS);
+        return;
+    }
+
+    if(xn->children == NULL) {
+        steam_list_func(fp, fp->api->friends, STEAM_ERROR_SUCCESS);
+        return;
+    }
+
+    for(xn = xn->children; xn != NULL; xn = xn->next) {
+        if(!steam_xt_node_get(xn, "relationship", &xe))
+            continue;
+
+        if(g_strcmp0(xe->text, "friend"))
+            continue;
+
+        if(!steam_xt_node_get(xn, "steamid", &xe))
+            continue;
+
+        fp->api->friends = g_slist_append(fp->api->friends,
+                                          g_strdup(xe->text));
+    }
+
+    steam_list_func(fp, fp->api->friends, STEAM_ERROR_SUCCESS);
 }
 
 static void steam_api_logon_cb(SteamFuncPair *fp, struct xt_node *xr)
@@ -248,15 +294,14 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     SteamMessage   *sm;
 
     GSList *mu = NULL;
-    GSList *l;
 
     if(!steam_xt_node_get(xr, "messagelast", &xn)) {
-        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
 
     if(!g_strcmp0(fp->api->lmid, xn->text)) {
-        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
 
@@ -264,12 +309,12 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     fp->api->lmid = g_strdup(xn->text);
 
     if(!steam_xt_node_get(xr, "messages", &xn)) {
-        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
 
     if(xn->children == NULL) {
-        steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
 
@@ -328,18 +373,11 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
             continue;
         }
 
-        mu  = g_slist_append(mu, sm);
+        mu = g_slist_append(mu, sm);
     }
 
-    steam_poll_func(fp, mu, STEAM_ERROR_SUCCESS);
-
-    /* Do not use g_slist_free_full(), no support in older glib versions */
-    for(l = mu; l != NULL; l = l->next) {
-        if(l->data != NULL)
-            g_free(l->data);
-    }
-
-    g_slist_free(mu);
+    steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
+    g_slist_free_full(mu, g_free);
 }
 
 static void steam_api_user_info_cb(SteamFuncPair *fp, struct xt_node *xr)
@@ -389,8 +427,9 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
         steam_api_func(fp, err);
         break;
 
+    case STEAM_PAIR_FRIENDS:
     case STEAM_PAIR_POLL:
-        steam_poll_func(fp, NULL, err);
+        steam_list_func(fp, NULL, err);
         break;
 
     case STEAM_PAIR_USER_INFO:
@@ -420,16 +459,20 @@ static void steam_api_cb(struct http_request *req)
     }
 
     xt = xt_new(NULL, NULL);
-    xt_feed(xt, req->reply_body, req->body_size);
 
-    if(g_strcmp0("response", xt->root->name)) {
+    if(xt_feed(xt, req->reply_body, req->body_size) < 0) {
         steam_api_cb_error(fp, STEAM_ERROR_PARSE_XML);
         xt_free(xt);
+        return;
     }
 
     switch(fp->type) {
     case STEAM_PAIR_AUTH:
         steam_api_auth_cb(fp, xt->root);
+        break;
+
+    case STEAM_PAIR_FRIENDS:
+        steam_api_friends_cb(fp, xt->root);
         break;
 
     case STEAM_PAIR_LOGON:
@@ -535,6 +578,20 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
                   steam_pair_new(STEAM_PAIR_AUTH, api, func, data));
 }
 
+void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data)
+{
+    g_return_if_fail(api != NULL);
+
+    SteamPair ps[3] = {
+        {"access_token", api->token},
+        {"steamid",      api->steamid},
+        {"relationship", "friend"}
+    };
+
+    steam_api_req(STEAM_PATH_FRIENDS, ps, 3, TRUE, FALSE,
+                  steam_pair_new(STEAM_PAIR_FRIENDS, api, func, data));
+}
+
 void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data)
 {
     g_return_if_fail(api != NULL);
@@ -584,7 +641,7 @@ void steam_api_message(SteamAPI *api, const gchar *steamid,
                   steam_pair_new(STEAM_PAIR_MESSAGE, api, func, data));
 }
 
-void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data)
+void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
 {
     g_return_if_fail(api != NULL);
 

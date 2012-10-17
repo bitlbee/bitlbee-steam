@@ -22,6 +22,7 @@
 #define STEAM_API_AGENT       "Steam 1291812 / iPhone"
 
 #define STEAM_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
+#define STEAM_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"
 #define STEAM_PATH_LOGON      "/ISteamWebUserPresenceOAuth/Logon/v0001"
 #define STEAM_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
 #define STEAM_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
@@ -39,7 +40,7 @@ typedef struct _SteamUserInfo    SteamUserInfo;
 typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
                                    gpointer data);
 
-typedef void (*SteamPollFunc)     (SteamAPI *api, GSList *m_updates,
+typedef void (*SteamListFunc)     (SteamAPI *api, GSList *list,
                                    SteamError err, gpointer data);
 
 typedef void (*SteamUserInfoFunc) (SteamAPI *api, SteamUserInfo *uinfo,
@@ -96,6 +97,7 @@ struct _SteamAPI
     gchar *umqid;
     gchar *lmid;
 
+    GSList *friends;
     GSList *reqs;
 };
 
@@ -130,6 +132,8 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
                     const gchar *user, const gchar *pass,
                     SteamAPIFunc func, gpointer data);
 
+void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data);
+
 void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
 
 void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
@@ -138,7 +142,7 @@ void steam_api_message(SteamAPI *api, const gchar *steamid,
                        const gchar *message, SteamMessageType type,
                        SteamAPIFunc func, gpointer data);
 
-void steam_api_poll(SteamAPI *api, SteamPollFunc func, gpointer data);
+void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data);
 
 void steam_api_user_info(SteamAPI *api, gchar *steamid,
                          SteamUserInfoFunc func, gpointer data);
