@@ -22,8 +22,8 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data);
 static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
                           gpointer data);
 
-static void steam_statuses_cb(SteamAPI *api, GSList *m_updates,
-                              SteamError err, gpointer data);
+static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
+                               SteamError err, gpointer data);
 
 
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
@@ -96,7 +96,7 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
         return;
     }
 
-    steam_api_statuses(sd->api, NULL, steam_statuses_cb, sd);
+    steam_api_summaries(sd->api, NULL, steam_summaries_cb, sd);
 }
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -247,11 +247,11 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
     sd->ml_id = b_timeout_add(sd->timeout, steam_main_loop, sd);
 }
 
-static void steam_statuses_cb(SteamAPI *api, GSList *m_updates,
-                              SteamError err, gpointer data)
+static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
+                               SteamError err, gpointer data)
 {
     SteamData    *sd = data;
-    SteamMessage *sm;
+    SteamSummary *ss;
 
     GSList *l;
 
@@ -270,16 +270,20 @@ static void steam_statuses_cb(SteamAPI *api, GSList *m_updates,
         imcb_connected(sd->ic);
 
     for(l = m_updates; l != NULL; l = l->next) {
-        sm = l->data;
-        m  = steam_state_str(sm->state);
+        ss = l->data;
+
+        if(ss->state == STEAM_STATE_OFFLINE)
+            continue;
+
+        m  = steam_state_str(ss->state);
         f  = OPT_LOGGED_IN;
 
-        if(sm->state != STEAM_STATE_ONLINE)
+        if(ss->state != STEAM_STATE_ONLINE)
             f |= OPT_AWAY;
 
-        imcb_add_buddy(sd->ic, sm->steamid, NULL);
-        imcb_buddy_nick_hint(sd->ic, sm->steamid, sm->name);
-        imcb_buddy_status(sd->ic, sm->steamid, f, m, NULL);
+        imcb_add_buddy(sd->ic, ss->steamid, NULL);
+        imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->name);
+        imcb_buddy_status(sd->ic, ss->steamid, f, m, NULL);
     }
 
     if(sd->poll)
@@ -287,6 +291,34 @@ static void steam_statuses_cb(SteamAPI *api, GSList *m_updates,
 
     sd->poll = TRUE;
     steam_api_poll(sd->api, steam_poll_cb, sd);
+}
+
+static void steam_summary_cb(SteamAPI *api, GSList *summaries,
+                             SteamError err, gpointer data)
+{
+    SteamData    *sd = data;
+    SteamSummary *ss;
+
+    g_return_if_fail(sd != NULL);
+
+    if(err != STEAM_ERROR_SUCCESS) {
+        imcb_error(sd->ic, steam_api_error_str(err));
+        return;
+    }
+
+    ss = summaries->data;
+
+    if(ss->name != NULL)
+        imcb_log(sd->ic, "Name:      %s", ss->name);
+
+    if(ss->realname != NULL)
+        imcb_log(sd->ic, "Real Name: %s", ss->realname);
+
+    imcb_log(sd->ic, "Steam ID:  %s", ss->steamid);
+    imcb_log(sd->ic, "Status:    %s", steam_state_str(ss->state));
+
+    if(ss->profile != NULL)
+        imcb_log(sd->ic, "Profile:   %s", ss->profile);
 }
 
 static char *steam_eval_authcode(set_t *set, char *value)
@@ -432,40 +464,13 @@ static void steam_remove_buddy(struct im_connection *ic, char *name,
     /* It looks like this can be done via the Steam Community AJAX API */
 }
 
-static void steam_user_info_cb(SteamAPI *api, SteamUserInfo *uinfo,
-                               SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-
-    g_return_if_fail(sd != NULL);
-
-    if(err != STEAM_ERROR_SUCCESS) {
-        imcb_error(sd->ic, steam_api_error_str(err));
-        return;
-    }
-
-    if(uinfo->name != NULL)
-        imcb_log(sd->ic, "Name:      %s", uinfo->name);
-
-    if(uinfo->realname != NULL)
-        imcb_log(sd->ic, "Real Name: %s", uinfo->realname);
-
-    if(uinfo->steamid != NULL)
-        imcb_log(sd->ic, "Steam ID:  %s", uinfo->steamid);
-
-    imcb_log(sd->ic, "Status:    %s", steam_state_str(uinfo->state));
-
-    if(uinfo->profile != NULL)
-        imcb_log(sd->ic, "Profile:   %s", uinfo->profile);
-}
-
 static void steam_get_info(struct im_connection *ic, char *who)
 {
     SteamData *sd = ic->proto_data;
 
     g_return_if_fail(sd != NULL);
 
-    steam_api_user_info(sd->api, who, steam_user_info_cb, sd);
+    steam_api_summary(sd->api, who, steam_summary_cb, sd);
 }
 
 void init_plugin()

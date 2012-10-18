@@ -34,19 +34,14 @@ void g_slist_free_full(GSList *list, GDestroyNotify free_func)
 #endif
 
 
-#define steam_api_func(p, e) G_STMT_START{                       \
-    if(p->func != NULL)                                          \
-        (((SteamAPIFunc) p->func) (p->api, e, p->data));         \
+#define steam_api_func(p, e) G_STMT_START{                   \
+    if(p->func != NULL)                                      \
+        (((SteamAPIFunc) p->func) (p->api, e, p->data));     \
 }G_STMT_END
 
-#define steam_list_func(p, l, e) G_STMT_START{                   \
-    if(p->func != NULL)                                          \
-        (((SteamListFunc) p->func) (p->api, l, e, p->data));     \
-}G_STMT_END
-
-#define steam_user_info_func(p, i, e) G_STMT_START{              \
-    if(p->func != NULL)                                          \
-        (((SteamUserInfoFunc) p->func) (p->api, i, e, p->data)); \
+#define steam_list_func(p, l, e) G_STMT_START{               \
+    if(p->func != NULL)                                      \
+        (((SteamListFunc) p->func) (p->api, l, e, p->data)); \
 }G_STMT_END
 
 
@@ -62,8 +57,7 @@ enum _SteamPairType
     STEAM_PAIR_LOGOFF,
     STEAM_PAIR_MESSAGE,
     STEAM_PAIR_POLL,
-    STEAM_PAIR_STATUSES,
-    STEAM_PAIR_USER_INFO
+    STEAM_PAIR_SUMMARIES
 };
 
 struct _SteamPair
@@ -389,89 +383,49 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     g_slist_free_full(mu, g_free);
 }
 
-static void steam_api_statuses_cb(SteamFuncPair *fp, struct xt_node *xr)
+static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
 
     GSList       *mu = NULL;
-    SteamMessage *sm;
-    SteamState    state;
+    SteamSummary *ss;
 
     if(!steam_xt_node_get(xr, "players", &xn)) {
-        steam_list_func(fp, NULL, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, NULL, STEAM_ERROR_EMPTY_SUMMARY);
         return;
     }
 
     if(xn->children == NULL) {
-        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, mu, STEAM_ERROR_EMPTY_SUMMARY);
         return;
     }
 
     for(xn = xn->children; xn != NULL; xn = xn->next) {
-        if(!steam_xt_node_get(xn, "personastate", &xe))
-            continue;
-
-        state = g_ascii_strtoll(xe->text, NULL, 10);
-
-        if(state == STEAM_STATE_OFFLINE)
-            continue;
-
         if(!steam_xt_node_get(xn, "steamid", &xe))
             continue;
 
-        sm = g_new0(SteamMessage, 1);
+        ss = g_new0(SteamSummary, 1);
+        ss->steamid = xe->text;
 
-        sm->type    = STEAM_MESSAGE_TYPE_STATE;
-        sm->state   = state;
-        sm->steamid = xe->text;
+        if(steam_xt_node_get(xn, "personaname", &xe))
+            ss->name = xe->text;
 
-        if(!steam_xt_node_get(xn, "personaname", &xe)) {
-            g_free(sm);
-            continue;
-        }
+        if(steam_xt_node_get(xn, "personastate", &xe))
+            ss->state = g_ascii_strtoll(xe->text, NULL, 10);
 
-        sm->name = xe->text;
-        mu = g_slist_append(mu, sm);
+        if(steam_xt_node_get(xn, "profileurl", &xe))
+            ss->profile = xe->text;
+
+        if(steam_xt_node_get(xn, "realname", &xe))
+            ss->realname = xe->text;
+
+        mu = g_slist_append(mu, ss);
     }
 
-    steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
-}
-
-static void steam_api_user_info_cb(SteamFuncPair *fp, struct xt_node *xr)
-{
-    struct xt_node *xn, *xe;
-    SteamUserInfo   info;
-
-    if(!steam_xt_node_get(xr, "players", &xn)) {
-        steam_user_info_func(fp, NULL, STEAM_ERROR_EMPTY_USER_INFO);
-        return;
-    }
-
-    xn = xn->children;
-
-    if(xn == NULL) {
-        steam_user_info_func(fp, NULL, STEAM_ERROR_EMPTY_USER_INFO);
-        return;
-    }
-
-    memset(&info, 0, sizeof (SteamUserInfo));
-
-    if(steam_xt_node_get(xn, "steamid", &xe))
-        info.steamid  = xe->text;
-
-    if(steam_xt_node_get(xn, "personastate", &xe))
-        info.state    = g_ascii_strtoll(xe->text, NULL, 10);
-
-    if(steam_xt_node_get(xn, "personaname", &xe))
-        info.name     = xe->text;
-
-    if(steam_xt_node_get(xn, "realname", &xe))
-        info.realname = xe->text;
-
-    if(steam_xt_node_get(xn, "profileurl", &xe))
-        info.profile  = xe->text;
-
-    steam_user_info_func(fp, &info, STEAM_ERROR_SUCCESS);
+    if(mu != NULL)
+        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
+    else
+        steam_list_func(fp, mu, STEAM_ERROR_EMPTY_SUMMARY);
 }
 
 static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
@@ -486,12 +440,8 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
 
     case STEAM_PAIR_FRIENDS:
     case STEAM_PAIR_POLL:
-    case STEAM_PAIR_STATUSES:
+    case STEAM_PAIR_SUMMARIES:
         steam_list_func(fp, NULL, err);
-        break;
-
-    case STEAM_PAIR_USER_INFO:
-        steam_user_info_func(fp, NULL, err);
         break;
     }
 
@@ -549,12 +499,8 @@ static void steam_api_cb(struct http_request *req)
         steam_api_poll_cb(fp, xt->root);
         break;
 
-    case STEAM_PAIR_STATUSES:
-        steam_api_statuses_cb(fp, xt->root);
-        break;
-
-    case STEAM_PAIR_USER_INFO:
-        steam_api_user_info_cb(fp, xt->root);
+    case STEAM_PAIR_SUMMARIES:
+        steam_api_summaries_cb(fp, xt->root);
         break;
     }
 
@@ -717,8 +663,8 @@ void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
                   steam_pair_new(STEAM_PAIR_POLL, api, func, data));
 }
 
-void steam_api_statuses(SteamAPI *api, GSList *friends, SteamListFunc func,
-                        gpointer data)
+void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
+                         gpointer data)
 {
     GSList *s;
     GSList *e;
@@ -764,8 +710,8 @@ void steam_api_statuses(SteamAPI *api, GSList *friends, SteamListFunc func,
             {"steamids",     str}
         };
 
-        steam_api_req(STEAM_PATH_STATUSES, ps, 2, TRUE, FALSE,
-                      steam_pair_new(STEAM_PAIR_STATUSES, api, func, data));
+        steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE,
+                      steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data));
 
         g_free(str);
 
@@ -776,8 +722,8 @@ void steam_api_statuses(SteamAPI *api, GSList *friends, SteamListFunc func,
     }
 }
 
-void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
-                         gpointer data)
+void steam_api_summary(SteamAPI *api, gchar *steamid, SteamListFunc func,
+                       gpointer data)
 {
     g_return_if_fail(api     != NULL);
     g_return_if_fail(steamid != NULL);
@@ -787,8 +733,8 @@ void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
         {"steamids",     steamid}
     };
 
-    steam_api_req(STEAM_PATH_USER_INFO, ps, 2, TRUE, FALSE,
-                  steam_pair_new(STEAM_PAIR_USER_INFO, api, func, data));
+    steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE,
+                  steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data));
 }
 
 gchar *steam_api_error_str(SteamError err)
@@ -802,10 +748,10 @@ gchar *steam_api_error_str(SteamError err)
         return "Empty message";
     case STEAM_ERROR_EMPTY_STEAMID:
         return "Empty SteamID";
+    case STEAM_ERROR_EMPTY_SUMMARY:
+        return "Empty summary information returned";
     case STEAM_ERROR_EMPTY_UMQID:
         return "Empty UMQID";
-    case STEAM_ERROR_EMPTY_USER_INFO:
-        return "Empty user information";
     case STEAM_ERROR_EMPTY_XML:
         return "Failed to receive XML reply";
     case STEAM_ERROR_FAILED_AUTH:

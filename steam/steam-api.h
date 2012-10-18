@@ -27,8 +27,7 @@
 #define STEAM_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
 #define STEAM_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
 #define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
-#define STEAM_PATH_STATUSES   "/ISteamUserOAuth/GetUserSummaries/v0001"
-#define STEAM_PATH_USER_INFO  "/ISteamUserOAuth/GetUserSummaries/v0001"
+#define STEAM_PATH_SUMMARIES  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
 
 typedef enum   _SteamError       SteamError;
@@ -36,16 +35,12 @@ typedef enum   _SteamState       SteamState;
 typedef enum   _SteamMessageType SteamMessageType;
 typedef struct _SteamAPI         SteamAPI;
 typedef struct _SteamMessage     SteamMessage;
-typedef struct _SteamUserInfo    SteamUserInfo;
+typedef struct _SteamSummary     SteamSummary;
 
-typedef void (*SteamAPIFunc)      (SteamAPI *api, SteamError err,
-                                   gpointer data);
+typedef void (*SteamAPIFunc)  (SteamAPI *api, SteamError err, gpointer data);
 
-typedef void (*SteamListFunc)     (SteamAPI *api, GSList *list,
-                                   SteamError err, gpointer data);
-
-typedef void (*SteamUserInfoFunc) (SteamAPI *api, SteamUserInfo *uinfo,
-                                   SteamError err, gpointer data);
+typedef void (*SteamListFunc) (SteamAPI *api, GSList *list, SteamError err,
+                               gpointer data);
 
 enum _SteamError
 {
@@ -54,8 +49,8 @@ enum _SteamError
 
     STEAM_ERROR_EMPTY_MESSAGE,
     STEAM_ERROR_EMPTY_STEAMID,
+    STEAM_ERROR_EMPTY_SUMMARY,
     STEAM_ERROR_EMPTY_UMQID,
-    STEAM_ERROR_EMPTY_USER_INFO,
     STEAM_ERROR_EMPTY_XML,
 
     STEAM_ERROR_FAILED_AUTH,
@@ -112,7 +107,7 @@ struct _SteamMessage
     const gchar *name;
 };
 
-struct _SteamUserInfo
+struct _SteamSummary
 {
     SteamState state;
 
@@ -145,11 +140,11 @@ void steam_api_message(SteamAPI *api, const gchar *steamid,
 
 void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data);
 
-void steam_api_statuses(SteamAPI *api, GSList *friends, SteamListFunc func,
+void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
                         gpointer data);
 
-void steam_api_user_info(SteamAPI *api, gchar *steamid,
-                         SteamUserInfoFunc func, gpointer data);
+void steam_api_summary(SteamAPI *api, gchar *steamid, SteamListFunc func,
+                       gpointer data);
 
 gchar *steam_api_error_str(SteamError err);
 
