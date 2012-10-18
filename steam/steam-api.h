@@ -27,6 +27,7 @@
 #define STEAM_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
 #define STEAM_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
 #define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
+#define STEAM_PATH_STATUSES   "/ISteamUserOAuth/GetUserSummaries/v0001"
 #define STEAM_PATH_USER_INFO  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
 
@@ -143,6 +144,9 @@ void steam_api_message(SteamAPI *api, const gchar *steamid,
                        SteamAPIFunc func, gpointer data);
 
 void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data);
+
+void steam_api_statuses(SteamAPI *api, GSList *friends, SteamListFunc func,
+                        gpointer data);
 
 void steam_api_user_info(SteamAPI *api, gchar *steamid,
                          SteamUserInfoFunc func, gpointer data);

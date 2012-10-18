@@ -16,6 +16,7 @@
  */
 
 #include <glib-object.h>
+#include <string.h>
 
 #include <bitlbee.h>
 #include <http_client.h>
@@ -61,6 +62,7 @@ enum _SteamPairType
     STEAM_PAIR_LOGOFF,
     STEAM_PAIR_MESSAGE,
     STEAM_PAIR_POLL,
+    STEAM_PAIR_STATUSES,
     STEAM_PAIR_USER_INFO
 };
 
@@ -387,6 +389,54 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     g_slist_free_full(mu, g_free);
 }
 
+static void steam_api_statuses_cb(SteamFuncPair *fp, struct xt_node *xr)
+{
+    struct xt_node *xn, *xe;
+
+    GSList       *mu = NULL;
+    SteamMessage *sm;
+    SteamState    state;
+
+    if(!steam_xt_node_get(xr, "players", &xn)) {
+        steam_list_func(fp, NULL, STEAM_ERROR_SUCCESS);
+        return;
+    }
+
+    if(xn->children == NULL) {
+        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
+        return;
+    }
+
+    for(xn = xn->children; xn != NULL; xn = xn->next) {
+        if(!steam_xt_node_get(xn, "personastate", &xe))
+            continue;
+
+        state = g_ascii_strtoll(xe->text, NULL, 10);
+
+        if(state == STEAM_STATE_OFFLINE)
+            continue;
+
+        if(!steam_xt_node_get(xn, "steamid", &xe))
+            continue;
+
+        sm = g_new0(SteamMessage, 1);
+
+        sm->type    = STEAM_MESSAGE_TYPE_STATE;
+        sm->state   = state;
+        sm->steamid = xe->text;
+
+        if(!steam_xt_node_get(xn, "personaname", &xe)) {
+            g_free(sm);
+            continue;
+        }
+
+        sm->name = xe->text;
+        mu = g_slist_append(mu, sm);
+    }
+
+    steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
+}
+
 static void steam_api_user_info_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
@@ -436,6 +486,7 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
 
     case STEAM_PAIR_FRIENDS:
     case STEAM_PAIR_POLL:
+    case STEAM_PAIR_STATUSES:
         steam_list_func(fp, NULL, err);
         break;
 
@@ -496,6 +547,10 @@ static void steam_api_cb(struct http_request *req)
 
     case STEAM_PAIR_POLL:
         steam_api_poll_cb(fp, xt->root);
+        break;
+
+    case STEAM_PAIR_STATUSES:
+        steam_api_statuses_cb(fp, xt->root);
         break;
 
     case STEAM_PAIR_USER_INFO:
@@ -660,6 +715,65 @@ void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
 
     steam_api_req(STEAM_PATH_POLL, ps, 3, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_POLL, api, func, data));
+}
+
+void steam_api_statuses(SteamAPI *api, GSList *friends, SteamListFunc func,
+                        gpointer data)
+{
+    GSList *s;
+    GSList *e;
+    GSList *l;
+
+    gsize  size;
+    gint   i;
+
+    gchar *str;
+    gchar *p;
+
+    g_return_if_fail(api != NULL);
+
+    if(friends == NULL)
+        friends = api->friends;
+
+    if(friends == NULL) {
+        if(func != NULL)
+            func(api, NULL, STEAM_ERROR_SUCCESS, data);
+
+        return;
+    }
+
+    s = friends;
+
+    while(TRUE) {
+        size = 0;
+
+        for(l = s, i = 0; (l != NULL) && (i < 100); l = l->next, i++)
+            size += strlen(l->data) + 1;
+
+        str = g_new0(gchar, size);
+        p   = g_stpcpy(str, s->data);
+        e   = l;
+
+        for(l = s->next; l != e; l = l->next) {
+            p = g_stpcpy(p, ",");
+            p = g_stpcpy(p, l->data);
+        }
+
+        SteamPair ps[2] = {
+            {"access_token", api->token},
+            {"steamids",     str}
+        };
+
+        steam_api_req(STEAM_PATH_STATUSES, ps, 2, TRUE, FALSE,
+                      steam_pair_new(STEAM_PAIR_STATUSES, api, func, data));
+
+        g_free(str);
+
+        if(e != NULL)
+            s = e->next;
+        else
+            break;
+    }
 }
 
 void steam_api_user_info(SteamAPI *api, gchar *steamid, SteamUserInfoFunc func,
