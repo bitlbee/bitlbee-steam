@@ -22,6 +22,10 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data);
 static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
                           gpointer data);
 
+static void steam_statuses_cb(SteamAPI *api, GSList *m_updates,
+                              SteamError err, gpointer data);
+
+
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 {
     SteamData *sd = data;
@@ -92,8 +96,7 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
         return;
     }
 
-    steam_api_poll(sd->api, steam_poll_cb, sd);
-    imcb_connected(sd->ic);
+    steam_api_statuses(sd->api, NULL, steam_statuses_cb, sd);
 }
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -109,7 +112,7 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
     }
 
     imcb_log(sd->ic, "Requesting friends list");
-    steam_api_friends(sd->api, steam_friends_cb, data);
+    steam_api_friends(sd->api, steam_friends_cb, sd);
 }
 
 static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -242,6 +245,48 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
     }
 
     sd->ml_id = b_timeout_add(sd->timeout, steam_main_loop, sd);
+}
+
+static void steam_statuses_cb(SteamAPI *api, GSList *m_updates,
+                              SteamError err, gpointer data)
+{
+    SteamData    *sd = data;
+    SteamMessage *sm;
+
+    GSList *l;
+
+    gint   f;
+    gchar *m;
+
+    g_return_if_fail(sd != NULL);
+
+    if(err != STEAM_ERROR_SUCCESS) {
+        imcb_error(sd->ic, steam_api_error_str(err));
+        imc_logout(sd->ic, TRUE);
+        return;
+    }
+
+    if(!(sd->ic->flags & OPT_LOGGED_IN))
+        imcb_connected(sd->ic);
+
+    for(l = m_updates; l != NULL; l = l->next) {
+        sm = l->data;
+        m  = steam_state_str(sm->state);
+        f  = OPT_LOGGED_IN;
+
+        if(sm->state != STEAM_STATE_ONLINE)
+            f |= OPT_AWAY;
+
+        imcb_add_buddy(sd->ic, sm->steamid, NULL);
+        imcb_buddy_nick_hint(sd->ic, sm->steamid, sm->name);
+        imcb_buddy_status(sd->ic, sm->steamid, f, m, NULL);
+    }
+
+    if(sd->poll)
+        return;
+
+    sd->poll = TRUE;
+    steam_api_poll(sd->api, steam_poll_cb, sd);
 }
 
 static char *steam_eval_authcode(set_t *set, char *value)
@@ -456,7 +501,7 @@ SteamData *steam_data_new(account_t *acc, const gchar *umqid)
 
     sd->ic   = imcb_new(acc);
     sd->api  = steam_api_new(umqid);
-    sd->poll = TRUE;
+    sd->poll = FALSE;
 
     acc->ic            = sd->ic;
     sd->ic->proto_data = sd;
