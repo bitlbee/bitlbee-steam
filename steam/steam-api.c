@@ -49,15 +49,19 @@ typedef enum   _SteamPairType SteamPairType;
 typedef struct _SteamPair     SteamPair;
 typedef struct _SteamFuncPair SteamFuncPair;
 
+typedef void (*SteamParseFunc) (SteamFuncPair *fp, struct xt_node *xr);
+
 enum _SteamPairType
 {
-    STEAM_PAIR_AUTH,
+    STEAM_PAIR_AUTH = 0,
     STEAM_PAIR_FRIENDS,
     STEAM_PAIR_LOGON,
     STEAM_PAIR_LOGOFF,
     STEAM_PAIR_MESSAGE,
     STEAM_PAIR_POLL,
-    STEAM_PAIR_SUMMARIES
+    STEAM_PAIR_SUMMARIES,
+
+    STEAM_PAIR_LAST
 };
 
 struct _SteamPair
@@ -76,6 +80,7 @@ struct _SteamFuncPair
 
     struct http_request *req;
 };
+
 
 static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
                                      gpointer func, gpointer data)
@@ -474,35 +479,18 @@ static void steam_api_cb(struct http_request *req)
         return;
     }
 
-    switch(fp->type) {
-    case STEAM_PAIR_AUTH:
-        steam_api_auth_cb(fp, xt->root);
-        break;
+    SteamParseFunc pf[STEAM_PAIR_LAST];
 
-    case STEAM_PAIR_FRIENDS:
-        steam_api_friends_cb(fp, xt->root);
-        break;
+    pf[STEAM_PAIR_AUTH]      = steam_api_auth_cb;
+    pf[STEAM_PAIR_FRIENDS]   = steam_api_friends_cb;
+    pf[STEAM_PAIR_LOGON]     = steam_api_logon_cb;
+    pf[STEAM_PAIR_LOGOFF]    = steam_api_logoff_cb;
+    pf[STEAM_PAIR_MESSAGE]   = steam_api_message_cb;
+    pf[STEAM_PAIR_POLL]      = steam_api_poll_cb;
+    pf[STEAM_PAIR_SUMMARIES] = steam_api_summaries_cb;
 
-    case STEAM_PAIR_LOGON:
-        steam_api_logon_cb(fp, xt->root);
-        break;
-
-    case STEAM_PAIR_LOGOFF:
-        steam_api_logoff_cb(fp, xt->root);
-        break;
-
-    case STEAM_PAIR_MESSAGE:
-        steam_api_message_cb(fp, xt->root);
-        break;
-
-    case STEAM_PAIR_POLL:
-        steam_api_poll_cb(fp, xt->root);
-        break;
-
-    case STEAM_PAIR_SUMMARIES:
-        steam_api_summaries_cb(fp, xt->root);
-        break;
-    }
+    if((fp->type >= 0) && (fp->type < STEAM_PAIR_LAST))
+        pf[fp->type](fp, xt->root);
 
     xt_free(xt);
     g_free(fp);
@@ -739,80 +727,69 @@ void steam_api_summary(SteamAPI *api, gchar *steamid, SteamListFunc func,
 
 gchar *steam_api_error_str(SteamError err)
 {
-    switch(err) {
-    case STEAM_ERROR_SUCCESS:
-        return "Success";
-    case STEAM_ERROR_GENERIC:
-        return "Something has gone terribly wrong";
-    case STEAM_ERROR_EMPTY_MESSAGE:
-        return "Empty message";
-    case STEAM_ERROR_EMPTY_STEAMID:
-        return "Empty SteamID";
-    case STEAM_ERROR_EMPTY_SUMMARY:
-        return "Empty summary information returned";
-    case STEAM_ERROR_EMPTY_UMQID:
-        return "Empty UMQID";
-    case STEAM_ERROR_EMPTY_XML:
-        return "Failed to receive XML reply";
-    case STEAM_ERROR_FAILED_AUTH:
-        return "Authentication failed";
-    case STEAM_ERROR_FAILED_LOGOFF:
-        return "Unknown logoff failure";
-    case STEAM_ERROR_FAILED_LOGON:
-        return "Unknown logon failure";
-    case STEAM_ERROR_FAILED_MESSAGE_SEND:
-        return "Failed to send message";
-    case STEAM_ERROR_FAILED_POLL:
-        return "Failed to poll server";
-    case STEAM_ERROR_INVALID_AUTH_CODE:
-        return "Invalid SteamGuard authentication code";
-    case STEAM_ERROR_INVALID_LOGON:
-        return "Invalid login details";
-    case STEAM_ERROR_MISMATCH_UMQID:
-        return "Mismatch in UMQIDs";
-    case STEAM_ERROR_NOT_AUTHORIZED:
-        return "Not Authorized";
-    case STEAM_ERROR_PARSE_XML:
-        return "Failed to parse XML reply";
-    case STEAM_ERROR_REQ_AUTH_CODE:
-        return "SteamGuard authentication code required";
-    }
+    gchar *strs[STEAM_ERROR_LAST];
 
-    return "";
+    if((err < 0) || (err > STEAM_ERROR_LAST))
+        return "";
+
+    strs[STEAM_ERROR_SUCCESS]             = "Success";
+    strs[STEAM_ERROR_GENERIC]             = "Something has gone "
+                                            "terribly wrong";
+
+    strs[STEAM_ERROR_EMPTY_MESSAGE]       = "Empty message";
+    strs[STEAM_ERROR_EMPTY_STEAMID]       = "Empty SteamID";
+    strs[STEAM_ERROR_EMPTY_SUMMARY]       = "Empty summary "
+                                            "information returned";
+    strs[STEAM_ERROR_EMPTY_UMQID]         = "Empty UMQID";
+    strs[STEAM_ERROR_EMPTY_XML]           = "Failed to receive XML reply";
+
+    strs[STEAM_ERROR_FAILED_AUTH]         = "Authentication failed";
+    strs[STEAM_ERROR_FAILED_LOGOFF]       = "Unknown logoff failure";
+    strs[STEAM_ERROR_FAILED_LOGON]        = "Unknown logon failure";
+    strs[STEAM_ERROR_FAILED_MESSAGE_SEND] = "Failed to send message";
+    strs[STEAM_ERROR_FAILED_POLL]         = "Failed to poll server";
+
+    strs[STEAM_ERROR_INVALID_AUTH_CODE]   = "Invalid SteamGuard "
+                                            "authentication code";
+    strs[STEAM_ERROR_INVALID_LOGON]       = "Invalid login details";
+
+    strs[STEAM_ERROR_MISMATCH_UMQID]      = "Mismatch in UMQIDs";
+    strs[STEAM_ERROR_NOT_AUTHORIZED]      = "Not authorized";
+    strs[STEAM_ERROR_PARSE_XML]           = "Failed to parse XML reply";
+    strs[STEAM_ERROR_REQ_AUTH_CODE]       = "SteamGuard authentication "
+                                            "code required";
+
+    return strs[err];
 }
 
 gchar *steam_message_type_str(SteamMessageType type)
 {
-    switch(type) {
-    case STEAM_MESSAGE_TYPE_SAYTEXT:
-        return "saytext";
-    case STEAM_MESSAGE_TYPE_EMOTE:
-        return "emote";
-    case STEAM_MESSAGE_TYPE_LEFT_CONV:
-        return "leftconversation";
-    case STEAM_MESSAGE_TYPE_STATE:
-        return "personastate";
-    case STEAM_MESSAGE_TYPE_TYPING:
-        return "typing";
-    }
+    gchar *strs[STEAM_MESSAGE_TYPE_LAST];
 
-    return "";
+    if((type < 0) || (type > STEAM_MESSAGE_TYPE_LAST))
+        return "";
+
+    strs[STEAM_MESSAGE_TYPE_SAYTEXT]   = "saytext";
+    strs[STEAM_MESSAGE_TYPE_EMOTE]     = "emote";
+    strs[STEAM_MESSAGE_TYPE_LEFT_CONV] = "leftconversation";
+    strs[STEAM_MESSAGE_TYPE_STATE]     = "personastate";
+    strs[STEAM_MESSAGE_TYPE_TYPING]    = "typing";
+
+    return strs[type];
 }
 
 gchar *steam_state_str(SteamState state)
 {
-    switch(state) {
-    case STEAM_STATE_OFFLINE:
-        return "Offline";
-    case STEAM_STATE_ONLINE:
-        return "Online";
-    case STEAM_STATE_BUSY:
-        return "Busy";
-    case STEAM_STATE_AWAY:
-        return "Away";
-    case STEAM_STATE_SNOOZE:
-        return "Snooze";
-    }
+    gchar *strs[STEAM_STATE_LAST];
 
-    return "";
+    if((state < 0) || (state > STEAM_STATE_LAST))
+        return "";
+
+    strs[STEAM_STATE_OFFLINE] = "Offline";
+    strs[STEAM_STATE_ONLINE]  = "Online";
+    strs[STEAM_STATE_BUSY]    = "Busy";
+    strs[STEAM_STATE_AWAY]    = "Away";
+    strs[STEAM_STATE_SNOOZE]  = "Snooze";
+
+    return strs[state];
 }
