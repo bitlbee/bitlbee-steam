@@ -24,6 +24,7 @@
 #include "steam-api.h"
 #include "xmltree.h"
 
+global_t global;
 
 #ifndef g_slist_free_full
 void g_slist_free_full(GSList *list, GDestroyNotify free_func)
@@ -459,7 +460,41 @@ static void steam_api_cb(struct http_request *req)
     struct xt_parser *xt;
     SteamError        err;
 
+    gchar **ls;
+    gint    i;
+
     fp->api->reqs = g_slist_remove(fp->api->reqs, fp->req);
+
+    if((fp->type < 0) || (fp->type > STEAM_PAIR_LAST)) {
+        g_free(fp);
+        return;
+    }
+
+    if(global.conf->nofork && global.conf->verbose) {
+        gchar *urls[STEAM_PAIR_LAST];
+
+        urls[STEAM_PAIR_AUTH]      = "STEAM_PAIR_AUTH";
+        urls[STEAM_PAIR_FRIENDS]   = "STEAM_PAIR_FRIENDS";
+        urls[STEAM_PAIR_LOGON]     = "STEAM_PAIR_LOGON";
+        urls[STEAM_PAIR_LOGOFF]    = "STEAM_PAIR_LOGOFF";
+        urls[STEAM_PAIR_MESSAGE]   = "STEAM_PAIR_MESSAGE";
+        urls[STEAM_PAIR_POLL]      = "STEAM_PAIR_POLL";
+        urls[STEAM_PAIR_SUMMARIES] = "STEAM_PAIR_SUMMARIES";
+
+        g_print("HTTP Reply (%s): %s\n", urls[fp->type], req->status_string);
+
+        if(req->body_size > 0) {
+            ls = g_strsplit(req->reply_body, "\n", 0);
+
+            for(i = 0; ls[i] != NULL; i++)
+                g_print("  %s\n", ls[i]);
+
+            g_print("\n");
+            g_strfreev(ls);
+        } else {
+            g_print("  ** No HTTP data returned **");
+        }
+    }
 
     if((req->status_code != 200) || (req->body_size < 1)) {
         if(req->status_code == 401)
@@ -489,8 +524,7 @@ static void steam_api_cb(struct http_request *req)
     pf[STEAM_PAIR_POLL]      = steam_api_poll_cb;
     pf[STEAM_PAIR_SUMMARIES] = steam_api_summaries_cb;
 
-    if((fp->type >= 0) && (fp->type < STEAM_PAIR_LAST))
-        pf[fp->type](fp, xt->root);
+    pf[fp->type](fp, xt->root);
 
     xt_free(xt);
     g_free(fp);
