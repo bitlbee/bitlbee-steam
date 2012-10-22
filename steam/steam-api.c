@@ -496,13 +496,13 @@ static void steam_api_cb(struct http_request *req)
         }
     }
 
-    if((req->status_code != 200) || (req->body_size < 1)) {
-        if(req->status_code == 401)
-            err = STEAM_ERROR_NOT_AUTHORIZED;
-        else
-            err = STEAM_ERROR_EMPTY_XML;
+    if(req->body_size < 1) {
+        steam_api_cb_error(fp, STEAM_ERROR_HTTP_EMPTY);
+        return;
+    }
 
-        steam_api_cb_error(fp, err);
+    if(req->status_code != 200) {
+        steam_api_cb_error(fp, STEAM_ERROR_HTTP_GENERIC);
         return;
     }
 
@@ -767,15 +767,12 @@ gchar *steam_api_error_str(SteamError err)
         return "";
 
     strs[STEAM_ERROR_SUCCESS]             = "Success";
-    strs[STEAM_ERROR_GENERIC]             = "Something has gone "
-                                            "terribly wrong";
 
     strs[STEAM_ERROR_EMPTY_MESSAGE]       = "Empty message";
     strs[STEAM_ERROR_EMPTY_STEAMID]       = "Empty SteamID";
     strs[STEAM_ERROR_EMPTY_SUMMARY]       = "Empty summary "
                                             "information returned";
     strs[STEAM_ERROR_EMPTY_UMQID]         = "Empty UMQID";
-    strs[STEAM_ERROR_EMPTY_XML]           = "Failed to receive XML reply";
 
     strs[STEAM_ERROR_FAILED_AUTH]         = "Authentication failed";
     strs[STEAM_ERROR_FAILED_LOGOFF]       = "Unknown logoff failure";
@@ -783,12 +780,14 @@ gchar *steam_api_error_str(SteamError err)
     strs[STEAM_ERROR_FAILED_MESSAGE_SEND] = "Failed to send message";
     strs[STEAM_ERROR_FAILED_POLL]         = "Failed to poll server";
 
+    strs[STEAM_ERROR_HTTP_EMPTY]          = "Empty HTTP reply returned";
+    strs[STEAM_ERROR_HTTP_GENERIC]        = "Generic HTTP error returned";
+
     strs[STEAM_ERROR_INVALID_AUTH_CODE]   = "Invalid SteamGuard "
                                             "authentication code";
     strs[STEAM_ERROR_INVALID_LOGON]       = "Invalid login details";
 
     strs[STEAM_ERROR_MISMATCH_UMQID]      = "Mismatch in UMQIDs";
-    strs[STEAM_ERROR_NOT_AUTHORIZED]      = "Not authorized";
     strs[STEAM_ERROR_PARSE_XML]           = "Failed to parse XML reply";
     strs[STEAM_ERROR_REQ_AUTH_CODE]       = "SteamGuard authentication "
                                             "code required";

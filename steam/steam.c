@@ -167,7 +167,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
     if(!sd->poll)
         return;
 
-    if(err == STEAM_ERROR_NOT_AUTHORIZED) {
+    if(err == STEAM_ERROR_HTTP_GENERIC) {
         steam_api_logon(api, steam_renew_cb, sd);
         return;
     }
