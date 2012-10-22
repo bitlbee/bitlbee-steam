@@ -489,11 +489,12 @@ static void steam_api_cb(struct http_request *req)
             for(i = 0; ls[i] != NULL; i++)
                 g_print("  %s\n", ls[i]);
 
-            g_print("\n");
             g_strfreev(ls);
         } else {
             g_print("  ** No HTTP data returned **");
         }
+
+        g_print("\n");
     }
 
     if(req->body_size < 1) {
