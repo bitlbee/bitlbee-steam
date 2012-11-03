@@ -470,7 +470,7 @@ static void steam_api_cb(struct http_request *req)
         return;
     }
 
-    if(global.conf->nofork && global.conf->verbose) {
+    if(global.conf->verbose) {
         gchar *urls[STEAM_PAIR_LAST];
 
         urls[STEAM_PAIR_AUTH]      = "STEAM_PAIR_AUTH";
@@ -510,6 +510,11 @@ static void steam_api_cb(struct http_request *req)
     xt = xt_new(NULL, NULL);
 
     if(xt_feed(xt, req->reply_body, req->body_size) < 0) {
+        if(global.conf->verbose && (xt->gerr != NULL)) {
+            g_print("  ** Markup parser error (%d): %s **\n\n",
+                    xt->gerr->code, xt->gerr->message);
+        }
+
         steam_api_cb_error(fp, STEAM_ERROR_PARSE_XML);
         xt_free(xt);
         return;
