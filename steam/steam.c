@@ -149,6 +149,16 @@ static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
     steam_data_free(sd);
 }
 
+static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
+{
+    SteamData *sd = data;
+
+    g_return_if_fail(sd != NULL);
+
+    if(err != STEAM_ERROR_SUCCESS)
+        imcb_error(sd->ic, steam_api_error_str(err));
+}
+
 static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
                           gpointer data)
 {
@@ -405,35 +415,29 @@ static GList *steam_away_states(struct im_connection *ic)
     return l;
 }
 
-static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-
-    g_return_if_fail(sd != NULL);
-
-    if(err != STEAM_ERROR_SUCCESS)
-        imcb_error(sd->ic, steam_api_error_str(err));
-}
-
 static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
-    SteamData        *sd = ic->proto_data;
-    SteamMessageType  type;
+    SteamData    *sd = ic->proto_data;
+    SteamMessage  sm;
 
     g_return_val_if_fail(sd != NULL, 0);
+
+    memset(&sm, 0, sizeof sm);
+    sm.steamid = to;
 
     if(g_str_has_prefix(message, "/me")) {
         if(strlen(message) < 5)
             return 0;
 
-        type     = STEAM_MESSAGE_TYPE_EMOTE;
-        message += 4;
+        sm.type = STEAM_MESSAGE_TYPE_EMOTE;
+        sm.text = message + 4;
     } else {
-        type = STEAM_MESSAGE_TYPE_SAYTEXT;
+        sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
+        sm.text = message;
     }
 
-    steam_api_message(sd->api, to, message, type, steam_message_cb, sd);
+    steam_api_message(sd->api, &sm, steam_message_cb, sd);
     return 0;
 }
 
@@ -445,11 +449,16 @@ static void steam_set_away(struct im_connection *ic, char *state,
 
 static int steam_send_typing(struct im_connection *ic, char *who, int flags)
 {
-    SteamData *sd = ic->proto_data;
+    SteamData    *sd = ic->proto_data;
+    SteamMessage  sm;
 
     g_return_val_if_fail(sd != NULL, 0);
 
-    steam_api_message(sd->api, who, NULL, STEAM_MESSAGE_TYPE_TYPING, NULL, sd);
+    memset(&sm, 0, sizeof sm);
+    sm.type    = STEAM_MESSAGE_TYPE_TYPING;
+    sm.steamid = who;
+
+    steam_api_message(sd->api, &sm, steam_message_cb, sd);
     return 0;
 }
 

@@ -654,26 +654,39 @@ void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
                   steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data));
 }
 
-void steam_api_message(SteamAPI *api, const gchar *steamid,
-                       const gchar *message, SteamMessageType type,
-                       SteamAPIFunc func, gpointer data)
+void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
+                       gpointer data)
 {
-    gchar *stype;
+    gint i;
 
-    g_return_if_fail(api     != NULL);
-    g_return_if_fail(steamid != NULL);
-
-    stype = steam_message_type_str(type);
+    g_return_if_fail(api != NULL);
+    g_return_if_fail(sm  != NULL);
 
     SteamPair ps[5] = {
         {"access_token", api->token},
         {"umqid",        api->umqid},
-        {"steamid_dst",  steamid},
-        {"type",         stype},
-        {"text",         message}
+        {"steamid_dst",  sm->steamid},
+        {"type",         steam_message_type_str(sm->type)}
     };
 
-    steam_api_req(STEAM_PATH_MESSAGE, ps, 5, TRUE, TRUE,
+    i = 4;
+
+    switch(sm->type) {
+    case STEAM_MESSAGE_TYPE_SAYTEXT:
+    case STEAM_MESSAGE_TYPE_EMOTE:
+        ps[i].key   = "text";
+        ps[i].value = sm->text;
+        i++;
+        break;
+
+    case STEAM_MESSAGE_TYPE_TYPING:
+        break;
+
+    default:
+        return;
+    }
+
+    steam_api_req(STEAM_PATH_MESSAGE, ps, i, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_MESSAGE, api, func, data));
 }
 
