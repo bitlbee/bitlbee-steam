@@ -34,7 +34,7 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 
     sd->ml_id = 0;
 
-    if(sd->poll)
+    if (sd->poll)
         steam_api_poll(sd->api, steam_poll_cb, sd);
 
     return FALSE;
@@ -50,7 +50,7 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
 
     g_return_if_fail(sd != NULL);
 
-    switch(err) {
+    switch (err) {
     case STEAM_ERROR_SUCCESS:
         set_setstr(&sd->ic->acc->set, "token", api->token);
 
@@ -67,8 +67,8 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
     case STEAM_ERROR_REQ_AUTH_CODE:
         acc = sd->ic->acc->bee->accounts;
 
-        for(i = 0; acc != NULL; acc = acc->next, i++) {
-            if(sd->ic->acc == acc)
+        for (i = 0; acc != NULL; acc = acc->next, i++) {
+            if (sd->ic->acc == acc)
                 break;
         }
 
@@ -90,7 +90,7 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
 
     g_return_if_fail(sd != NULL);
 
-    if(err != STEAM_ERROR_SUCCESS) {
+    if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         imc_logout(sd->ic, TRUE);
         return;
@@ -105,7 +105,7 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
 
     g_return_if_fail(sd != NULL);
 
-    if(err != STEAM_ERROR_SUCCESS) {
+    if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         imc_logout(sd->ic, TRUE);
         return;
@@ -131,7 +131,7 @@ static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data)
 
     g_return_if_fail(sd != NULL);
 
-    if(err == STEAM_ERROR_SUCCESS) {
+    if (err == STEAM_ERROR_SUCCESS) {
         steam_api_poll(sd->api, steam_poll_cb, sd);
         return;
     }
@@ -155,7 +155,7 @@ static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
 
     g_return_if_fail(sd != NULL);
 
-    if(err != STEAM_ERROR_SUCCESS)
+    if (err != STEAM_ERROR_SUCCESS)
         imcb_error(sd->ic, steam_api_error_str(err));
 }
 
@@ -174,28 +174,28 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
 
     g_return_if_fail(sd != NULL);
 
-    if(!sd->poll)
+    if (!sd->poll)
         return;
 
-    if(err == STEAM_ERROR_HTTP_GENERIC) {
+    if (err == STEAM_ERROR_HTTP_GENERIC) {
         steam_api_logon(api, steam_renew_cb, sd);
         return;
     }
 
-    if(err != STEAM_ERROR_SUCCESS) {
+    if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         imc_logout(sd->ic, TRUE);
         return;
     }
 
-    for(l = m_updates; l != NULL; l = l->next) {
+    for (l = m_updates; l != NULL; l = l->next) {
         sm  = l->data;
         ts |= sm->type;
 
-        switch(sm->type) {
+        switch (sm->type) {
         case STEAM_MESSAGE_TYPE_EMOTE:
         case STEAM_MESSAGE_TYPE_SAYTEXT:
-            if(sm->type == STEAM_MESSAGE_TYPE_EMOTE)
+            if (sm->type == STEAM_MESSAGE_TYPE_EMOTE)
                 m = g_strconcat("/me ", sm->text, NULL);
             else
                 m = g_strdup(sm->text);
@@ -211,8 +211,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
             break;
 
         case STEAM_MESSAGE_TYPE_STATE:
-            if(sm->state == STEAM_STATE_OFFLINE) {
-                if(imcb_buddy_by_handle(sd->ic, sm->steamid) != NULL)
+            if (sm->state == STEAM_STATE_OFFLINE) {
+                if (imcb_buddy_by_handle(sd->ic, sm->steamid) != NULL)
                     imcb_buddy_status(sd->ic, sm->steamid, OPT_LOGGING_OUT,
                                       NULL, NULL);
 
@@ -223,7 +223,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
             m = steam_state_str(sm->state);
             f = OPT_LOGGED_IN;
 
-            if(sm->state != STEAM_STATE_ONLINE)
+            if (sm->state != STEAM_STATE_ONLINE)
                 f |= OPT_AWAY;
 
             imcb_add_buddy(sd->ic, sm->steamid, NULL);
@@ -234,10 +234,10 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
         case STEAM_MESSAGE_TYPE_TYPING:
             bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
 
-            if(bu == NULL)
+            if (bu == NULL)
                 break;
 
-            if(bu->flags & OPT_TYPING)
+            if (bu->flags & OPT_TYPING)
                 imcb_buddy_typing(sd->ic, sm->steamid, 0);
             else
                 imcb_buddy_typing(sd->ic, sm->steamid, OPT_TYPING);
@@ -245,12 +245,12 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
         }
     }
 
-    if((ts & STEAM_MESSAGE_TYPE_EMOTE) || (ts & STEAM_MESSAGE_TYPE_SAYTEXT)) {
+    if ((ts & STEAM_MESSAGE_TYPE_EMOTE) || (ts & STEAM_MESSAGE_TYPE_SAYTEXT)) {
         sd->timeout = 3;
-    } else if(ts & STEAM_MESSAGE_TYPE_TYPING) {
+    } else if (ts & STEAM_MESSAGE_TYPE_TYPING) {
         sd->timeout = 2;
     } else {
-        if(sd->timeout < 20)
+        if (sd->timeout < 20)
             sd->timeout++;
     }
 
@@ -270,25 +270,25 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
 
     g_return_if_fail(sd != NULL);
 
-    if(err != STEAM_ERROR_SUCCESS) {
+    if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         imc_logout(sd->ic, TRUE);
         return;
     }
 
-    if(!(sd->ic->flags & OPT_LOGGED_IN))
+    if (!(sd->ic->flags & OPT_LOGGED_IN))
         imcb_connected(sd->ic);
 
-    for(l = m_updates; l != NULL; l = l->next) {
+    for (l = m_updates; l != NULL; l = l->next) {
         ss = l->data;
 
-        if(ss->state == STEAM_STATE_OFFLINE)
+        if (ss->state == STEAM_STATE_OFFLINE)
             continue;
 
         m  = steam_state_str(ss->state);
         f  = OPT_LOGGED_IN;
 
-        if(ss->state != STEAM_STATE_ONLINE)
+        if (ss->state != STEAM_STATE_ONLINE)
             f |= OPT_AWAY;
 
         imcb_add_buddy(sd->ic, ss->steamid, NULL);
@@ -296,7 +296,7 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
         imcb_buddy_status(sd->ic, ss->steamid, f, m, NULL);
     }
 
-    if(sd->poll)
+    if (sd->poll)
         return;
 
     sd->poll = TRUE;
@@ -311,23 +311,23 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries,
 
     g_return_if_fail(sd != NULL);
 
-    if(err != STEAM_ERROR_SUCCESS) {
+    if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
         return;
     }
 
     ss = summaries->data;
 
-    if(ss->name != NULL)
+    if (ss->name != NULL)
         imcb_log(sd->ic, "Name:      %s", ss->name);
 
-    if(ss->realname != NULL)
+    if (ss->realname != NULL)
         imcb_log(sd->ic, "Real Name: %s", ss->realname);
 
     imcb_log(sd->ic, "Steam ID:  %s", ss->steamid);
     imcb_log(sd->ic, "Status:    %s", steam_state_str(ss->state));
 
-    if(ss->profile != NULL)
+    if (ss->profile != NULL)
         imcb_log(sd->ic, "Profile:   %s", ss->profile);
 }
 
@@ -376,7 +376,7 @@ static void steam_login(account_t *acc)
     imcb_log(sd->ic, "Connecting");
     sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
 
-    if(sd->api->token == NULL) {
+    if (sd->api->token == NULL) {
         steam_api_auth(sd->api, NULL, acc->user, acc->pass, steam_auth_cb, sd);
         return;
     }
@@ -393,10 +393,10 @@ static void steam_logout(struct im_connection *ic)
 
     sd->poll = FALSE;
 
-    if(sd->ml_id >= 1)
+    if (sd->ml_id >= 1)
         b_event_remove(sd->ml_id);
 
-    if(ic->flags & OPT_LOGGING_OUT) {
+    if (ic->flags & OPT_LOGGING_OUT) {
         steam_api_free_cs(sd->api);
         steam_api_logoff(sd->api, steam_logoff_cb, sd);
     } else {
@@ -426,8 +426,8 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
     memset(&sm, 0, sizeof sm);
     sm.steamid = to;
 
-    if(g_str_has_prefix(message, "/me")) {
-        if(strlen(message) < 5)
+    if (g_str_has_prefix(message, "/me")) {
+        if (strlen(message) < 5)
             return 0;
 
         sm.type = STEAM_MESSAGE_TYPE_EMOTE;
