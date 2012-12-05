@@ -75,6 +75,7 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
         imcb_log(sd->ic, "SteamGuard requires an authentication code");
         imcb_log(sd->ic, "An authentication code has been emailed to you");
         imcb_log(sd->ic, "Run: account %d set authcode <code>", i);
+        imc_logout(sd->ic, FALSE);
         break;
 
     default:
@@ -338,13 +339,19 @@ static char *steam_eval_authcode(set_t *set, char *value)
 
     g_return_val_if_fail(acc != NULL, value);
 
-    sd = acc->ic->proto_data;
+    if ((acc->ic != NULL) && (acc->ic->flags & OPT_LOGGED_IN))
+        return NULL;
 
-    g_return_if_fail(sd != NULL);
+    /* Some hackery to auto connect upon authcode entry */
 
-    imcb_log(sd->ic, "Authenticating");
-    steam_api_auth(sd->api, value, acc->user, acc->pass,
-                   steam_auth_cb, sd);
+    g_free(set->value);
+    set->value = g_strdup(value);
+
+    account_on(acc->bee, acc);
+
+    g_free(set->value);
+    set->value = NULL;
+
     return NULL;
 }
 
@@ -365,8 +372,8 @@ static void steam_init(account_t *acc)
 static void steam_login(account_t *acc)
 {
     SteamData *sd;
-    GRand     *rand;
     gchar     *umqid;
+    gchar     *acode;
 
     umqid = set_getstr(&acc->set, "umqid");
     sd    = steam_data_new(acc, umqid);
@@ -376,13 +383,16 @@ static void steam_login(account_t *acc)
     imcb_log(sd->ic, "Connecting");
     sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
 
-    if (sd->api->token == NULL) {
-        steam_api_auth(sd->api, NULL, acc->user, acc->pass, steam_auth_cb, sd);
+    if (sd->api->token != NULL) {
+        imcb_log(sd->ic, "Resetting UMQID");
+        steam_api_logoff(sd->api, steam_reset_cb, sd);
         return;
     }
 
-    imcb_log(sd->ic, "Resetting UMQID");
-    steam_api_logoff(sd->api, steam_reset_cb, sd);
+    acode = set_getstr(&acc->set, "authcode");
+
+    imcb_log(sd->ic, "Requesting token");
+    steam_api_auth(sd->api, acode, acc->user, acc->pass, steam_auth_cb, sd);
 }
 
 static void steam_logout(struct im_connection *ic)
