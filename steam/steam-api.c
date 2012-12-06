@@ -413,6 +413,9 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
         ss = g_new0(SteamSummary, 1);
         ss->steamid = xe->text;
 
+        if (steam_xt_node_get(xn, "gameextrainfo", &xe))
+            ss->game = xe->text;
+
         if (steam_xt_node_get(xn, "personaname", &xe))
             ss->name = xe->text;
 

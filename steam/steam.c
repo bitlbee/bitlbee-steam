@@ -322,6 +322,9 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries,
     if (ss->name != NULL)
         imcb_log(sd->ic, "Name:      %s", ss->name);
 
+    if (ss->game != NULL)
+        imcb_log(sd->ic, "Playing:   %s", ss->game);
+
     if (ss->realname != NULL)
         imcb_log(sd->ic, "Real Name: %s", ss->realname);
 
