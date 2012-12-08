@@ -95,8 +95,11 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
 
     if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
-        imc_logout(sd->ic, TRUE);
-        return;
+
+        if (err != STEAM_ERROR_EMPTY_FRIENDS) {
+            imc_logout(sd->ic, TRUE);
+            return;
+        }
     }
 
     for (fl = friends; fl != NULL; fl = fl->next)

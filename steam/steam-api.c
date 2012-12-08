@@ -173,16 +173,17 @@ static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
     GSList         *fl;
+    SteamError      err;
 
     fl = NULL;
 
     if (!steam_util_xt_node(xr, "friends", &xn)) {
-        steam_list_func(fp, fl, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, fl, STEAM_ERROR_EMPTY_FRIENDS);
         return;
     }
 
     if (xn->children == NULL) {
-        steam_list_func(fp, fl, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, fl, STEAM_ERROR_EMPTY_FRIENDS);
         return;
     }
 
@@ -199,7 +200,9 @@ static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
         fl = g_slist_append(fl, xe->text);
     }
 
-    steam_list_func(fp, fl, STEAM_ERROR_SUCCESS);
+    err = (fl != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_FRIENDS;
+
+    steam_list_func(fp, fl, err);
     g_slist_free(fl);
 }
 
@@ -366,9 +369,11 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
 static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
+    GSList         *mu;
+    SteamSummary   *ss;
+    SteamError      err;
 
-    GSList       *mu = NULL;
-    SteamSummary *ss;
+    mu = NULL;
 
     if (!steam_util_xt_node(xr, "players", &xn)) {
         steam_list_func(fp, NULL, STEAM_ERROR_EMPTY_SUMMARY);
@@ -407,10 +412,8 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
         mu = g_slist_append(mu, ss);
     }
 
-    if (mu != NULL)
-        steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
-    else
-        steam_list_func(fp, mu, STEAM_ERROR_EMPTY_SUMMARY);
+    err = (mu != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_SUMMARY;
+    steam_list_func(fp, mu, err);
 }
 
 static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
@@ -763,6 +766,7 @@ gchar *steam_api_error_str(SteamError err)
 
     strs[STEAM_ERROR_SUCCESS]             = "Success";
 
+    strs[STEAM_ERROR_EMPTY_FRIENDS]       = "Empty friends list";
     strs[STEAM_ERROR_EMPTY_MESSAGE]       = "Empty message";
     strs[STEAM_ERROR_EMPTY_STEAMID]       = "Empty SteamID";
     strs[STEAM_ERROR_EMPTY_SUMMARY]       = "Empty summary "
