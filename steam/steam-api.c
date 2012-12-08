@@ -413,14 +413,16 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
         ss = g_new0(SteamSummary, 1);
         ss->steamid = xe->text;
 
-        if (steam_xt_node_get(xn, "gameextrainfo", &xe))
-            ss->game = xe->text;
+        if (steam_xt_node_get(xn, "gameextrainfo", &xe)) {
+            ss->state = STEAM_STATE_PLAYING;
+            ss->game  = xe->text;
+        } else {
+            if (steam_xt_node_get(xn, "personastate", &xe))
+                ss->state = g_ascii_strtoll(xe->text, NULL, 10);
+        }
 
         if (steam_xt_node_get(xn, "personaname", &xe))
             ss->name = xe->text;
-
-        if (steam_xt_node_get(xn, "personastate", &xe))
-            ss->state = g_ascii_strtoll(xe->text, NULL, 10);
 
         if (steam_xt_node_get(xn, "profileurl", &xe))
             ss->profile = xe->text;
@@ -766,7 +768,7 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
     }
 }
 
-void steam_api_summary(SteamAPI *api, gchar *steamid, SteamListFunc func,
+void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
                        gpointer data)
 {
     g_return_if_fail(api     != NULL);
@@ -845,6 +847,7 @@ gchar *steam_state_str(SteamState state)
     strs[STEAM_STATE_BUSY]    = "Busy";
     strs[STEAM_STATE_AWAY]    = "Away";
     strs[STEAM_STATE_SNOOZE]  = "Snooze";
+    strs[STEAM_STATE_PLAYING] = "Playing";
 
     return strs[state];
 }

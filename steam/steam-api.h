@@ -77,6 +77,7 @@ enum _SteamState
     STEAM_STATE_BUSY    = 2,
     STEAM_STATE_AWAY    = 3,
     STEAM_STATE_SNOOZE  = 4,
+    STEAM_STATE_PLAYING = 5,
 
     STEAM_STATE_LAST
 };
@@ -149,7 +150,7 @@ void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data);
 void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
                         gpointer data);
 
-void steam_api_summary(SteamAPI *api, gchar *steamid, SteamListFunc func,
+void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
                        gpointer data);
 
 gchar *steam_api_error_str(SteamError err);

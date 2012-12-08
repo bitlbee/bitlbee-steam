@@ -1,0 +1,74 @@
+/*
+ * Copyright 2012 James Geboski <jgeboski@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <string.h>
+
+#include "steam-util.h"
+
+void steam_util_buddy_status_ss(struct im_connection *ic, SteamSummary *ss)
+{
+    bee_user_t    *bu;
+    irc_channel_t *ircc;
+    irc_user_t    *ircu;
+
+    gint   f;
+    gchar *m;
+
+    g_return_if_fail(ic != NULL);
+    g_return_if_fail(ss != NULL);
+
+    bu = bee_user_by_handle(ic->bee, ic, ss->steamid);
+
+    if (ss->state == STEAM_STATE_OFFLINE) {
+        if (bu != NULL)
+            imcb_buddy_status(ic, ss->steamid, OPT_LOGGING_OUT, NULL, NULL);
+
+        imcb_remove_buddy(ic, ss->steamid, NULL);
+        return;
+    }
+
+    if (bu == NULL)
+        bu = bee_user_new(ic->bee, ic, ss->steamid, 0);
+
+    f = OPT_LOGGED_IN;
+    m = steam_state_str(ss->state);
+
+    if (ss->state != STEAM_STATE_ONLINE)
+        f |= OPT_AWAY;
+
+    imcb_buddy_nick_hint(ic, ss->steamid, ss->name);
+    imcb_buddy_status(ic, ss->steamid, f, m, ss->game);
+
+    ircu = bu->ui_data;
+    ircc = ircu->irc->default_channel;
+
+    if (ss->state == STEAM_STATE_PLAYING)
+        irc_channel_user_set_mode(ircc, ircu, IRC_CHANNEL_USER_HALFOP);
+}
+
+void steam_util_buddy_status_sm(struct im_connection *ic, SteamMessage *sm)
+{
+    SteamSummary ss;
+
+    memset(&ss, 0, sizeof ss);
+
+    ss.state   = sm->state;
+    ss.steamid = sm->steamid;
+    ss.name    = sm->name;
+
+    steam_util_buddy_status_ss(ic, &ss);
+}

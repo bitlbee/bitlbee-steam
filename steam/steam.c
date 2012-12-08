@@ -16,6 +16,7 @@
  */
 
 #include "steam.h"
+#include "steam-util.h"
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data);
 
@@ -212,24 +213,10 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
             break;
 
         case STEAM_MESSAGE_TYPE_STATE:
-            if (sm->state == STEAM_STATE_OFFLINE) {
-                if (imcb_buddy_by_handle(sd->ic, sm->steamid) != NULL)
-                    imcb_buddy_status(sd->ic, sm->steamid, OPT_LOGGING_OUT,
-                                      NULL, NULL);
-
-                imcb_remove_buddy(sd->ic, sm->steamid, NULL);
-                break;
-            }
-
-            m = steam_state_str(sm->state);
-            f = OPT_LOGGED_IN;
-
-            if (sm->state != STEAM_STATE_ONLINE)
-                f |= OPT_AWAY;
-
-            imcb_add_buddy(sd->ic, sm->steamid, NULL);
-            imcb_buddy_nick_hint(sd->ic, sm->steamid, sm->name);
-            imcb_buddy_status(sd->ic, sm->steamid, f, m, NULL);
+            if (sm->state == STEAM_STATE_OFFLINE)
+                steam_util_buddy_status_sm(sd->ic, sm);
+            else
+                steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
             break;
 
         case STEAM_MESSAGE_TYPE_TYPING:
@@ -261,13 +248,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
 static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
                                SteamError err, gpointer data)
 {
-    SteamData    *sd = data;
-    SteamSummary *ss;
-
-    GSList *l;
-
-    gint   f;
-    gchar *m;
+    SteamData *sd = data;
+    GSList    *l;
 
     g_return_if_fail(sd != NULL);
 
@@ -280,22 +262,8 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
     if (!(sd->ic->flags & OPT_LOGGED_IN))
         imcb_connected(sd->ic);
 
-    for (l = m_updates; l != NULL; l = l->next) {
-        ss = l->data;
-
-        if (ss->state == STEAM_STATE_OFFLINE)
-            continue;
-
-        m  = steam_state_str(ss->state);
-        f  = OPT_LOGGED_IN;
-
-        if (ss->state != STEAM_STATE_ONLINE)
-            f |= OPT_AWAY;
-
-        imcb_add_buddy(sd->ic, ss->steamid, NULL);
-        imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->name);
-        imcb_buddy_status(sd->ic, ss->steamid, f, m, NULL);
-    }
+    for (l = m_updates; l != NULL; l = l->next)
+        steam_util_buddy_status_ss(sd->ic, l->data);
 
     if (sd->poll)
         return;
