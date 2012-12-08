@@ -15,25 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <glib-object.h>
+#include <http_client.h>
 #include <string.h>
 
-#include <bitlbee.h>
-#include <http_client.h>
-
 #include "steam-api.h"
-#include "xmltree.h"
+#include "steam-util.h"
 
 global_t global;
-
-#ifndef g_slist_free_full
-void g_slist_free_full(GSList *list, GDestroyNotify free_func)
-{
-    g_slist_foreach(list, (GFunc) free_func, NULL);
-    g_slist_free(list);
-}
-#endif
-
 
 #define steam_api_func(p, e) G_STMT_START {                  \
     if (p->func != NULL)                                     \
@@ -96,13 +84,6 @@ static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
     fp->data = data;
 
     return fp;
-}
-
-static gboolean steam_xt_node_get(struct xt_node *xr, const gchar *name,
-                                  struct xt_node **xn)
-{
-    *xn = xt_find_node(xr->children, name);
-    return (*xn != NULL);
 }
 
 SteamAPI *steam_api_new(const gchar *umqid)
@@ -170,12 +151,12 @@ static void steam_api_auth_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn;
 
-    if (steam_xt_node_get(xr, "access_token", &xn)) {
+    if (steam_util_xt_node(xr, "access_token", &xn)) {
         g_free(fp->api->token);
         fp->api->token = g_strdup(xn->text);
 
         steam_api_func(fp, STEAM_ERROR_SUCCESS);
-    } else if (steam_xt_node_get(xr, "x_errorcode", &xn)) {
+    } else if (steam_util_xt_node(xr, "x_errorcode", &xn)) {
         if (!g_strcmp0("incorrect_login", xn->text))
             steam_api_func(fp, STEAM_ERROR_INVALID_LOGON);
         else if (!g_strcmp0("invalid_steamguard_code", xn->text))
@@ -196,7 +177,7 @@ static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
     g_slist_free_full(fp->api->friends, g_free);
     fp->api->friends = NULL;
 
-    if (!steam_xt_node_get(xr, "friends", &xn)) {
+    if (!steam_util_xt_node(xr, "friends", &xn)) {
         steam_list_func(fp, fp->api->friends, STEAM_ERROR_SUCCESS);
         return;
     }
@@ -207,13 +188,13 @@ static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
     }
 
     for (xn = xn->children; xn != NULL; xn = xn->next) {
-        if (!steam_xt_node_get(xn, "relationship", &xe))
+        if (!steam_util_xt_node(xn, "relationship", &xe))
             continue;
 
         if (g_strcmp0(xe->text, "friend"))
             continue;
 
-        if (!steam_xt_node_get(xn, "steamid", &xe))
+        if (!steam_util_xt_node(xn, "steamid", &xe))
             continue;
 
         fp->api->friends = g_slist_append(fp->api->friends,
@@ -227,7 +208,7 @@ static void steam_api_logon_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn;
 
-    if (!steam_xt_node_get(xr, "umqid", &xn)) {
+    if (!steam_util_xt_node(xr, "umqid", &xn)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_UMQID);
         return;
     }
@@ -237,7 +218,7 @@ static void steam_api_logon_cb(SteamFuncPair *fp, struct xt_node *xr)
         return;
     }
 
-    if (!steam_xt_node_get(xr, "steamid", &xn)) {
+    if (!steam_util_xt_node(xr, "steamid", &xn)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_STEAMID);
         return;
     }
@@ -245,7 +226,7 @@ static void steam_api_logon_cb(SteamFuncPair *fp, struct xt_node *xr)
     g_free(fp->api->steamid);
     fp->api->steamid = g_strdup(xn->text);
 
-    if (!steam_xt_node_get(xr, "message", &xn)) {
+    if (!steam_util_xt_node(xr, "message", &xn)) {
         steam_api_func(fp, STEAM_ERROR_EMPTY_MESSAGE);
         return;
     }
@@ -260,7 +241,7 @@ static void steam_api_logoff_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn;
 
-    if (!steam_xt_node_get(xr, "error", &xn)) {
+    if (!steam_util_xt_node(xr, "error", &xn)) {
         steam_api_func(fp, STEAM_ERROR_FAILED_LOGOFF);
         return;
     }
@@ -277,7 +258,7 @@ static void steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn;
 
-    if (!steam_xt_node_get(xr, "error", &xn)) {
+    if (!steam_util_xt_node(xr, "error", &xn)) {
         steam_api_func(fp, STEAM_ERROR_FAILED_MESSAGE_SEND);
         return;
     }
@@ -298,7 +279,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     GSList *mu = NULL;
     GSList *fl;
 
-    if (!steam_xt_node_get(xr, "messagelast", &xn)) {
+    if (!steam_util_xt_node(xr, "messagelast", &xn)) {
         steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
@@ -311,7 +292,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     g_free(fp->api->lmid);
     fp->api->lmid = g_strdup(xn->text);
 
-    if (!steam_xt_node_get(xr, "messages", &xn)) {
+    if (!steam_util_xt_node(xr, "messages", &xn)) {
         steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
         return;
     }
@@ -322,7 +303,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     }
 
     for (xn = xn->children; xn != NULL; xn = xn->next) {
-        if (!steam_xt_node_get(xn, "steamid_from", &xe))
+        if (!steam_util_xt_node(xn, "steamid_from", &xe))
             continue;
 
         if (!g_strcmp0(fp->api->steamid, xe->text))
@@ -337,13 +318,13 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
         sm = g_new0(SteamMessage, 1);
         sm->steamid = xe->text;
 
-        if (!steam_xt_node_get(xn, "type", &xe)) {
+        if (!steam_util_xt_node(xn, "type", &xe)) {
             g_free(sm);
             continue;
         }
 
         if (!g_strcmp0("emote", xe->text)) {
-            if (!steam_xt_node_get(xn, "text", &xe)) {
+            if (!steam_util_xt_node(xn, "text", &xe)) {
                 g_free(sm);
                 continue;
             }
@@ -353,7 +334,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
         } else if (!g_strcmp0("leftconversation", xe->text)) {
             sm->type = STEAM_MESSAGE_TYPE_LEFT_CONV;
         } else if (!g_strcmp0("saytext", xe->text)) {
-            if (!steam_xt_node_get(xn, "text", &xe)) {
+            if (!steam_util_xt_node(xn, "text", &xe)) {
                 g_free(sm);
                 continue;
             }
@@ -363,14 +344,14 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
         } else if (!g_strcmp0("typing", xe->text)) {
             sm->type = STEAM_MESSAGE_TYPE_TYPING;
         } else if (!g_strcmp0("personastate", xe->text)) {
-            if (!steam_xt_node_get(xn, "persona_name", &xe)) {
+            if (!steam_util_xt_node(xn, "persona_name", &xe)) {
                 g_free(sm);
                 continue;
             }
 
             sm->name = xe->text;
 
-            if (!steam_xt_node_get(xn, "persona_state", &xe)) {
+            if (!steam_util_xt_node(xn, "persona_state", &xe)) {
                 g_free(sm);
                 continue;
             }
@@ -396,7 +377,7 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
     GSList       *mu = NULL;
     SteamSummary *ss;
 
-    if (!steam_xt_node_get(xr, "players", &xn)) {
+    if (!steam_util_xt_node(xr, "players", &xn)) {
         steam_list_func(fp, NULL, STEAM_ERROR_EMPTY_SUMMARY);
         return;
     }
@@ -407,27 +388,27 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
     }
 
     for (xn = xn->children; xn != NULL; xn = xn->next) {
-        if (!steam_xt_node_get(xn, "steamid", &xe))
+        if (!steam_util_xt_node(xn, "steamid", &xe))
             continue;
 
         ss = g_new0(SteamSummary, 1);
         ss->steamid = xe->text;
 
-        if (steam_xt_node_get(xn, "gameextrainfo", &xe)) {
+        if (steam_util_xt_node(xn, "gameextrainfo", &xe)) {
             ss->state = STEAM_STATE_PLAYING;
             ss->game  = xe->text;
         } else {
-            if (steam_xt_node_get(xn, "personastate", &xe))
+            if (steam_util_xt_node(xn, "personastate", &xe))
                 ss->state = g_ascii_strtoll(xe->text, NULL, 10);
         }
 
-        if (steam_xt_node_get(xn, "personaname", &xe))
+        if (steam_util_xt_node(xn, "personaname", &xe))
             ss->name = xe->text;
 
-        if (steam_xt_node_get(xn, "profileurl", &xe))
+        if (steam_util_xt_node(xn, "profileurl", &xe))
             ss->profile = xe->text;
 
-        if (steam_xt_node_get(xn, "realname", &xe))
+        if (steam_util_xt_node(xn, "realname", &xe))
             ss->realname = xe->text;
 
         mu = g_slist_append(mu, ss);

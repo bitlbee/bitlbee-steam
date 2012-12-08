@@ -19,6 +19,14 @@
 
 #include "steam-util.h"
 
+#ifndef g_slist_free_full
+void g_slist_free_full(GSList *list, GDestroyNotify free_func)
+{
+    g_slist_foreach(list, (GFunc) free_func, NULL);
+    g_slist_free(list);
+}
+#endif
+
 void steam_util_buddy_status_ss(struct im_connection *ic, SteamSummary *ss)
 {
     bee_user_t    *bu;
@@ -71,4 +79,11 @@ void steam_util_buddy_status_sm(struct im_connection *ic, SteamMessage *sm)
     ss.name    = sm->name;
 
     steam_util_buddy_status_ss(ic, &ss);
+}
+
+gboolean steam_util_xt_node(struct xt_node *xr, const gchar *name,
+                            struct xt_node **xn)
+{
+    *xn = xt_find_node(xr->children, name);
+    return (*xn != NULL);
 }
