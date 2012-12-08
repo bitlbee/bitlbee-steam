@@ -41,16 +41,13 @@ void steam_util_buddy_status_ss(struct im_connection *ic, SteamSummary *ss)
 
     bu = bee_user_by_handle(ic->bee, ic, ss->steamid);
 
-    if (ss->state == STEAM_STATE_OFFLINE) {
-        if (bu != NULL)
-            imcb_buddy_status(ic, ss->steamid, OPT_LOGGING_OUT, NULL, NULL);
+    if (bu == NULL)
+        return;
 
-        imcb_remove_buddy(ic, ss->steamid, NULL);
+    if (ss->state == STEAM_STATE_OFFLINE) {
+        imcb_buddy_status(ic, ss->steamid, 0, NULL, NULL);
         return;
     }
-
-    if (bu == NULL)
-        bu = bee_user_new(ic->bee, ic, ss->steamid, 0);
 
     f = OPT_LOGGED_IN;
     m = steam_state_str(ss->state);
@@ -58,7 +55,6 @@ void steam_util_buddy_status_ss(struct im_connection *ic, SteamSummary *ss)
     if (ss->state != STEAM_STATE_ONLINE)
         f |= OPT_AWAY;
 
-    imcb_buddy_nick_hint(ic, ss->steamid, ss->name);
     imcb_buddy_status(ic, ss->steamid, f, m, ss->game);
 
     ircu = bu->ui_data;

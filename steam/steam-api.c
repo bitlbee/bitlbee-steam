@@ -136,7 +136,6 @@ void steam_api_free(SteamAPI *api)
 {
     g_return_if_fail(api != NULL);
 
-    g_slist_free_full(api->friends, g_free);
     steam_api_free_cs(api);
 
     g_free(api->token);
@@ -173,17 +172,17 @@ static void steam_api_auth_cb(SteamFuncPair *fp, struct xt_node *xr)
 static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
+    GSList         *fl;
 
-    g_slist_free_full(fp->api->friends, g_free);
-    fp->api->friends = NULL;
+    fl = NULL;
 
     if (!steam_util_xt_node(xr, "friends", &xn)) {
-        steam_list_func(fp, fp->api->friends, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, fl, STEAM_ERROR_SUCCESS);
         return;
     }
 
     if (xn->children == NULL) {
-        steam_list_func(fp, fp->api->friends, STEAM_ERROR_SUCCESS);
+        steam_list_func(fp, fl, STEAM_ERROR_SUCCESS);
         return;
     }
 
@@ -197,11 +196,11 @@ static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
         if (!steam_util_xt_node(xn, "steamid", &xe))
             continue;
 
-        fp->api->friends = g_slist_append(fp->api->friends,
-                                          g_strdup(xe->text));
+        fl = g_slist_append(fl, xe->text);
     }
 
-    steam_list_func(fp, fp->api->friends, STEAM_ERROR_SUCCESS);
+    steam_list_func(fp, fl, STEAM_ERROR_SUCCESS);
+    g_slist_free(fl);
 }
 
 static void steam_api_logon_cb(SteamFuncPair *fp, struct xt_node *xr)
@@ -275,9 +274,9 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
     SteamMessage   *sm;
+    GSList         *mu;
 
-    GSList *mu = NULL;
-    GSList *fl;
+    mu = NULL;
 
     if (!steam_util_xt_node(xr, "messagelast", &xn)) {
         steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
@@ -307,12 +306,6 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
             continue;
 
         if (!g_strcmp0(fp->api->steamid, xe->text))
-            continue;
-
-        fl = g_slist_find_custom(fp->api->friends, xe->text,
-                                 (GCompareFunc) g_strcmp0);
-
-        if (fl == NULL)
             continue;
 
         sm = g_new0(SteamMessage, 1);
@@ -704,9 +697,6 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
     gchar *p;
 
     g_return_if_fail(api != NULL);
-
-    if (friends == NULL)
-        friends = api->friends;
 
     if (friends == NULL) {
         if (func != NULL)

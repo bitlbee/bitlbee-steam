@@ -100,7 +100,6 @@ struct _SteamAPI
     gchar *umqid;
     gchar *lmid;
 
-    GSList *friends;
     GSList *reqs;
 };
 

@@ -89,6 +89,7 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
                              gpointer data)
 {
     SteamData *sd = data;
+    GSList    *fl;
 
     g_return_if_fail(sd != NULL);
 
@@ -98,7 +99,10 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
         return;
     }
 
-    steam_api_summaries(sd->api, NULL, steam_summaries_cb, sd);
+    for (fl = friends; fl != NULL; fl = fl->next)
+        imcb_add_buddy(sd->ic, fl->data, NULL);
+
+    steam_api_summaries(sd->api, friends, steam_summaries_cb, sd);
 }
 
 static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
@@ -191,7 +195,12 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
     }
 
     for (l = m_updates; l != NULL; l = l->next) {
-        sm  = l->data;
+        sm = l->data;
+        bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
+
+        if (bu == NULL)
+            continue;
+
         ts |= sm->type;
 
         switch (sm->type) {
@@ -220,11 +229,6 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
             break;
 
         case STEAM_MESSAGE_TYPE_TYPING:
-            bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
-
-            if (bu == NULL)
-                break;
-
             if (bu->flags & OPT_TYPING)
                 imcb_buddy_typing(sd->ic, sm->steamid, 0);
             else
@@ -248,8 +252,10 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
 static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
                                SteamError err, gpointer data)
 {
-    SteamData *sd = data;
-    GSList    *l;
+    SteamData    *sd = data;
+    SteamSummary *ss;
+    bee_user_t   *bu;
+    GSList       *l;
 
     g_return_if_fail(sd != NULL);
 
@@ -262,8 +268,14 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
     if (!(sd->ic->flags & OPT_LOGGED_IN))
         imcb_connected(sd->ic);
 
-    for (l = m_updates; l != NULL; l = l->next)
-        steam_util_buddy_status_ss(sd->ic, l->data);
+    for (l = m_updates; l != NULL; l = l->next) {
+        ss = l->data;
+
+        if (!sd->poll)
+            imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->name);
+
+        steam_util_buddy_status_ss(sd->ic, ss);
+    }
 
     if (sd->poll)
         return;
