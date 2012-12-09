@@ -27,7 +27,8 @@ void g_slist_free_full(GSList *list, GDestroyNotify free_func)
 }
 #endif
 
-void steam_util_buddy_status_ss(struct im_connection *ic, SteamSummary *ss)
+void steam_util_buddy_status(SteamData *sd, const gchar *steamid,
+                             SteamState state, const gchar *game)
 {
     bee_user_t    *bu;
     irc_channel_t *ircc;
@@ -36,45 +37,58 @@ void steam_util_buddy_status_ss(struct im_connection *ic, SteamSummary *ss)
     gint   f;
     gchar *m;
 
-    g_return_if_fail(ic != NULL);
-    g_return_if_fail(ss != NULL);
+    g_return_if_fail(sd      != NULL);
+    g_return_if_fail(steamid != NULL);
 
-    bu = bee_user_by_handle(ic->bee, ic, ss->steamid);
+    bu = bee_user_by_handle(sd->ic->bee, sd->ic, steamid);
 
     if (bu == NULL)
         return;
 
-    if (ss->state == STEAM_STATE_OFFLINE) {
-        imcb_buddy_status(ic, ss->steamid, 0, NULL, NULL);
+    if (state == STEAM_STATE_OFFLINE) {
+        imcb_buddy_status(sd->ic, steamid, 0, NULL, NULL);
         return;
     }
 
     f = OPT_LOGGED_IN;
-    m = steam_state_str(ss->state);
+    m = steam_state_str(state);
 
-    if (ss->state != STEAM_STATE_ONLINE)
+    if (state != STEAM_STATE_ONLINE)
         f |= OPT_AWAY;
 
-    imcb_buddy_status(ic, ss->steamid, f, m, ss->game);
+    imcb_buddy_status(sd->ic, steamid, f, m, game);
+
+    if (sd->show_playing == STEAM_CHANNEL_USER_OFF)
+        return;
 
     ircu = bu->ui_data;
     ircc = ircu->irc->default_channel;
 
-    if (ss->state == STEAM_STATE_PLAYING)
-        irc_channel_user_set_mode(ircc, ircu, IRC_CHANNEL_USER_HALFOP);
+    if (game != NULL)
+        irc_channel_user_set_mode(ircc, ircu, sd->show_playing);
 }
 
-void steam_util_buddy_status_sm(struct im_connection *ic, SteamMessage *sm)
+gint steam_util_user_mode(gchar *mode)
 {
-    SteamSummary ss;
+    if (mode == NULL)
+        return STEAM_CHANNEL_USER_OFF;
 
-    memset(&ss, 0, sizeof ss);
+    if (is_bool(mode) && !bool2int(mode))
+        return STEAM_CHANNEL_USER_OFF;
 
-    ss.state   = sm->state;
-    ss.steamid = sm->steamid;
-    ss.name    = sm->name;
+    switch (mode[0]) {
+    case '@':
+        return IRC_CHANNEL_USER_OP;
 
-    steam_util_buddy_status_ss(ic, &ss);
+    case '%':
+        return IRC_CHANNEL_USER_HALFOP;
+
+    case '+':
+        return IRC_CHANNEL_USER_VOICE;
+
+    default:
+        return IRC_CHANNEL_USER_NONE;
+    }
 }
 
 gboolean steam_util_xt_node(struct xt_node *xr, const gchar *name,

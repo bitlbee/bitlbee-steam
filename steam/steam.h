@@ -29,10 +29,11 @@ struct _SteamData
     struct im_connection *ic;
     SteamAPI             *api;
 
-    gint  ml_id;
-    guint timeout;
-
+    gint     ml_id;
+    guint    timeout;
     gboolean poll;
+
+    gint show_playing;
 };
 
 

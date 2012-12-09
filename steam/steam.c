@@ -15,6 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+
 #include "steam.h"
 #include "steam-util.h"
 
@@ -225,8 +227,13 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
             break;
 
         case STEAM_MESSAGE_TYPE_STATE:
+            if (sd->show_playing == STEAM_CHANNEL_USER_OFF) {
+                steam_util_buddy_status(sd, sm->steamid, sm->state, NULL);
+                break;
+            }
+
             if (sm->state == STEAM_STATE_OFFLINE)
-                steam_util_buddy_status_sm(sd->ic, sm);
+                steam_util_buddy_status(sd, sm->steamid, sm->state, NULL);
             else
                 steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
             break;
@@ -277,7 +284,7 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
         if (!sd->poll)
             imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->name);
 
-        steam_util_buddy_status_ss(sd->ic, ss);
+        steam_util_buddy_status(sd, ss->steamid, ss->state, ss->game);
     }
 
     if (sd->poll)
@@ -321,7 +328,6 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries,
 static char *steam_eval_authcode(set_t *set, char *value)
 {
     account_t *acc = set->data;
-    SteamData *sd;
 
     g_return_val_if_fail(acc != NULL, value);
 
@@ -341,6 +347,47 @@ static char *steam_eval_authcode(set_t *set, char *value)
     return NULL;
 }
 
+static char *steam_eval_show_playing(set_t *set, char *value)
+{
+    account_t  *acc = set->data;
+    bee_user_t *bu;
+    GSList     *l;
+    gint        p;
+
+    SteamData  *sd;
+    SteamState  s;
+
+    g_return_val_if_fail(acc      != NULL, value);
+    g_return_val_if_fail(acc->bee != NULL, value);
+
+    if (acc->ic == NULL)
+        return value;
+
+    sd = acc->ic->proto_data;
+
+    if (sd == NULL)
+        return value;
+
+    p = steam_util_user_mode(value);
+
+    if (p == sd->show_playing)
+        return value;
+
+    sd->show_playing = p;
+
+    for (l = acc->bee->users; l; l = l->next) {
+        bu = l->data;
+
+        if (!(bu->flags & BEE_USER_ONLINE))
+            continue;
+
+        s = steam_state_from_str(bu->status);
+        steam_util_buddy_status(sd, bu->handle, s, bu->status_msg);
+    }
+
+    return value;
+}
+
 static void steam_init(account_t *acc)
 {
     set_t *s;
@@ -353,21 +400,26 @@ static void steam_init(account_t *acc)
 
     s = set_add(&acc->set, "umqid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN;
+
+    s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
+    s->flags = SET_NULL_OK;
 }
 
 static void steam_login(account_t *acc)
 {
     SteamData *sd;
-    gchar     *umqid;
-    gchar     *acode;
+    gchar     *tmp;
 
-    umqid = set_getstr(&acc->set, "umqid");
-    sd    = steam_data_new(acc, umqid);
+    tmp = set_getstr(&acc->set, "umqid");
+    sd  = steam_data_new(acc, tmp);
 
     set_setstr(&acc->set, "umqid", sd->api->umqid);
+    sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
+
+    tmp              = set_getstr(&acc->set, "show_playing");
+    sd->show_playing = steam_util_user_mode(tmp);
 
     imcb_log(sd->ic, "Connecting");
-    sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
 
     if (sd->api->token != NULL) {
         imcb_log(sd->ic, "Resetting UMQID");
@@ -375,10 +427,10 @@ static void steam_login(account_t *acc)
         return;
     }
 
-    acode = set_getstr(&acc->set, "authcode");
+    tmp = set_getstr(&acc->set, "authcode");
 
     imcb_log(sd->ic, "Requesting token");
-    steam_api_auth(sd->api, acode, acc->user, acc->pass, steam_auth_cb, sd);
+    steam_api_auth(sd->api, tmp, acc->user, acc->pass, steam_auth_cb, sd);
 }
 
 static void steam_logout(struct im_connection *ic)

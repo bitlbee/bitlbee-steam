@@ -392,16 +392,14 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
         ss = g_new0(SteamSummary, 1);
         ss->steamid = xe->text;
 
-        if (steam_util_xt_node(xn, "gameextrainfo", &xe)) {
-            ss->state = STEAM_STATE_PLAYING;
+        if (steam_util_xt_node(xn, "gameextrainfo", &xe))
             ss->game  = xe->text;
-        } else {
-            if (steam_util_xt_node(xn, "personastate", &xe))
-                ss->state = g_ascii_strtoll(xe->text, NULL, 10);
-        }
 
         if (steam_util_xt_node(xn, "personaname", &xe))
             ss->name = xe->text;
+
+        if (steam_util_xt_node(xn, "personastate", &xe))
+            ss->state = g_ascii_strtoll(xe->text, NULL, 10);
 
         if (steam_util_xt_node(xn, "profileurl", &xe))
             ss->profile = xe->text;
@@ -822,7 +820,24 @@ gchar *steam_state_str(SteamState state)
     strs[STEAM_STATE_BUSY]    = "Busy";
     strs[STEAM_STATE_AWAY]    = "Away";
     strs[STEAM_STATE_SNOOZE]  = "Snooze";
-    strs[STEAM_STATE_PLAYING] = "Playing";
 
     return strs[state];
+}
+
+SteamState steam_state_from_str(const gchar *state)
+{
+    gchar *s;
+    guint  i;
+
+    if (state == NULL)
+        return STEAM_STATE_OFFLINE;
+
+    for (i = 0; i < STEAM_STATE_LAST; i++) {
+        s = steam_state_str(i);
+
+        if (!g_ascii_strcasecmp(state, s))
+            return i;
+    }
+
+    return STEAM_STATE_OFFLINE;
 }

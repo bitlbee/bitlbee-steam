@@ -78,7 +78,6 @@ enum _SteamState
     STEAM_STATE_BUSY    = 2,
     STEAM_STATE_AWAY    = 3,
     STEAM_STATE_SNOOZE  = 4,
-    STEAM_STATE_PLAYING = 5,
 
     STEAM_STATE_LAST
 };
@@ -159,5 +158,6 @@ gchar *steam_message_type_str(SteamMessageType type);
 
 gchar *steam_state_str(SteamState state);
 
+SteamState steam_state_from_str(const gchar *state);
 
 #endif /* _STEAM_API_H */

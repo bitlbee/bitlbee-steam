@@ -1,8 +1,11 @@
 Steam for BitlBee is a plugin for the Steam chat protocol.
 
 Usage:
-  ; account add steam <username> <password>
-  ; account <acc> set authcode <code>
+  > account add steam <username> <password>
+  > account <acc> set authcode <code>
+
+Disable game play statuses (default: %):
+  > account <acc> set show_playing false
 
 Building and Installing:
   $ git clone https://github.com/jgeboski/bitlbee-steam.git
