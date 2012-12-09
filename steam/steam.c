@@ -299,6 +299,7 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries,
 {
     SteamData    *sd = data;
     SteamSummary *ss;
+    gchar        *url;
 
     g_return_if_fail(sd != NULL);
 
@@ -314,6 +315,11 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries,
 
     if (ss->game != NULL)
         imcb_log(sd->ic, "Playing:   %s", ss->game);
+
+    if (ss->server != NULL) {
+        url = (sd->server_url) ? "steam://connect/" : "";
+        imcb_log(sd->ic, "Server:    %s%s", url, ss->server);
+    }
 
     if (ss->realname != NULL)
         imcb_log(sd->ic, "Real Name: %s", ss->realname);
@@ -388,6 +394,25 @@ static char *steam_eval_show_playing(set_t *set, char *value)
     return value;
 }
 
+static char *steam_eval_server_url(set_t *set, char *value)
+{
+    account_t *acc = set->data;
+    SteamData *sd;
+
+    g_return_val_if_fail(acc != NULL, value);
+
+    if (!is_bool(value))
+        return SET_INVALID;
+
+    if (acc->ic == NULL)
+        return value;
+
+    sd = acc->ic->proto_data;
+    sd->server_url = bool2int(value);
+
+    return value;
+}
+
 static void steam_init(account_t *acc)
 {
     set_t *s;
@@ -403,6 +428,8 @@ static void steam_init(account_t *acc)
 
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;
+
+    set_add(&acc->set, "server_url", "true", steam_eval_server_url, acc);
 }
 
 static void steam_login(account_t *acc)
@@ -414,10 +441,11 @@ static void steam_login(account_t *acc)
     sd  = steam_data_new(acc, tmp);
 
     set_setstr(&acc->set, "umqid", sd->api->umqid);
-    sd->api->token = g_strdup(set_getstr(&acc->set, "token"));
+    tmp = set_getstr(&acc->set, "show_playing");
 
-    tmp              = set_getstr(&acc->set, "show_playing");
+    sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sd->show_playing = steam_util_user_mode(tmp);
+    sd->server_url   = set_getbool(&acc->set, "server_url");
 
     imcb_log(sd->ic, "Connecting");
 

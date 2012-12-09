@@ -120,6 +120,7 @@ struct _SteamSummary
     const gchar *steamid;
     const gchar *name;
     const gchar *game;
+    const gchar *server;
     const gchar *realname;
     const gchar *profile;
 };

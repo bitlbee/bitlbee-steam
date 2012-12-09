@@ -33,7 +33,8 @@ struct _SteamData
     guint    timeout;
     gboolean poll;
 
-    gint show_playing;
+    gint     show_playing;
+    gboolean server_url;
 };
 
 

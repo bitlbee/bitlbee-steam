@@ -393,7 +393,10 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
         ss->steamid = xe->text;
 
         if (steam_util_xt_node(xn, "gameextrainfo", &xe))
-            ss->game  = xe->text;
+            ss->game = xe->text;
+
+        if (steam_util_xt_node(xn, "gameserverip", &xe))
+            ss->server = xe->text;
 
         if (steam_util_xt_node(xn, "personaname", &xe))
             ss->name = xe->text;

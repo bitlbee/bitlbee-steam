@@ -7,6 +7,9 @@ Usage:
 Disable game play statuses (default: %):
   > account <acc> set show_playing false
 
+Turn off the Steam URLs for server in info replies:
+  > account <acc> set server_url false
+
 Building and Installing:
   $ git clone https://github.com/jgeboski/bitlbee-steam.git
   $ cd bitlbee-steam
