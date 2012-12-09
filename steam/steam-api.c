@@ -520,10 +520,12 @@ static void steam_api_cb(struct http_request *req)
 }
 
 static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
-                          gboolean ssl, gboolean post, SteamFuncPair *fp)
+                          gboolean ssl, gboolean post, gboolean keepalive,
+                          SteamFuncPair *fp)
 {
     gchar **sp,  *esc;
     gchar  *req, *rd;
+    gchar  *kas;
 
     gsize len;
     guint i;
@@ -544,6 +546,7 @@ static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
 
     rd  = g_strjoinv("&", sp);
     len = strlen(rd);
+    kas = (keepalive) ? "Keep-Alive" : "Close";
 
     g_strfreev(sp);
 
@@ -552,19 +555,19 @@ static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
             "POST %s HTTP/1.1\r\n"
             "User-Agent: " STEAM_API_AGENT "\r\n"
             "Host: " STEAM_API_HOST "\r\n"
+            "Connection: %s\r\n"
             "Accept: */*\r\n"
             "Content-Type: application/x-www-form-urlencoded\r\n"
             "content-length: %u\r\n"
-            "Connection: close\r\n"
-            "\r\n%s", path, len, rd);
+            "\r\n%s", path, kas, len, rd);
     } else {
         req = g_strdup_printf(
             "GET %s?%s HTTP/1.1\r\n"
             "User-Agent: " STEAM_API_AGENT "\r\n"
             "Host: " STEAM_API_HOST "\r\n"
+            "Connection: %s\r\n"
             "Accept: */*\r\n"
-            "Connection: close\r\n"
-            "\r\n", path, rd);
+            "\r\n", path, rd, kas);
     }
 
     fp->req = http_dorequest(STEAM_API_HOST, (ssl ? 443 : 80), ssl, req,
@@ -593,7 +596,7 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
                             "read_client write_client"}
     };
 
-    steam_api_req(STEAM_PATH_AUTH, ps, 7, TRUE, TRUE,
+    steam_api_req(STEAM_PATH_AUTH, ps, 7, TRUE, TRUE, FALSE,
                   steam_pair_new(STEAM_PAIR_AUTH, api, func, data));
 }
 
@@ -607,7 +610,7 @@ void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data)
         {"relationship", "friend"}
     };
 
-    steam_api_req(STEAM_PATH_FRIENDS, ps, 3, TRUE, FALSE,
+    steam_api_req(STEAM_PATH_FRIENDS, ps, 3, TRUE, FALSE, FALSE,
                   steam_pair_new(STEAM_PAIR_FRIENDS, api, func, data));
 }
 
@@ -620,7 +623,7 @@ void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data)
         {"umqid",        api->umqid}
     };
 
-    steam_api_req(STEAM_PATH_LOGON, ps, 2, TRUE, TRUE,
+    steam_api_req(STEAM_PATH_LOGON, ps, 2, TRUE, TRUE, FALSE,
                   steam_pair_new(STEAM_PAIR_LOGON, api, func, data));
 }
 
@@ -633,7 +636,7 @@ void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
         {"umqid",        api->umqid}
     };
 
-    steam_api_req(STEAM_PATH_LOGOFF, ps, 2, TRUE, TRUE,
+    steam_api_req(STEAM_PATH_LOGOFF, ps, 2, TRUE, TRUE, FALSE,
                   steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data));
 }
 
@@ -669,7 +672,7 @@ void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
         return;
     }
 
-    steam_api_req(STEAM_PATH_MESSAGE, ps, i, TRUE, TRUE,
+    steam_api_req(STEAM_PATH_MESSAGE, ps, i, TRUE, TRUE, FALSE,
                   steam_pair_new(STEAM_PAIR_MESSAGE, api, func, data));
 }
 
@@ -677,13 +680,14 @@ void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
 {
     g_return_if_fail(api != NULL);
 
-    SteamPair ps[3] = {
+    SteamPair ps[4] = {
         {"access_token", api->token},
         {"umqid",        api->umqid},
-        {"message",      api->lmid}
+        {"message",      api->lmid},
+        {"sectimeout",   STEAM_API_KEEP_ALIVE}
     };
 
-    steam_api_req(STEAM_PATH_POLL, ps, 3, TRUE, TRUE,
+    steam_api_req(STEAM_PATH_POLL, ps, 4, TRUE, TRUE, TRUE,
                   steam_pair_new(STEAM_PAIR_POLL, api, func, data));
 }
 
@@ -731,7 +735,7 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
             {"steamids",     str}
         };
 
-        steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE,
+        steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE, FALSE,
                       steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data));
 
         g_free(str);
@@ -754,7 +758,7 @@ void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
         {"steamids",     steamid}
     };
 
-    steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE,
+    steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE, FALSE,
                   steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data));
 }
 

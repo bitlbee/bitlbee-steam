@@ -30,7 +30,6 @@ struct _SteamData
     SteamAPI             *api;
 
     gint     ml_id;
-    guint    timeout;
     gboolean poll;
 
     gint     show_playing;

@@ -20,6 +20,7 @@
 
 #define STEAM_API_HOST        "api.steampowered.com"
 #define STEAM_API_AGENT       "Steam 1291812 / iPhone"
+#define STEAM_API_KEEP_ALIVE  "30" /* >= 30 defaults to 30 */
 
 #define STEAM_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
 #define STEAM_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"

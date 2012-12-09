@@ -179,9 +179,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
 
     GSList *l;
     gchar  *m;
-
-    gint  f;
-    guint ts;
+    gint    f;
 
     g_return_if_fail(sd != NULL);
 
@@ -205,8 +203,6 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
 
         if (bu == NULL)
             continue;
-
-        ts |= sm->type;
 
         switch (sm->type) {
         case STEAM_MESSAGE_TYPE_EMOTE:
@@ -247,16 +243,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
         }
     }
 
-    if ((ts & STEAM_MESSAGE_TYPE_EMOTE) || (ts & STEAM_MESSAGE_TYPE_SAYTEXT)) {
-        sd->timeout = 3;
-    } else if (ts & STEAM_MESSAGE_TYPE_TYPING) {
-        sd->timeout = 2;
-    } else {
-        if (sd->timeout < 20)
-            sd->timeout++;
-    }
-
-    sd->ml_id = b_timeout_add(sd->timeout, steam_main_loop, sd);
+    sd->ml_id = b_timeout_add(1000, steam_main_loop, sd);
 }
 
 static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
