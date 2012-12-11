@@ -18,6 +18,8 @@
 #ifndef _STEAM_API_H
 #define _STEAM_API_H
 
+#include "steam-http.h"
+
 #define STEAM_API_HOST        "api.steampowered.com"
 #define STEAM_API_AGENT       "Steam 1291812 / iPhone"
 #define STEAM_API_KEEP_ALIVE  "30" /* >= 30 defaults to 30 */
@@ -29,7 +31,6 @@
 #define STEAM_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
 #define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
 #define STEAM_PATH_SUMMARIES  "/ISteamUserOAuth/GetUserSummaries/v0001"
-
 
 typedef enum   _SteamError       SteamError;
 typedef enum   _SteamState       SteamState;
@@ -101,7 +102,7 @@ struct _SteamAPI
     gchar *umqid;
     gchar *lmid;
 
-    GSList *reqs;
+    SteamHttp *http;
 };
 
 struct _SteamMessage
@@ -126,10 +127,7 @@ struct _SteamSummary
     const gchar *profile;
 };
 
-
 SteamAPI *steam_api_new(const gchar *umqid);
-
-void steam_api_free_cs(SteamAPI *api);
 
 void steam_api_free(SteamAPI *api);
 

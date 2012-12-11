@@ -460,7 +460,7 @@ static void steam_logout(struct im_connection *ic)
         b_event_remove(sd->ml_id);
 
     if (ic->flags & OPT_LOGGING_OUT) {
-        steam_api_free_cs(sd->api);
+        steam_http_free_reqs(sd->api->http);
         steam_api_logoff(sd->api, steam_logoff_cb, sd);
     } else {
         steam_data_free(sd);

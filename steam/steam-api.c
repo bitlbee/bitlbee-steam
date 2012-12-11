@@ -15,13 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <http_client.h>
 #include <string.h>
 
 #include "steam-api.h"
+#include "steam-http.h"
 #include "steam-util.h"
-
-global_t global;
 
 #define steam_api_func(p, e) G_STMT_START {                  \
     if (p->func != NULL)                                     \
@@ -33,9 +31,7 @@ global_t global;
         (((SteamListFunc) p->func) (p->api, l, e, p->data)); \
 } G_STMT_END
 
-
 typedef enum   _SteamPairType SteamPairType;
-typedef struct _SteamPair     SteamPair;
 typedef struct _SteamFuncPair SteamFuncPair;
 
 typedef void (*SteamParseFunc) (SteamFuncPair *fp, struct xt_node *xr);
@@ -51,12 +47,6 @@ enum _SteamPairType
     STEAM_PAIR_SUMMARIES,
 
     STEAM_PAIR_LAST
-};
-
-struct _SteamPair
-{
-    const gchar *key;
-    const gchar *value;
 };
 
 struct _SteamFuncPair
@@ -102,47 +92,21 @@ SteamAPI *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
+    api->http = steam_http_new(STEAM_API_AGENT);
+
     return api;
-}
-
-static void steam_api_cb_null(struct http_request *req)
-{
-    /* Fake callback for http_request */
-}
-
-void steam_api_free_cs(SteamAPI *api)
-{
-    struct http_request *req;
-    GSList *l;
-
-    g_return_if_fail(api != NULL);
-
-    /* Set a fake callback for each http_request that is still active.
-     * This allows the request to be correctly cleaned up after, but
-     * stops steam-api from handling the request with invalid pointers.
-     */
-    for (l = api->reqs; l != NULL; l = l->next) {
-        req = l->data;
-
-        req->func = steam_api_cb_null;
-        req->data = NULL;
-    }
-
-    g_slist_free(api->reqs);
-    api->reqs = NULL;
 }
 
 void steam_api_free(SteamAPI *api)
 {
     g_return_if_fail(api != NULL);
 
-    steam_api_free_cs(api);
+    steam_http_free(api->http);
 
     g_free(api->token);
     g_free(api->steamid);
     g_free(api->umqid);
     g_free(api->lmid);
-
     g_free(api);
 }
 
@@ -437,47 +401,14 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
     g_free(fp);
 }
 
-static void steam_api_cb(struct http_request *req)
+static void steam_api_cb(SteamHttpReq *req, gpointer data)
 {
-    SteamFuncPair    *fp = req->data;
+    SteamFuncPair    *fp = data;
     struct xt_parser *xt;
-    SteamError        err;
-
-    gchar **ls;
-    gint    i;
-
-    fp->api->reqs = g_slist_remove(fp->api->reqs, fp->req);
 
     if ((fp->type < 0) || (fp->type > STEAM_PAIR_LAST)) {
         g_free(fp);
         return;
-    }
-
-    if (global.conf->verbose) {
-        gchar *urls[STEAM_PAIR_LAST];
-
-        urls[STEAM_PAIR_AUTH]      = "STEAM_PAIR_AUTH";
-        urls[STEAM_PAIR_FRIENDS]   = "STEAM_PAIR_FRIENDS";
-        urls[STEAM_PAIR_LOGON]     = "STEAM_PAIR_LOGON";
-        urls[STEAM_PAIR_LOGOFF]    = "STEAM_PAIR_LOGOFF";
-        urls[STEAM_PAIR_MESSAGE]   = "STEAM_PAIR_MESSAGE";
-        urls[STEAM_PAIR_POLL]      = "STEAM_PAIR_POLL";
-        urls[STEAM_PAIR_SUMMARIES] = "STEAM_PAIR_SUMMARIES";
-
-        g_print("HTTP Reply (%s): %s\n", urls[fp->type], req->status_string);
-
-        if (req->body_size > 0) {
-            ls = g_strsplit(req->reply_body, "\n", 0);
-
-            for (i = 0; ls[i] != NULL; i++)
-                g_print("  %s\n", ls[i]);
-
-            g_strfreev(ls);
-        } else {
-            g_print("  ** No HTTP data returned **");
-        }
-
-        g_print("\n");
     }
 
     if (req->body_size < 1) {
@@ -485,14 +416,14 @@ static void steam_api_cb(struct http_request *req)
         return;
     }
 
-    if (req->status_code != 200) {
+    if (req->errcode != 200) {
         steam_api_cb_error(fp, STEAM_ERROR_HTTP_GENERIC);
         return;
     }
 
     xt = xt_new(NULL, NULL);
 
-    if (xt_feed(xt, req->reply_body, req->body_size) < 0) {
+    if (xt_feed(xt, req->body, req->body_size) < 0) {
         if (global.conf->verbose && (xt->gerr != NULL)) {
             g_print("  ** Markup parser error (%d): %s **\n\n",
                     xt->gerr->code, xt->gerr->message);
@@ -519,150 +450,123 @@ static void steam_api_cb(struct http_request *req)
     g_free(fp);
 }
 
-static void steam_api_req(const gchar *path, SteamPair *params, gint psize,
-                          gboolean ssl, gboolean post, gboolean keepalive,
-                          SteamFuncPair *fp)
-{
-    gchar **sp,  *esc;
-    gchar  *req, *rd;
-    gchar  *kas;
-
-    gsize len;
-    guint i;
-
-    sp = g_new0(gchar*, (psize + 2));
-
-    for (i = 0; i < psize; i++) {
-        if (params[i].value == NULL)
-            params[i].value = "";
-
-        esc   = g_uri_escape_string(params[i].value, NULL, FALSE);
-        sp[i] = g_strdup_printf("%s=%s", params[i].key, esc);
-
-        g_free(esc);
-    }
-
-    sp[psize] = g_strdup("format=xml");
-
-    rd  = g_strjoinv("&", sp);
-    len = strlen(rd);
-    kas = (keepalive) ? "Keep-Alive" : "Close";
-
-    g_strfreev(sp);
-
-    if (post) {
-        req = g_strdup_printf(
-            "POST %s HTTP/1.1\r\n"
-            "User-Agent: " STEAM_API_AGENT "\r\n"
-            "Host: " STEAM_API_HOST "\r\n"
-            "Connection: %s\r\n"
-            "Accept: */*\r\n"
-            "Content-Type: application/x-www-form-urlencoded\r\n"
-            "content-length: %u\r\n"
-            "\r\n%s", path, kas, len, rd);
-    } else {
-        req = g_strdup_printf(
-            "GET %s?%s HTTP/1.1\r\n"
-            "User-Agent: " STEAM_API_AGENT "\r\n"
-            "Host: " STEAM_API_HOST "\r\n"
-            "Connection: %s\r\n"
-            "Accept: */*\r\n"
-            "\r\n", path, rd, kas);
-    }
-
-    fp->req = http_dorequest(STEAM_API_HOST, (ssl ? 443 : 80), ssl, req,
-                             steam_api_cb, fp);
-
-    fp->api->reqs = g_slist_append(fp->api->reqs, fp->req);
-
-    g_free(rd);
-    g_free(req);
-}
-
 void steam_api_auth(SteamAPI *api, const gchar *authcode,
                     const gchar *user, const gchar *pass,
                     SteamAPIFunc func, gpointer data)
 {
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
+
     g_return_if_fail(api != NULL);
 
-    SteamPair ps[7] = {
-        {"client_id",       "DE45CD61"},
-        {"grant_type",      "password"},
-        {"username",        user},
-        {"password",        pass},
-        {"x_emailauthcode", authcode},
-        {"x_webcookie",     ""},
-        {"scope",           "read_profile write_profile "
-                            "read_client write_client"}
-    };
+    fp  = steam_pair_new(STEAM_PAIR_AUTH, api, func, data);
+    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                             STEAM_PATH_AUTH, steam_api_cb, fp);
 
-    steam_api_req(STEAM_PATH_AUTH, ps, 7, TRUE, TRUE, FALSE,
-                  steam_pair_new(STEAM_PAIR_AUTH, api, func, data));
+    steam_http_req_params_set(req, 8,
+        "format",          "xml",
+        "client_id",       "DE45CD61",
+        "grant_type",      "password",
+        "username",        user,
+        "password",        pass,
+        "x_emailauthcode", authcode,
+        "x_webcookie",     NULL,
+        "scope", "read_profile write_profile read_client write_client"
+    );
+
+    req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(req);
 }
 
 void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data)
 {
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
+
     g_return_if_fail(api != NULL);
 
-    SteamPair ps[3] = {
-        {"access_token", api->token},
-        {"steamid",      api->steamid},
-        {"relationship", "friend"}
-    };
+    fp  = steam_pair_new(STEAM_PAIR_FRIENDS, api, func, data);
+    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                             STEAM_PATH_FRIENDS, steam_api_cb, fp);
 
-    steam_api_req(STEAM_PATH_FRIENDS, ps, 3, TRUE, FALSE, FALSE,
-                  steam_pair_new(STEAM_PAIR_FRIENDS, api, func, data));
+    steam_http_req_params_set(req, 4,
+        "format",       "xml",
+        "access_token", api->token,
+        "steamid",      api->steamid,
+        "relationship", "friend"
+    );
+
+    req->flags = STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(req);
 }
 
 void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data)
 {
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
+
     g_return_if_fail(api != NULL);
 
-    SteamPair ps[2] = {
-        {"access_token", api->token},
-        {"umqid",        api->umqid}
-    };
+    fp  = steam_pair_new(STEAM_PAIR_LOGON, api, func, data);
+    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                             STEAM_PATH_LOGON, steam_api_cb, fp);
 
-    steam_api_req(STEAM_PATH_LOGON, ps, 2, TRUE, TRUE, FALSE,
-                  steam_pair_new(STEAM_PAIR_LOGON, api, func, data));
+    steam_http_req_params_set(req, 3,
+        "format",       "xml",
+        "access_token", api->token,
+        "umqid",        api->umqid
+    );
+
+    req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(req);
 }
 
 void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
 {
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
+
     g_return_if_fail(api != NULL);
 
-    SteamPair ps[2] = {
-        {"access_token", api->token},
-        {"umqid",        api->umqid}
-    };
+    fp  = steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data);
+    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                             STEAM_PATH_LOGOFF, steam_api_cb, fp);
 
-    steam_api_req(STEAM_PATH_LOGOFF, ps, 2, TRUE, TRUE, FALSE,
-                  steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data));
+    steam_http_req_params_set(req, 3,
+        "format",       "xml",
+        "access_token", api->token,
+        "umqid",        api->umqid
+    );
+
+    req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(req);
 }
 
 void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
                        gpointer data)
 {
-    gint i;
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(sm  != NULL);
 
-    SteamPair ps[5] = {
-        {"access_token", api->token},
-        {"umqid",        api->umqid},
-        {"steamid_dst",  sm->steamid},
-        {"type",         steam_message_type_str(sm->type)}
-    };
+    fp  = steam_pair_new(STEAM_PAIR_MESSAGE, api, func, data);
+    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                             STEAM_PATH_MESSAGE, steam_api_cb, fp);
 
-    i = 4;
+    steam_http_req_params_set(req, 5,
+        "format",       "xml",
+        "access_token", api->token,
+        "umqid",        api->umqid,
+        "steamid_dst",  sm->steamid,
+        "type",         steam_message_type_str(sm->type)
+    );
 
     switch (sm->type) {
     case STEAM_MESSAGE_TYPE_SAYTEXT:
     case STEAM_MESSAGE_TYPE_EMOTE:
-        ps[i].key   = "text";
-        ps[i].value = sm->text;
-        i++;
+        steam_http_req_params_set(req, 1, "text", sm->text);
         break;
 
     case STEAM_MESSAGE_TYPE_TYPING:
@@ -672,28 +576,41 @@ void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
         return;
     }
 
-    steam_api_req(STEAM_PATH_MESSAGE, ps, i, TRUE, TRUE, FALSE,
-                  steam_pair_new(STEAM_PAIR_MESSAGE, api, func, data));
+    req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(req);
 }
 
 void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
 {
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
+
     g_return_if_fail(api != NULL);
 
-    SteamPair ps[4] = {
-        {"access_token", api->token},
-        {"umqid",        api->umqid},
-        {"message",      api->lmid},
-        {"sectimeout",   STEAM_API_KEEP_ALIVE}
-    };
+    fp  = steam_pair_new(STEAM_PAIR_POLL, api, func, data);
+    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                             STEAM_PATH_POLL, steam_api_cb, fp);
 
-    steam_api_req(STEAM_PATH_POLL, ps, 4, TRUE, TRUE, TRUE,
-                  steam_pair_new(STEAM_PAIR_POLL, api, func, data));
+    steam_http_req_headers_set(req, 1, "Connection", "Keep-Alive");
+
+    steam_http_req_params_set(req, 5,
+        "format",       "xml",
+        "access_token", api->token,
+        "umqid",        api->umqid,
+        "message",      api->lmid,
+        "sectimeout",   STEAM_API_KEEP_ALIVE
+    );
+
+    req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(req);
 }
 
 void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
                          gpointer data)
 {
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
+
     GSList *s;
     GSList *e;
     GSList *l;
@@ -713,7 +630,8 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
         return;
     }
 
-    s = friends;
+    s  = friends;
+    fp = steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data);
 
     while (TRUE) {
         size = 0;
@@ -730,15 +648,19 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
             p = g_stpcpy(p, l->data);
         }
 
-        SteamPair ps[2] = {
-            {"access_token", api->token},
-            {"steamids",     str}
-        };
+        req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                                 STEAM_PATH_SUMMARIES, steam_api_cb, fp);
 
-        steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE, FALSE,
-                      steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data));
+        steam_http_req_params_set(req, 3,
+            "format",       "xml",
+            "access_token", api->token,
+            "steamids",     str
+        );
 
         g_free(str);
+
+        req->flags = STEAM_HTTP_FLAG_SSL;
+        steam_http_req_send(req);
 
         if (e != NULL)
             s = e->next;
@@ -750,16 +672,24 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
 void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
                        gpointer data)
 {
+    SteamHttpReq  *req;
+    SteamFuncPair *fp;
+
     g_return_if_fail(api     != NULL);
     g_return_if_fail(steamid != NULL);
 
-    SteamPair ps[2] = {
-        {"access_token", api->token},
-        {"steamids",     steamid}
-    };
+    fp  = steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data);
+    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                             STEAM_PATH_SUMMARIES, steam_api_cb, fp);
 
-    steam_api_req(STEAM_PATH_SUMMARIES, ps, 2, TRUE, FALSE, FALSE,
-                  steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data));
+    steam_http_req_params_set(req, 3,
+        "format",       "xml",
+        "access_token", api->token,
+        "steamids",     steamid
+    );
+
+    req->flags = STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(req);
 }
 
 gchar *steam_api_error_str(SteamError err)
