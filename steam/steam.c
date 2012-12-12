@@ -440,7 +440,7 @@ static void steam_logout(struct im_connection *ic)
 
     sd->poll = FALSE;
 
-    if (sd->ml_id >= 1)
+    if (sd->ml_id > 0)
         b_event_remove(sd->ml_id);
 
     if (ic->flags & OPT_LOGGING_OUT) {
