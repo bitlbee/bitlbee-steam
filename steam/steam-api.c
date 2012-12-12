@@ -467,7 +467,7 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
 
     steam_http_req_params_set(req, 8,
         "format",          "xml",
-        "client_id",       "DE45CD61",
+        "client_id",       STEAM_API_CLIENT_ID,
         "grant_type",      "password",
         "username",        user,
         "password",        pass,

@@ -21,8 +21,9 @@
 #include "steam-http.h"
 
 #define STEAM_API_HOST        "api.steampowered.com"
-#define STEAM_API_AGENT       "Steam 1291812 / iPhone"
-#define STEAM_API_KEEP_ALIVE  "30" /* >= 30 defaults to 30 */
+#define STEAM_API_AGENT       "Steam / BitlBee / " PACKAGE_VERSION " / 0"
+#define STEAM_API_CLIENT_ID   "DAB33B22" /* Da Bee Bzz? */
+#define STEAM_API_KEEP_ALIVE  "30"       /* Max of 30 seconds */
 
 #define STEAM_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
 #define STEAM_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"
