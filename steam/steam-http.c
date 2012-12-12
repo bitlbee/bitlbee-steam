@@ -296,6 +296,6 @@ void steam_http_req_send(SteamHttpReq *req)
     req->request = http_dorequest(req->host, req->port, ssl, sreq,
                                   steam_http_req_cb, req);
 
-    req->http->requests = g_slist_append(req->http->requests, req);
+    req->http->requests = g_slist_prepend(req->http->requests, req);
     g_free(sreq);
 }

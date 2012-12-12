@@ -161,7 +161,7 @@ static void steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
         if (!steam_util_xt_node(xn, "steamid", &xe))
             continue;
 
-        fl = g_slist_append(fl, xe->text);
+        fl = g_slist_prepend(fl, xe->text);
     }
 
     err = (fl != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_FRIENDS;
@@ -323,7 +323,7 @@ static void steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
             continue;
         }
 
-        mu = g_slist_append(mu, sm);
+        mu = g_slist_prepend(mu, sm);
     }
 
     steam_list_func(fp, mu, STEAM_ERROR_SUCCESS);
@@ -374,7 +374,7 @@ static void steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
         if (steam_util_xt_node(xn, "realname", &xe))
             ss->realname = xe->text;
 
-        mu = g_slist_append(mu, ss);
+        mu = g_slist_prepend(mu, ss);
     }
 
     err = (mu != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_SUMMARY;
