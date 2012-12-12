@@ -136,21 +136,6 @@ static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
     steam_api_logon(sd->api, steam_logon_cb, sd);
 }
 
-static void steam_renew_cb(SteamAPI *api, SteamError err, gpointer data)
-{
-    SteamData *sd = data;
-
-    g_return_if_fail(sd != NULL);
-
-    if (err == STEAM_ERROR_SUCCESS) {
-        steam_api_poll(sd->api, steam_poll_cb, sd);
-        return;
-    }
-
-    imcb_error(sd->ic, steam_api_error_str(err));
-    imc_logout(sd->ic, TRUE);
-}
-
 static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
@@ -166,8 +151,11 @@ static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
 
     g_return_if_fail(sd != NULL);
 
-    if (err != STEAM_ERROR_SUCCESS)
-        imcb_error(sd->ic, steam_api_error_str(err));
+    if (err == STEAM_ERROR_SUCCESS)
+        return;
+
+    imcb_error(sd->ic, steam_api_error_str(err));
+    imc_logout(sd->ic, TRUE);
 }
 
 static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
@@ -185,11 +173,6 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
 
     if (!sd->poll)
         return;
-
-    if (err == STEAM_ERROR_HTTP_GENERIC) {
-        steam_api_logon(api, steam_renew_cb, sd);
-        return;
-    }
 
     if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
@@ -292,6 +275,7 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries,
 
     if (err != STEAM_ERROR_SUCCESS) {
         imcb_error(sd->ic, steam_api_error_str(err));
+        imc_logout(sd->ic, TRUE);
         return;
     }
 

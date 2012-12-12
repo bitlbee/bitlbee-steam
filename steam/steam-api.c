@@ -405,6 +405,7 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
 {
     SteamFuncPair    *fp = data;
     struct xt_parser *xt;
+    struct xt_node   *xn;
 
     if ((fp->type < 0) || (fp->type > STEAM_PAIR_LAST)) {
         g_free(fp);
@@ -416,7 +417,19 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
         return TRUE;
     }
 
-    if (req->errcode != 200) {
+    switch (req->errcode) {
+    case 200:
+        break;
+
+    case 401:
+        steam_api_cb_error(fp, STEAM_ERROR_HTTP_UNAUTHORIZED);
+        return TRUE;
+
+    case 503:
+        steam_api_cb_error(fp, STEAM_ERROR_HTTP_UNAVAILABLE);
+        return TRUE;
+
+    default:
         steam_api_cb_error(fp, STEAM_ERROR_HTTP_GENERIC);
         return TRUE;
     }
@@ -432,6 +445,18 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
         steam_api_cb_error(fp, STEAM_ERROR_PARSE_XML);
         xt_free(xt);
         return TRUE;
+    }
+
+    if (steam_util_xt_node(xt->root, "error", &xn)) {
+        if (!g_ascii_strncasecmp(xn->text, "Not Logged On", 13)) {
+            steam_api_cb_error(fp, STEAM_ERROR_HTTP_UNAUTHORIZED);
+            return TRUE;
+        }
+
+        if (!g_ascii_strncasecmp(xn->text, "Service Unavailable", 19)) {
+            steam_api_cb_error(fp, STEAM_ERROR_HTTP_UNAUTHORIZED);
+            return TRUE;
+        }
     }
 
     SteamParseFunc pf[STEAM_PAIR_LAST];
@@ -718,6 +743,8 @@ gchar *steam_api_error_str(SteamError err)
 
     strs[STEAM_ERROR_HTTP_EMPTY]          = "Empty HTTP reply returned";
     strs[STEAM_ERROR_HTTP_GENERIC]        = "Generic HTTP error returned";
+    strs[STEAM_ERROR_HTTP_UNAUTHORIZED]   = "Not authorized";
+    strs[STEAM_ERROR_HTTP_UNAVAILABLE]    = "Service unavailable";
 
     strs[STEAM_ERROR_INVALID_AUTH_CODE]   = "Invalid SteamGuard "
                                             "authentication code";
