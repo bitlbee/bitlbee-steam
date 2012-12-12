@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "steam-http.h"
+#include "steam-util.h"
 
 global_t global;
 
@@ -33,28 +34,11 @@ SteamHttp *steam_http_new(const gchar *agent)
     return http;
 }
 
-static void steam_http_req_cb_null(struct http_request *request)
-{
-    /* Fake callback for http_request */
-}
-
 void steam_http_free_reqs(SteamHttp *http)
 {
-    SteamHttpReq *req;
-    GSList       *l;
-
     g_return_if_fail(http != NULL);
 
-    for (l = http->requests; l != NULL; l = l->next) {
-        req = l->data;
-
-        req->request->func = steam_http_req_cb_null;
-        req->request->data = NULL;
-
-        g_free(req);
-    }
-
-    g_slist_free(http->requests);
+    g_slist_free_full(http->requests, (GDestroyNotify) steam_http_req_free);
     http->requests = NULL;
 }
 
@@ -101,15 +85,25 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     return req;
 }
 
+static void steam_http_req_cb_null(struct http_request *request)
+{
+    /* Fake callback for http_request */
+}
+
 void steam_http_req_free(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
+    if (req->request != NULL) {
+        req->request->func = steam_http_req_cb_null;
+        req->request->data = NULL;
+    }
+
     g_tree_destroy(req->headers);
     g_tree_destroy(req->params);
 
-    g_free(req->host);
     g_free(req->path);
+    g_free(req->host);
     g_free(req);
 }
 
@@ -211,6 +205,8 @@ static void steam_http_req_cb(struct http_request *request)
     gboolean freeup;
     guint    i;
 
+    req->http->requests = g_slist_remove(req->http->requests, req);
+
     /* Shortcut some req->request values into req */
     req->errcode   = req->request->status_code;
     req->errstr    = req->request->status_string;
@@ -238,8 +234,6 @@ static void steam_http_req_cb(struct http_request *request)
         freeup = req->func(req, req->data);
     else
         freeup = TRUE;
-
-    req->http->requests = g_slist_remove(req->http->requests, req);
 
     if (freeup) {
         steam_http_req_free(req);
