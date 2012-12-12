@@ -25,7 +25,7 @@ typedef enum   _SteamHttpFlags SteamHttpFlags;
 typedef struct _SteamHttp      SteamHttp;
 typedef struct _SteamHttpReq   SteamHttpReq;
 
-typedef void (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
+typedef gboolean (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
 
 enum _SteamHttpFlags
 {

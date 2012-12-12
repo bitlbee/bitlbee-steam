@@ -205,12 +205,11 @@ static gboolean steam_tree_params(gpointer key, gpointer value, GString *gstr)
 
 static void steam_http_req_cb(struct http_request *request)
 {
-    SteamHttpReq *req = request->data;
+    SteamHttpReq  *req = request->data;
+    gchar        **ls;
 
-    gchar **ls;
-    guint   i;
-
-    req->http->requests = g_slist_remove(req->http->requests, req);
+    gboolean freeup;
+    guint    i;
 
     /* Shortcut some req->request values into req */
     req->errcode   = req->request->status_code;
@@ -218,31 +217,39 @@ static void steam_http_req_cb(struct http_request *request)
     req->body      = req->request->reply_body;
     req->body_size = req->request->body_size;
 
-    if (req != NULL)
-        req->func(req, req->data);
+    if (global.conf->verbose) {
+        g_print("HTTP Reply (%s): %s\n", req->path, req->errstr);
+
+        if (req->body_size > 0) {
+            ls = g_strsplit(req->body, "\n", 0);
+
+            for (i = 0; ls[i] != NULL; i++)
+                g_print("  %s\n", ls[i]);
+
+            g_strfreev(ls);
+        } else {
+            g_print("  ** No HTTP data returned **\n");
+        }
+
+        g_print("\n");
+    }
+
+    if (req->func != NULL)
+        freeup = req->func(req, req->data);
+    else
+        freeup = TRUE;
+
+    req->http->requests = g_slist_remove(req->http->requests, req);
+
+    if (freeup) {
+        steam_http_req_free(req);
+        return;
+    }
 
     req->errcode   = 0;
     req->errstr    = NULL;
     req->body      = NULL;
     req->body_size = 0;
-
-    if (!global.conf->verbose)
-        return;
-
-    g_print("HTTP Reply (%s): %s\n", req->path, req->request->status_string);
-
-    if (req->request->body_size < 1) {
-        g_print("  ** No HTTP data returned **\n\n");
-        return;
-    }
-
-    ls = g_strsplit(req->request->reply_body, "\n", 0);
-
-    for (i = 0; ls[i] != NULL; i++)
-        g_print("  %s\n", ls[i]);
-
-    g_strfreev(ls);
-    g_print("\n");
 }
 
 void steam_http_req_send(SteamHttpReq *req)

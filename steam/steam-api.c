@@ -401,24 +401,24 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
     g_free(fp);
 }
 
-static void steam_api_cb(SteamHttpReq *req, gpointer data)
+static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
 {
     SteamFuncPair    *fp = data;
     struct xt_parser *xt;
 
     if ((fp->type < 0) || (fp->type > STEAM_PAIR_LAST)) {
         g_free(fp);
-        return;
+        return TRUE;
     }
 
     if (req->body_size < 1) {
         steam_api_cb_error(fp, STEAM_ERROR_HTTP_EMPTY);
-        return;
+        return TRUE;
     }
 
     if (req->errcode != 200) {
         steam_api_cb_error(fp, STEAM_ERROR_HTTP_GENERIC);
-        return;
+        return TRUE;
     }
 
     xt = xt_new(NULL, NULL);
@@ -431,7 +431,7 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
 
         steam_api_cb_error(fp, STEAM_ERROR_PARSE_XML);
         xt_free(xt);
-        return;
+        return TRUE;
     }
 
     SteamParseFunc pf[STEAM_PAIR_LAST];
@@ -448,6 +448,8 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
 
     xt_free(xt);
     g_free(fp);
+
+    return TRUE;
 }
 
 void steam_api_auth(SteamAPI *api, const gchar *authcode,
