@@ -421,8 +421,16 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
     case 200:
         break;
 
+    case 400:
+        steam_api_cb_error(fp, STEAM_ERROR_HTTP_BAD_REQUEST);
+        return TRUE;
+
     case 401:
         steam_api_cb_error(fp, STEAM_ERROR_HTTP_UNAUTHORIZED);
+        return TRUE;
+
+    case 500:
+        steam_api_cb_error(fp, STEAM_ERROR_HTTP_INT_SERVER);
         return TRUE;
 
     case 503:
@@ -743,8 +751,10 @@ gchar *steam_api_error_str(SteamError err)
     strs[STEAM_ERROR_FAILED_MESSAGE_SEND] = "Failed to send message";
     strs[STEAM_ERROR_FAILED_POLL]         = "Failed to poll server";
 
+    strs[STEAM_ERROR_HTTP_BAD_REQUEST]    = "Bad HTTP request";
     strs[STEAM_ERROR_HTTP_EMPTY]          = "Empty HTTP reply returned";
     strs[STEAM_ERROR_HTTP_GENERIC]        = "Generic HTTP error returned";
+    strs[STEAM_ERROR_HTTP_INT_SERVER]     = "Internal server error";
     strs[STEAM_ERROR_HTTP_UNAUTHORIZED]   = "Not authorized";
     strs[STEAM_ERROR_HTTP_UNAVAILABLE]    = "Service unavailable";
 
