@@ -21,12 +21,12 @@
 #include "steam-http.h"
 #include "steam-util.h"
 
-typedef enum   _SteamPairType SteamPairType;
-typedef struct _SteamFuncPair SteamFuncPair;
+typedef enum   _SteamApiType SteamApiType;
+typedef struct _SteamApiPriv SteamApiPriv;
 
-typedef SteamError (*SteamParseFunc) (SteamFuncPair *fp, struct xt_node *xr);
+typedef SteamError (*SteamParseFunc) (SteamApiPriv *priv, struct xt_node *xr);
 
-enum _SteamPairType
+enum _SteamApiType
 {
     STEAM_PAIR_AUTH = 0,
     STEAM_PAIR_FRIENDS,
@@ -39,11 +39,11 @@ enum _SteamPairType
     STEAM_PAIR_LAST
 };
 
-struct _SteamFuncPair
+struct _SteamApiPriv
 {
-    SteamAPI      *api;
-    SteamPairType  type;
-    SteamError     err;
+    SteamAPI     *api;
+    SteamApiType  type;
+    SteamError    err;
 
     gpointer func;
     gpointer data;
@@ -53,20 +53,20 @@ struct _SteamFuncPair
 };
 
 
-static SteamFuncPair *steam_pair_new(SteamPairType type, SteamAPI *api,
-                                     gpointer func, gpointer data)
+static SteamApiPriv *steam_api_priv_new(SteamApiType type, SteamAPI *api,
+                                        gpointer func, gpointer data)
 {
-    SteamFuncPair *fp;
+    SteamApiPriv *priv;
 
-    fp = g_new0(SteamFuncPair, 1);
+    priv = g_new0(SteamApiPriv, 1);
 
-    fp->api  = api;
-    fp->type = type;
-    fp->err  = STEAM_ERROR_SUCCESS;
-    fp->func = func;
-    fp->data = data;
+    priv->api  = api;
+    priv->type = type;
+    priv->err  = STEAM_ERROR_SUCCESS;
+    priv->func = func;
+    priv->data = data;
 
-    return fp;
+    return priv;
 }
 
 SteamAPI *steam_api_new(const gchar *umqid)
@@ -108,13 +108,13 @@ static void steam_slist_free_full(GSList *list)
     g_slist_free_full(list, g_free);
 }
 
-static SteamError steam_api_auth_cb(SteamFuncPair *fp, struct xt_node *xr)
+static SteamError steam_api_auth_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn;
 
     if (steam_util_xt_node(xr, "access_token", &xn)) {
-        g_free(fp->api->token);
-        fp->api->token = g_strdup(xn->text);
+        g_free(priv->api->token);
+        priv->api->token = g_strdup(xn->text);
         return STEAM_ERROR_SUCCESS;
     }
 
@@ -131,7 +131,7 @@ static SteamError steam_api_auth_cb(SteamFuncPair *fp, struct xt_node *xr)
     return STEAM_ERROR_FAILED_AUTH;
 }
 
-static SteamError steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
+static SteamError steam_api_friends_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
     GSList         *fl;
@@ -158,38 +158,38 @@ static SteamError steam_api_friends_cb(SteamFuncPair *fp, struct xt_node *xr)
         fl = g_slist_prepend(fl, xe->text);
     }
 
-    fp->rdata = fl;
-    fp->rfunc = (GDestroyNotify) g_slist_free;
+    priv->rdata = fl;
+    priv->rfunc = (GDestroyNotify) g_slist_free;
 
     return (fl != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_FRIENDS;
 }
 
-static SteamError steam_api_logon_cb(SteamFuncPair *fp, struct xt_node *xr)
+static SteamError steam_api_logon_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn;
 
     if (!steam_util_xt_node(xr, "umqid", &xn))
         return STEAM_ERROR_EMPTY_UMQID;
 
-    if (g_strcmp0(fp->api->umqid, xn->text))
+    if (g_strcmp0(priv->api->umqid, xn->text))
         return STEAM_ERROR_MISMATCH_UMQID;
 
     if (!steam_util_xt_node(xr, "steamid", &xn))
         return STEAM_ERROR_EMPTY_STEAMID;
 
-    g_free(fp->api->steamid);
-    fp->api->steamid = g_strdup(xn->text);
+    g_free(priv->api->steamid);
+    priv->api->steamid = g_strdup(xn->text);
 
     if (!steam_util_xt_node(xr, "message", &xn))
         return STEAM_ERROR_EMPTY_MESSAGE;
 
-    g_free(fp->api->lmid);
-    fp->api->lmid = g_strdup(xn->text);
+    g_free(priv->api->lmid);
+    priv->api->lmid = g_strdup(xn->text);
 
     return STEAM_ERROR_SUCCESS;
 }
 
-static SteamError steam_api_logoff_cb(SteamFuncPair *fp, struct xt_node *xr)
+static SteamError steam_api_logoff_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn;
 
@@ -202,7 +202,7 @@ static SteamError steam_api_logoff_cb(SteamFuncPair *fp, struct xt_node *xr)
     return STEAM_ERROR_SUCCESS;
 }
 
-static SteamError steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
+static SteamError steam_api_message_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn;
 
@@ -215,7 +215,7 @@ static SteamError steam_api_message_cb(SteamFuncPair *fp, struct xt_node *xr)
     return STEAM_ERROR_SUCCESS;
 }
 
-static SteamError steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
+static SteamError steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
     SteamMessage   *sm;
@@ -224,11 +224,11 @@ static SteamError steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
     if (!steam_util_xt_node(xr, "messagelast", &xn))
         return STEAM_ERROR_SUCCESS;
 
-    if (!g_strcmp0(fp->api->lmid, xn->text))
+    if (!g_strcmp0(priv->api->lmid, xn->text))
         return STEAM_ERROR_SUCCESS;
 
-    g_free(fp->api->lmid);
-    fp->api->lmid = g_strdup(xn->text);
+    g_free(priv->api->lmid);
+    priv->api->lmid = g_strdup(xn->text);
 
     if (!steam_util_xt_node(xr, "messages", &xn))
         return STEAM_ERROR_SUCCESS;
@@ -242,7 +242,7 @@ static SteamError steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
         if (!steam_util_xt_node(xn, "steamid_from", &xe))
             continue;
 
-        if (!g_strcmp0(fp->api->steamid, xe->text))
+        if (!g_strcmp0(priv->api->steamid, xe->text))
             continue;
 
         sm = g_new0(SteamMessage, 1);
@@ -296,13 +296,13 @@ static SteamError steam_api_poll_cb(SteamFuncPair *fp, struct xt_node *xr)
         mu = g_slist_prepend(mu, sm);
     }
 
-    fp->rdata = mu;
-    fp->rfunc = (GDestroyNotify) steam_slist_free_full;
+    priv->rdata = mu;
+    priv->rfunc = (GDestroyNotify) steam_slist_free_full;
 
     return STEAM_ERROR_SUCCESS;
 }
 
-static SteamError steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
+static SteamError steam_api_summaries_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn, *xe;
     GSList         *mu;
@@ -345,13 +345,13 @@ static SteamError steam_api_summaries_cb(SteamFuncPair *fp, struct xt_node *xr)
         mu = g_slist_prepend(mu, ss);
     }
 
-    fp->rdata = mu;
-    fp->rfunc = (GDestroyNotify) steam_slist_free_full;
+    priv->rdata = mu;
+    priv->rfunc = (GDestroyNotify) steam_slist_free_full;
 
     return (mu != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_SUMMARY;
 }
 
-static void steam_api_parse(SteamFuncPair *fp, struct xt_node *xr)
+static void steam_api_parse(SteamApiPriv *priv, struct xt_node *xr)
 {
     SteamParseFunc pf[STEAM_PAIR_LAST];
 
@@ -363,43 +363,44 @@ static void steam_api_parse(SteamFuncPair *fp, struct xt_node *xr)
     pf[STEAM_PAIR_POLL]      = steam_api_poll_cb;
     pf[STEAM_PAIR_SUMMARIES] = steam_api_summaries_cb;
 
-    if ((fp->err == STEAM_ERROR_SUCCESS) && (xr != NULL))
-        fp->err = pf[fp->type](fp, xr);
+    if ((priv->err == STEAM_ERROR_SUCCESS) && (xr != NULL))
+        priv->err = pf[priv->type](priv, xr);
 
-    if (fp->func != NULL) {
-        switch (fp->type) {
+    if (priv->func != NULL) {
+        switch (priv->type) {
         case STEAM_PAIR_AUTH:
         case STEAM_PAIR_LOGON:
         case STEAM_PAIR_LOGOFF:
         case STEAM_PAIR_MESSAGE:
-            ((SteamAPIFunc) fp->func)(fp->api, fp->err, fp->data);
+            ((SteamApiFunc) priv->func)(priv->api, priv->err, priv->data);
             break;
 
         case STEAM_PAIR_FRIENDS:
         case STEAM_PAIR_POLL:
         case STEAM_PAIR_SUMMARIES:
-            ((SteamListFunc) fp->func)(fp->api, fp->rdata, fp->err, fp->data);
+            ((SteamListFunc) priv->func)(priv->api, priv->rdata, priv->err,
+                                         priv->data);
             break;
         }
     }
 
-    if (fp->rfunc)
-        fp->rfunc(fp->rdata);
+    if (priv->rfunc)
+        priv->rfunc(priv->rdata);
 }
 
 static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
 {
-    SteamFuncPair    *fp = data;
+    SteamApiPriv     *priv = data;
     struct xt_parser *xt;
     struct xt_node   *xn;
 
-    if ((fp->type < 0) || (fp->type > STEAM_PAIR_LAST))
+    if ((priv->type < 0) || (priv->type > STEAM_PAIR_LAST))
         return TRUE;
 
     xt = NULL;
 
     if (req->body_size < 1) {
-        fp->err = STEAM_ERROR_HTTP_EMPTY;
+        priv->err = STEAM_ERROR_HTTP_EMPTY;
         goto parse;
     }
 
@@ -408,23 +409,23 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
         break;
 
     case 400:
-        fp->err = STEAM_ERROR_HTTP_BAD_REQUEST;
+        priv->err = STEAM_ERROR_HTTP_BAD_REQUEST;
         goto parse;
 
     case 401:
-        fp->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
+        priv->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
         goto parse;
 
     case 500:
-        fp->err = STEAM_ERROR_HTTP_INT_SERVER;
+        priv->err = STEAM_ERROR_HTTP_INT_SERVER;
         goto parse;
 
     case 503:
-        fp->err = STEAM_ERROR_HTTP_UNAVAILABLE;
+        priv->err = STEAM_ERROR_HTTP_UNAVAILABLE;
         goto parse;
 
     default:
-        fp->err = STEAM_ERROR_HTTP_GENERIC;
+        priv->err = STEAM_ERROR_HTTP_GENERIC;
         goto parse;
     }
 
@@ -436,28 +437,28 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
                     xt->gerr->code, xt->gerr->message);
         }
 
-        fp->err = STEAM_ERROR_PARSE_XML;
+        priv->err = STEAM_ERROR_PARSE_XML;
         goto parse;
     }
 
     if (steam_util_xt_node(xt->root, "error", &xn)) {
         if (!g_ascii_strncasecmp(xn->text, "Not Logged On", 13)) {
-            fp->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
+            priv->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
             goto parse;
         }
 
         if (!g_ascii_strncasecmp(xn->text, "Service Unavailable", 19)) {
-            fp->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
+            priv->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
             goto parse;
         }
     }
 
 parse:
     if (xt != NULL) {
-        steam_api_parse(fp, xt->root);
+        steam_api_parse(priv, xt->root);
         xt_free(xt);
     } else {
-        steam_api_parse(fp, NULL);
+        steam_api_parse(priv, NULL);
     }
 
     return TRUE;
@@ -465,16 +466,16 @@ parse:
 
 void steam_api_auth(SteamAPI *api, const gchar *authcode,
                     const gchar *user, const gchar *pass,
-                    SteamAPIFunc func, gpointer data)
+                    SteamApiFunc func, gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    fp  = steam_pair_new(STEAM_PAIR_AUTH, api, func, data);
-    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                             STEAM_PATH_AUTH, steam_api_cb, fp);
+    priv = steam_api_priv_new(STEAM_PAIR_AUTH, api, func, data);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_PATH_AUTH, steam_api_cb, priv);
 
     steam_http_req_headers_set(req, 1, "User-Agent", STEAM_API_AGENT_AUTH);
 
@@ -495,14 +496,14 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
 
 void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    fp  = steam_pair_new(STEAM_PAIR_FRIENDS, api, func, data);
-    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                             STEAM_PATH_FRIENDS, steam_api_cb, fp);
+    priv = steam_api_priv_new(STEAM_PAIR_FRIENDS, api, func, data);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_PATH_FRIENDS, steam_api_cb, priv);
 
     steam_http_req_params_set(req, 4,
         "format",       "xml",
@@ -515,16 +516,16 @@ void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data)
     steam_http_req_send(req);
 }
 
-void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data)
+void steam_api_logon(SteamAPI *api, SteamApiFunc func, gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    fp  = steam_pair_new(STEAM_PAIR_LOGON, api, func, data);
-    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                             STEAM_PATH_LOGON, steam_api_cb, fp);
+    priv = steam_api_priv_new(STEAM_PAIR_LOGON, api, func, data);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_PATH_LOGON, steam_api_cb, priv);
 
     steam_http_req_params_set(req, 3,
         "format",       "xml",
@@ -536,16 +537,16 @@ void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data)
     steam_http_req_send(req);
 }
 
-void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
+void steam_api_logoff(SteamAPI *api, SteamApiFunc func, gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    fp  = steam_pair_new(STEAM_PAIR_LOGOFF, api, func, data);
-    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                             STEAM_PATH_LOGOFF, steam_api_cb, fp);
+    priv = steam_api_priv_new(STEAM_PAIR_LOGOFF, api, func, data);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_PATH_LOGOFF, steam_api_cb, priv);
 
     steam_http_req_params_set(req, 3,
         "format",       "xml",
@@ -557,18 +558,18 @@ void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data)
     steam_http_req_send(req);
 }
 
-void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
+void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamApiFunc func,
                        gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(sm  != NULL);
 
-    fp  = steam_pair_new(STEAM_PAIR_MESSAGE, api, func, data);
-    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                             STEAM_PATH_MESSAGE, steam_api_cb, fp);
+    priv = steam_api_priv_new(STEAM_PAIR_MESSAGE, api, func, data);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_PATH_MESSAGE, steam_api_cb, priv);
 
     steam_http_req_params_set(req, 5,
         "format",       "xml",
@@ -598,14 +599,14 @@ void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
 
 void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    fp  = steam_pair_new(STEAM_PAIR_POLL, api, func, data);
-    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                             STEAM_PATH_POLL, steam_api_cb, fp);
+    priv = steam_api_priv_new(STEAM_PAIR_POLL, api, func, data);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_PATH_POLL, steam_api_cb, priv);
 
     steam_http_req_headers_set(req, 1, "Connection", "Keep-Alive");
 
@@ -624,8 +625,8 @@ void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
 void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
                          gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     GSList *s;
     GSList *e;
@@ -663,9 +664,9 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
             p = g_stpcpy(p, l->data);
         }
 
-        fp  = steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data);
-        req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                                 STEAM_PATH_SUMMARIES, steam_api_cb, fp);
+        priv = steam_api_priv_new(STEAM_PAIR_SUMMARIES, api, func, data);
+        req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                                  STEAM_PATH_SUMMARIES, steam_api_cb, priv);
 
         steam_http_req_params_set(req, 3,
             "format",       "xml",
@@ -688,15 +689,15 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
 void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
                        gpointer data)
 {
-    SteamHttpReq  *req;
-    SteamFuncPair *fp;
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
     g_return_if_fail(api     != NULL);
     g_return_if_fail(steamid != NULL);
 
-    fp  = steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data);
-    req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                             STEAM_PATH_SUMMARIES, steam_api_cb, fp);
+    priv = steam_api_priv_new(STEAM_PAIR_SUMMARIES, api, func, data);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_PATH_SUMMARIES, steam_api_cb, priv);
 
     steam_http_req_params_set(req, 3,
         "format",       "xml",

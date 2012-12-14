@@ -43,7 +43,7 @@ typedef struct _SteamAPI         SteamAPI;
 typedef struct _SteamMessage     SteamMessage;
 typedef struct _SteamSummary     SteamSummary;
 
-typedef void (*SteamAPIFunc)  (SteamAPI *api, SteamError err, gpointer data);
+typedef void (*SteamApiFunc)  (SteamAPI *api, SteamError err, gpointer data);
 
 typedef void (*SteamListFunc) (SteamAPI *api, GSList *list, SteamError err,
                                gpointer data);
@@ -141,15 +141,15 @@ void steam_api_free(SteamAPI *api);
 
 void steam_api_auth(SteamAPI *api, const gchar *authcode,
                     const gchar *user, const gchar *pass,
-                    SteamAPIFunc func, gpointer data);
+                    SteamApiFunc func, gpointer data);
 
 void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data);
 
-void steam_api_logon(SteamAPI *api, SteamAPIFunc func, gpointer data);
+void steam_api_logon(SteamAPI *api, SteamApiFunc func, gpointer data);
 
-void steam_api_logoff(SteamAPI *api, SteamAPIFunc func, gpointer data);
+void steam_api_logoff(SteamAPI *api, SteamApiFunc func, gpointer data);
 
-void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
+void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamApiFunc func,
                        gpointer data);
 
 void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data);
