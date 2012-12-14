@@ -36,7 +36,9 @@ enum _SteamHttpFlags
 
 struct _SteamHttp
 {
-    gchar  *agent;
+    gchar          *agent;
+    GDestroyNotify  ddfunc;
+
     GSList *requests;
 };
 
@@ -52,8 +54,9 @@ struct _SteamHttpReq
     GTree *headers;
     GTree *params;
 
-    SteamHttpFunc func;
-    gpointer      data;
+    SteamHttpFunc  func;
+    gpointer       data;
+    GDestroyNotify ddfunc;
 
     struct http_request *request;
 
@@ -65,7 +68,7 @@ struct _SteamHttpReq
 };
 
 
-SteamHttp *steam_http_new(const gchar *agent);
+SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc);
 
 void steam_http_free_reqs(SteamHttp *http);
 

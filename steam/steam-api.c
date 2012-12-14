@@ -92,7 +92,7 @@ SteamAPI *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
-    api->http = steam_http_new(STEAM_API_AGENT);
+    api->http = steam_http_new(STEAM_API_AGENT, g_free);
 
     return api;
 }
@@ -397,8 +397,6 @@ static void steam_api_cb_error(SteamFuncPair *fp, SteamError err)
         steam_list_func(fp, NULL, err);
         break;
     }
-
-    g_free(fp);
 }
 
 static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
@@ -407,10 +405,8 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
     struct xt_parser *xt;
     struct xt_node   *xn;
 
-    if ((fp->type < 0) || (fp->type > STEAM_PAIR_LAST)) {
-        g_free(fp);
+    if ((fp->type < 0) || (fp->type > STEAM_PAIR_LAST))
         return TRUE;
-    }
 
     if (req->body_size < 1) {
         steam_api_cb_error(fp, STEAM_ERROR_HTTP_EMPTY);
@@ -480,8 +476,6 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
     pf[fp->type](fp, xt->root);
 
     xt_free(xt);
-    g_free(fp);
-
     return TRUE;
 }
 

@@ -24,12 +24,14 @@
 
 global_t global;
 
-SteamHttp *steam_http_new(const gchar *agent)
+SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc)
 {
     SteamHttp *http;
 
     http = g_new0(SteamHttp, 1);
-    http->agent = g_strdup(agent);
+
+    http->agent  = g_strdup(agent);
+    http->ddfunc = ddfunc;
 
     return http;
 }
@@ -65,12 +67,13 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
 
     req = g_new0(SteamHttpReq, 1);
 
-    req->http = http;
-    req->host = g_strdup(host);
-    req->port = port;
-    req->path = g_strdup(path);
-    req->func = func;
-    req->data = data;
+    req->http   = http;
+    req->host   = g_strdup(host);
+    req->port   = port;
+    req->path   = g_strdup(path);
+    req->func   = func;
+    req->data   = data;
+    req->ddfunc = http->ddfunc;
 
     req->headers = g_tree_new_full(steam_strcmp, NULL, g_free, g_free);
     req->params  = g_tree_new_full(steam_strcmp, NULL, g_free, g_free);
@@ -98,6 +101,9 @@ void steam_http_req_free(SteamHttpReq *req)
         req->request->func = steam_http_req_cb_null;
         req->request->data = NULL;
     }
+
+    if (req->ddfunc != NULL)
+        req->ddfunc(req->data);
 
     g_tree_destroy(req->headers);
     g_tree_destroy(req->params);
