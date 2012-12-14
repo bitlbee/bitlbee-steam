@@ -47,6 +47,7 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
 {
     SteamData *sd = data;
     account_t *acc;
+    irc_t     *irc;
     gchar     *msg;
 
     guint i;
@@ -55,7 +56,11 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
 
     switch (err) {
     case STEAM_ERROR_SUCCESS:
-        set_setstr(&sd->ic->acc->set, "token", api->token);
+        acc = sd->ic->acc;
+        irc = acc->bee->ui_data;
+
+        set_setstr(&acc->set, "token", api->token);
+        storage_save(irc, NULL, TRUE);
 
         imcb_log(sd->ic, "Authentication finished");
         imcb_log(sd->ic, "Sending login request");
