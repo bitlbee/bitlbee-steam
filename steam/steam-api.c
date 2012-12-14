@@ -588,6 +588,7 @@ void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamAPIFunc func,
         break;
 
     default:
+        steam_http_req_free(req);
         return;
     }
 
