@@ -21,9 +21,12 @@
 #include "steam-http.h"
 
 #define STEAM_API_HOST        "api.steampowered.com"
-#define STEAM_API_AGENT       "Steam / BitlBee / " PACKAGE_VERSION " / 0"
-#define STEAM_API_CLIENT_ID   "DAB33B22" /* Da Bee Bzz? */
-#define STEAM_API_KEEP_ALIVE  "30"       /* Max of 30 seconds */
+#define STEAM_API_AGENT       "Steam App / BitlBee / " PACKAGE_VERSION " / 0"
+#define STEAM_API_KEEP_ALIVE  "30" /* Max of 30 seconds */
+
+/* Required for GetTokenWithCredentials */
+#define STEAM_API_AGENT_AUTH  "Steam App / Android / 1.0 / 0"
+#define STEAM_API_CLIENT_ID   "DE45CD61" /* The "public" mobile client id */
 
 #define STEAM_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
 #define STEAM_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"

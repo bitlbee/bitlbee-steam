@@ -490,6 +490,8 @@ void steam_api_auth(SteamAPI *api, const gchar *authcode,
     req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
                              STEAM_PATH_AUTH, steam_api_cb, fp);
 
+    steam_http_req_headers_set(req, 1, "User-Agent", STEAM_API_AGENT_AUTH);
+
     steam_http_req_params_set(req, 8,
         "format",          "xml",
         "client_id",       STEAM_API_CLIENT_ID,
