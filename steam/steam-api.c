@@ -630,8 +630,8 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
     GSList *e;
     GSList *l;
 
-    gsize  size;
-    gint   i;
+    gsize size;
+    gint  i;
 
     gchar *str;
     gchar *p;
@@ -646,7 +646,6 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
     }
 
     s  = friends;
-    fp = steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data);
 
     while (TRUE) {
         size = 0;
@@ -663,6 +662,7 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
             p = g_stpcpy(p, l->data);
         }
 
+        fp  = steam_pair_new(STEAM_PAIR_SUMMARIES, api, func, data);
         req = steam_http_req_new(api->http, STEAM_API_HOST, 443,
                                  STEAM_PATH_SUMMARIES, steam_api_cb, fp);
 
