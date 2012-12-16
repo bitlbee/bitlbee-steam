@@ -91,9 +91,45 @@ gint steam_util_user_mode(gchar *mode)
     }
 }
 
-gboolean steam_util_xt_node(struct xt_node *xr, const gchar *name,
+gboolean steam_util_xn_node(struct xt_node *xr, const gchar *name,
                             struct xt_node **xn)
 {
+    struct xt_node *xe;
+
+    g_return_val_if_fail(xr   != NULL, FALSE);
+    g_return_val_if_fail(name != NULL, FALSE);
+
     *xn = xt_find_node(xr->children, name);
     return (*xn != NULL);
+}
+
+gboolean steam_util_xn_text(struct xt_node *xr, const gchar *name,
+                            gchar **text)
+{
+    struct xt_node *xn;
+
+    g_return_val_if_fail(name != NULL, FALSE);
+
+    *text = NULL;
+
+    if (xr == NULL)
+        return FALSE;
+
+    if (!steam_util_xn_node(xr, name, &xn))
+        return FALSE;
+
+    *text = xn->text;
+    return (*text != NULL);
+}
+
+gboolean steam_util_xn_cmp(struct xt_node *xr, const gchar *name,
+                           const gchar *match, gchar **text)
+{
+    if (!steam_util_xn_text(xr, name, text))
+        return FALSE;
+
+    if (g_strcmp0(*text, match))
+        return FALSE;
+
+    return TRUE;
 }

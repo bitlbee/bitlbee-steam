@@ -36,49 +36,30 @@
 #define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
 #define STEAM_PATH_SUMMARIES  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
-typedef enum   _SteamError       SteamError;
+typedef enum   _SteamApiError    SteamApiError;
 typedef enum   _SteamState       SteamState;
 typedef enum   _SteamMessageType SteamMessageType;
 typedef struct _SteamAPI         SteamAPI;
 typedef struct _SteamMessage     SteamMessage;
 typedef struct _SteamSummary     SteamSummary;
 
-typedef void (*SteamApiFunc)  (SteamAPI *api, SteamError err, gpointer data);
+typedef void (*SteamApiFunc)  (SteamAPI *api, GError *err, gpointer data);
 
-typedef void (*SteamListFunc) (SteamAPI *api, GSList *list, SteamError err,
+typedef void (*SteamListFunc) (SteamAPI *api, GSList *list, GError *err,
                                gpointer data);
 
-enum _SteamError
+enum _SteamApiError
 {
-    STEAM_ERROR_SUCCESS = 0,
+    STEAM_API_ERROR_AUTH = 0,
+    STEAM_API_ERROR_FRIENDS,
+    STEAM_API_ERROR_LOGOFF,
+    STEAM_API_ERROR_LOGON,
+    STEAM_API_ERROR_MESSAGE,
+    STEAM_API_ERROR_POLL,
+    STEAM_API_ERROR_SUMMARIES,
 
-    STEAM_ERROR_EMPTY_FRIENDS,
-    STEAM_ERROR_EMPTY_MESSAGE,
-    STEAM_ERROR_EMPTY_STEAMID,
-    STEAM_ERROR_EMPTY_SUMMARY,
-    STEAM_ERROR_EMPTY_UMQID,
-
-    STEAM_ERROR_FAILED_AUTH,
-    STEAM_ERROR_FAILED_LOGOFF,
-    STEAM_ERROR_FAILED_LOGON,
-    STEAM_ERROR_FAILED_MESSAGE_SEND,
-    STEAM_ERROR_FAILED_POLL,
-
-    STEAM_ERROR_HTTP_BAD_REQUEST,
-    STEAM_ERROR_HTTP_EMPTY,
-    STEAM_ERROR_HTTP_GENERIC,
-    STEAM_ERROR_HTTP_INT_SERVER,
-    STEAM_ERROR_HTTP_UNAUTHORIZED,
-    STEAM_ERROR_HTTP_UNAVAILABLE,
-
-    STEAM_ERROR_INVALID_AUTH_CODE,
-    STEAM_ERROR_INVALID_LOGON,
-
-    STEAM_ERROR_MISMATCH_UMQID,
-    STEAM_ERROR_PARSE_XML,
-    STEAM_ERROR_REQ_AUTH_CODE,
-
-    STEAM_ERROR_LAST
+    STEAM_API_ERROR_AUTH_REQ,
+    STEAM_API_ERROR_EMPTY_REPLY
 };
 
 enum _SteamState
@@ -135,6 +116,10 @@ struct _SteamSummary
     const gchar *profile;
 };
 
+#define STEAM_API_ERROR steam_api_error_quark()
+
+GQuark steam_api_error_quark(void);
+
 SteamAPI *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamAPI *api);
@@ -159,8 +144,6 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
 
 void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
                        gpointer data);
-
-gchar *steam_api_error_str(SteamError err);
 
 gchar *steam_message_type_str(SteamMessageType type);
 

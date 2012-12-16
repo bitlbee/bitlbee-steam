@@ -24,6 +24,16 @@
 
 global_t global;
 
+GQuark steam_http_error_quark(void)
+{
+    static GQuark q;
+
+    if (G_UNLIKELY(q == 0))
+        q = g_quark_from_static_string("steam-http-error-quark");
+
+    return q;
+}
+
 SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc)
 {
     SteamHttp *http;
@@ -102,7 +112,7 @@ void steam_http_req_free(SteamHttpReq *req)
         req->request->data = NULL;
     }
 
-    if (req->ddfunc != NULL)
+    if ((req->ddfunc != NULL) && (req->data != NULL))
         req->ddfunc(req->data);
 
     g_tree_destroy(req->headers);
@@ -213,14 +223,19 @@ static void steam_http_req_cb(struct http_request *request)
 
     req->http->requests = g_slist_remove(req->http->requests, req);
 
+    if (req->err != NULL)
+        g_error_free(req->err);
+
+    if (request->status_code != 200)
+        g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
+                    request->status_string);
+
     /* Shortcut some req->request values into req */
-    req->errcode   = req->request->status_code;
-    req->errstr    = req->request->status_string;
-    req->body      = req->request->reply_body;
-    req->body_size = req->request->body_size;
+    req->body      = request->reply_body;
+    req->body_size = request->body_size;
 
     if (global.conf->verbose) {
-        g_print("HTTP Reply (%s): %s\n", req->path, req->errstr);
+        g_print("HTTP Reply (%s): %s\n", req->path, request->status_string);
 
         if (req->body_size > 0) {
             ls = g_strsplit(req->body, "\n", 0);
@@ -246,8 +261,10 @@ static void steam_http_req_cb(struct http_request *request)
         return;
     }
 
-    req->errcode   = 0;
-    req->errstr    = NULL;
+    if (req->err != NULL)
+        g_error_free(req->err);
+
+    req->err       = NULL;
     req->body      = NULL;
     req->body_size = 0;
 }

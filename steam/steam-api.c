@@ -24,7 +24,7 @@
 typedef enum   _SteamApiType SteamApiType;
 typedef struct _SteamApiPriv SteamApiPriv;
 
-typedef SteamError (*SteamParseFunc) (SteamApiPriv *priv, struct xt_node *xr);
+typedef void (*SteamParseFunc) (SteamApiPriv *priv, struct xt_node *xr);
 
 enum _SteamApiType
 {
@@ -43,7 +43,7 @@ struct _SteamApiPriv
 {
     SteamAPI     *api;
     SteamApiType  type;
-    SteamError    err;
+    GError       *err;
 
     gpointer func;
     gpointer data;
@@ -62,11 +62,33 @@ static SteamApiPriv *steam_api_priv_new(SteamApiType type, SteamAPI *api,
 
     priv->api  = api;
     priv->type = type;
-    priv->err  = STEAM_ERROR_SUCCESS;
     priv->func = func;
     priv->data = data;
 
     return priv;
+}
+
+static void steam_api_priv_free(SteamApiPriv *priv)
+{
+    g_return_if_fail(priv != NULL);
+
+    if ((priv->rfunc != NULL) && (priv->rdata != NULL))
+        priv->rfunc(priv->rdata);
+
+    if (priv->err != NULL)
+        g_error_free(priv->err);
+
+    g_free(priv);
+}
+
+GQuark steam_api_error_quark(void)
+{
+    static GQuark q;
+
+    if (G_UNLIKELY(q == 0))
+        q = g_quark_from_static_string("steam-api-error-quark");
+
+    return q;
 }
 
 SteamAPI *steam_api_new(const gchar *umqid)
@@ -85,7 +107,8 @@ SteamAPI *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
-    api->http = steam_http_new(STEAM_API_AGENT, g_free);
+    api->http = steam_http_new(STEAM_API_AGENT,
+                               (GDestroyNotify) steam_api_priv_free);
 
     return api;
 }
@@ -108,189 +131,152 @@ static void steam_slist_free_full(GSList *list)
     g_slist_free_full(list, g_free);
 }
 
-static SteamError steam_api_auth_cb(SteamApiPriv *priv, struct xt_node *xr)
+static void steam_api_auth_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
-    struct xt_node *xn;
+    SteamApiError  err;
+    gchar         *text;
 
-    if (steam_util_xt_node(xr, "access_token", &xn)) {
+    if (steam_util_xn_text(xr, "access_token", &text)) {
         g_free(priv->api->token);
-        priv->api->token = g_strdup(xn->text);
-        return STEAM_ERROR_SUCCESS;
+        priv->api->token = g_strdup(text);
+        return;
     }
 
-    if (!steam_util_xt_node(xr, "x_errorcode", &xn))
-        return STEAM_ERROR_FAILED_AUTH;
+    if (steam_util_xn_cmp(xr, "x_errorcode", "steamguard_code_required", &text))
+        err = STEAM_API_ERROR_AUTH_REQ;
+    else
+        err = STEAM_API_ERROR_AUTH;
 
-    if (!g_strcmp0("incorrect_login", xn->text))
-        return STEAM_ERROR_INVALID_LOGON;
-    else if (!g_strcmp0("invalid_steamguard_code", xn->text))
-        return STEAM_ERROR_INVALID_AUTH_CODE;
-    else if (!g_strcmp0("steamguard_code_required", xn->text))
-        return STEAM_ERROR_REQ_AUTH_CODE;
-
-    return STEAM_ERROR_FAILED_AUTH;
+    steam_util_xn_text(xr, "error_description", &text);
+    g_set_error(&priv->err, STEAM_API_ERROR, err, text);
 }
 
-static SteamError steam_api_friends_cb(SteamApiPriv *priv, struct xt_node *xr)
+static void steam_api_friends_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
-    struct xt_node *xn, *xe;
+    struct xt_node *xn;
+    gchar          *text;
     GSList         *fl;
-    SteamError      err;
 
-    if (!steam_util_xt_node(xr, "friends", &xn))
-        return STEAM_ERROR_EMPTY_FRIENDS;
-
-    if (xn->children == NULL)
-        return STEAM_ERROR_EMPTY_FRIENDS;
+    if (!steam_util_xn_node(xr, "friends", &xn) || (xn->children == NULL))
+        goto error;
 
     fl = NULL;
 
     for (xn = xn->children; xn != NULL; xn = xn->next) {
-        if (!steam_util_xt_node(xn, "relationship", &xe))
+        if (!steam_util_xn_cmp(xn, "relationship", "friend", &text))
             continue;
 
-        if (g_strcmp0(xe->text, "friend"))
+        if (!steam_util_xn_text(xn, "steamid", &text))
             continue;
 
-        if (!steam_util_xt_node(xn, "steamid", &xe))
-            continue;
-
-        fl = g_slist_prepend(fl, xe->text);
+        fl = g_slist_prepend(fl, text);
     }
 
     priv->rdata = fl;
     priv->rfunc = (GDestroyNotify) g_slist_free;
 
-    return (fl != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_FRIENDS;
+    if (fl != NULL)
+        return;
+
+error:
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIENDS,
+                "Empty friends list");
 }
 
-static SteamError steam_api_logon_cb(SteamApiPriv *priv, struct xt_node *xr)
+static void steam_api_logon_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
-    struct xt_node *xn;
+    gchar *text;
 
-    if (!steam_util_xt_node(xr, "umqid", &xn))
-        return STEAM_ERROR_EMPTY_UMQID;
+    if (!steam_util_xn_cmp(xr, "error", "OK", &text)) {
+        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON, text);
+        return;
+    }
 
-    if (g_strcmp0(priv->api->umqid, xn->text))
-        return STEAM_ERROR_MISMATCH_UMQID;
-
-    if (!steam_util_xt_node(xr, "steamid", &xn))
-        return STEAM_ERROR_EMPTY_STEAMID;
-
+    steam_util_xn_text(xr, "steamid", &text);
     g_free(priv->api->steamid);
-    priv->api->steamid = g_strdup(xn->text);
+    priv->api->steamid = g_strdup(text);
 
-    if (!steam_util_xt_node(xr, "message", &xn))
-        return STEAM_ERROR_EMPTY_MESSAGE;
-
+    steam_util_xn_text(xr, "message", &text);
     g_free(priv->api->lmid);
-    priv->api->lmid = g_strdup(xn->text);
-
-    return STEAM_ERROR_SUCCESS;
+    priv->api->lmid = g_strdup(text);
 }
 
-static SteamError steam_api_logoff_cb(SteamApiPriv *priv, struct xt_node *xr)
+static void steam_api_logoff_cb(SteamApiPriv *priv, struct xt_node *xr)
+{
+    gchar *text;
+
+    if (steam_util_xn_cmp(xr, "error", "OK", &text))
+        return;
+
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF, text);
+}
+
+static void steam_api_message_cb(SteamApiPriv *priv, struct xt_node *xr)
+{
+    gchar *text;
+
+    if (steam_util_xn_cmp(xr, "error", "OK", &text))
+        return;
+
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_MESSAGE, text);
+}
+
+static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn;
-
-    if (!steam_util_xt_node(xr, "error", &xn))
-        return STEAM_ERROR_FAILED_LOGOFF;
-
-    if (g_strcmp0("OK", xn->text))
-        return STEAM_ERROR_FAILED_LOGOFF;
-
-    return STEAM_ERROR_SUCCESS;
-}
-
-static SteamError steam_api_message_cb(SteamApiPriv *priv, struct xt_node *xr)
-{
-    struct xt_node *xn;
-
-    if (!steam_util_xt_node(xr, "error", &xn))
-        return STEAM_ERROR_FAILED_MESSAGE_SEND;
-
-    if (g_strcmp0("OK", xn->text))
-        return STEAM_ERROR_FAILED_MESSAGE_SEND;
-
-    return STEAM_ERROR_SUCCESS;
-}
-
-static SteamError steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
-{
-    struct xt_node *xn, *xe;
+    gchar          *text;
     SteamMessage   *sm;
     GSList         *mu;
 
-    if (!steam_util_xt_node(xr, "messagelast", &xn))
-        return STEAM_ERROR_SUCCESS;
+    if (!steam_util_xn_cmp(xr, "messagelast", priv->api->lmid, &text)) {
+        g_free(priv->api->lmid);
+        priv->api->lmid = g_strdup(text);
+    }
 
-    if (!g_strcmp0(priv->api->lmid, xn->text))
-        return STEAM_ERROR_SUCCESS;
+    if (!steam_util_xn_cmp(xr, "error", "Timeout", &text)) {
+        if (g_strcmp0(text, "OK")) {
+            g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+                        text);
+            return;
+        }
+    }
 
-    g_free(priv->api->lmid);
-    priv->api->lmid = g_strdup(xn->text);
-
-    if (!steam_util_xt_node(xr, "messages", &xn))
-        return STEAM_ERROR_SUCCESS;
-
-    if (xn->children == NULL)
-        return STEAM_ERROR_SUCCESS;
+    if (!steam_util_xn_node(xr, "messages", &xn) || (xn->children == NULL))
+        return;
 
     mu = NULL;
 
     for (xn = xn->children; xn != NULL; xn = xn->next) {
-        if (!steam_util_xt_node(xn, "steamid_from", &xe))
-            continue;
-
-        if (!g_strcmp0(priv->api->steamid, xe->text))
+        if (steam_util_xn_cmp(xn, "steamid_from", priv->api->steamid, &text))
             continue;
 
         sm = g_new0(SteamMessage, 1);
-        sm->steamid = xe->text;
+        sm->steamid = text;
 
-        if (!steam_util_xt_node(xn, "type", &xe)) {
+        if (!steam_util_xn_text(xn, "type", &text)) {
             g_free(sm);
             continue;
         }
 
-        if (!g_strcmp0("emote", xe->text)) {
-            if (!steam_util_xt_node(xn, "text", &xe)) {
-                g_free(sm);
-                continue;
-            }
-
+        if (!g_strcmp0("emote", text)) {
+            steam_util_xn_text(xn, "text", &text);
             sm->type = STEAM_MESSAGE_TYPE_EMOTE;
-            sm->text = xe->text;
-        } else if (!g_strcmp0("leftconversation", xe->text)) {
+            sm->text = text;
+        } else if (!g_strcmp0("leftconversation", text)) {
             sm->type = STEAM_MESSAGE_TYPE_LEFT_CONV;
-        } else if (!g_strcmp0("saytext", xe->text)) {
-            if (!steam_util_xt_node(xn, "text", &xe)) {
-                g_free(sm);
-                continue;
-            }
-
+        } else if (!g_strcmp0("saytext", text)) {
+            steam_util_xn_text(xn, "text", &text);
             sm->type = STEAM_MESSAGE_TYPE_SAYTEXT;
-            sm->text = xe->text;
-        } else if (!g_strcmp0("typing", xe->text)) {
+            sm->text = text;
+        } else if (!g_strcmp0("typing", text)) {
             sm->type = STEAM_MESSAGE_TYPE_TYPING;
-        } else if (!g_strcmp0("personastate", xe->text)) {
-            if (!steam_util_xt_node(xn, "persona_name", &xe)) {
-                g_free(sm);
-                continue;
-            }
+        } else if (!g_strcmp0("personastate", text)) {
+            steam_util_xn_text(xn, "persona_name", &text);
+            sm->name = text;
 
-            sm->name = xe->text;
-
-            if (!steam_util_xt_node(xn, "persona_state", &xe)) {
-                g_free(sm);
-                continue;
-            }
-
+            steam_util_xn_text(xn, "persona_state", &text);
             sm->type  = STEAM_MESSAGE_TYPE_STATE;
-            sm->state = g_ascii_strtoll(xe->text, NULL, 10);
-        } else {
-            g_free(sm);
-            continue;
+            sm->state = g_ascii_strtoll(text, NULL, 10);
         }
 
         mu = g_slist_prepend(mu, sm);
@@ -298,49 +284,44 @@ static SteamError steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
 
     priv->rdata = mu;
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
-
-    return STEAM_ERROR_SUCCESS;
 }
 
-static SteamError steam_api_summaries_cb(SteamApiPriv *priv, struct xt_node *xr)
+static void steam_api_summaries_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
-    struct xt_node *xn, *xe;
+    struct xt_node *xn;
+    gchar          *text;
     GSList         *mu;
     SteamSummary   *ss;
-    SteamError      err;
 
-    if (!steam_util_xt_node(xr, "players", &xn))
-        return STEAM_ERROR_EMPTY_SUMMARY;
-
-    if (xn->children == NULL)
-        return STEAM_ERROR_EMPTY_SUMMARY;
+    if (!steam_util_xn_node(xr, "players", &xn) || (xn->children == NULL))
+        goto error;
 
     mu = NULL;
 
     for (xn = xn->children; xn != NULL; xn = xn->next) {
-        if (!steam_util_xt_node(xn, "steamid", &xe))
+        if (!steam_util_xn_text(xn, "steamid", &text))
             continue;
 
         ss = g_new0(SteamSummary, 1);
-        ss->steamid = xe->text;
+        ss->steamid = text;
 
-        if (steam_util_xt_node(xn, "gameextrainfo", &xe))
-            ss->game = xe->text;
+        steam_util_xn_text(xn, "gameextrainfo", &text);
+        ss->game = text;
 
-        if (steam_util_xt_node(xn, "gameserverip", &xe))
-            ss->server = xe->text;
+        steam_util_xn_text(xn, "gameserverip", &text);
+        ss->server = text;
 
-        if (steam_util_xt_node(xn, "personaname", &xe))
-            ss->name = xe->text;
+        steam_util_xn_text(xn, "personaname", &text);
+        ss->name = text;
 
-        if (steam_util_xt_node(xn, "personastate", &xe))
-            ss->state = g_ascii_strtoll(xe->text, NULL, 10);
+        steam_util_xn_text(xn, "profileurl", &text);
+        ss->profile = text;
 
-        if (steam_util_xt_node(xn, "profileurl", &xe))
-            ss->profile = xe->text;
+        steam_util_xn_text(xn, "realname", &text);
+        ss->realname = text;
 
-        if (steam_util_xt_node(xn, "realname", &xe))
-            ss->realname = xe->text;
+        if (steam_util_xn_text(xn, "personastate", &text))
+            ss->state = g_ascii_strtoll(text, NULL, 10);
 
         mu = g_slist_prepend(mu, ss);
     }
@@ -348,13 +329,47 @@ static SteamError steam_api_summaries_cb(SteamApiPriv *priv, struct xt_node *xr)
     priv->rdata = mu;
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
 
-    return (mu != NULL) ? STEAM_ERROR_SUCCESS : STEAM_ERROR_EMPTY_SUMMARY;
+    if (mu != NULL)
+        return;
+
+error:
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARIES,
+                "No friends returned");
 }
 
-static void steam_api_parse(SteamApiPriv *priv, struct xt_node *xr)
+static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
 {
+    SteamApiPriv     *priv = data;
+    struct xt_parser *xt;
+
     SteamParseFunc pf[STEAM_PAIR_LAST];
 
+    if ((priv->type < 0) || (priv->type > STEAM_PAIR_LAST))
+        return TRUE;
+
+    xt = NULL;
+
+    if (req->err != NULL) {
+        g_propagate_prefixed_error(&priv->err, req->err, "HTTP error: ");
+        req->err = NULL;
+        goto parse;
+    }
+
+    if (req->body_size < 1) {
+        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_EMPTY_REPLY,
+                    "Empty HTTP reply");
+        goto parse;
+    }
+
+    xt = xt_new(NULL, NULL);
+
+    if (xt_feed(xt, req->body, req->body_size) < 0) {
+        g_propagate_error(&priv->err, xt->gerr);
+        xt->gerr = NULL;
+        goto parse;
+    }
+
+parse:
     pf[STEAM_PAIR_AUTH]      = steam_api_auth_cb;
     pf[STEAM_PAIR_FRIENDS]   = steam_api_friends_cb;
     pf[STEAM_PAIR_LOGON]     = steam_api_logon_cb;
@@ -363,8 +378,8 @@ static void steam_api_parse(SteamApiPriv *priv, struct xt_node *xr)
     pf[STEAM_PAIR_POLL]      = steam_api_poll_cb;
     pf[STEAM_PAIR_SUMMARIES] = steam_api_summaries_cb;
 
-    if ((priv->err == STEAM_ERROR_SUCCESS) && (xr != NULL))
-        priv->err = pf[priv->type](priv, xr);
+    if ((priv->err == NULL) && (xt != NULL))
+        pf[priv->type](priv, xt->root);
 
     if (priv->func != NULL) {
         switch (priv->type) {
@@ -384,82 +399,8 @@ static void steam_api_parse(SteamApiPriv *priv, struct xt_node *xr)
         }
     }
 
-    if (priv->rfunc)
-        priv->rfunc(priv->rdata);
-}
-
-static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
-{
-    SteamApiPriv     *priv = data;
-    struct xt_parser *xt;
-    struct xt_node   *xn;
-
-    if ((priv->type < 0) || (priv->type > STEAM_PAIR_LAST))
-        return TRUE;
-
-    xt = NULL;
-
-    if (req->body_size < 1) {
-        priv->err = STEAM_ERROR_HTTP_EMPTY;
-        goto parse;
-    }
-
-    switch (req->errcode) {
-    case 200:
-        break;
-
-    case 400:
-        priv->err = STEAM_ERROR_HTTP_BAD_REQUEST;
-        goto parse;
-
-    case 401:
-        priv->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
-        goto parse;
-
-    case 500:
-        priv->err = STEAM_ERROR_HTTP_INT_SERVER;
-        goto parse;
-
-    case 503:
-        priv->err = STEAM_ERROR_HTTP_UNAVAILABLE;
-        goto parse;
-
-    default:
-        priv->err = STEAM_ERROR_HTTP_GENERIC;
-        goto parse;
-    }
-
-    xt = xt_new(NULL, NULL);
-
-    if (xt_feed(xt, req->body, req->body_size) < 0) {
-        if (global.conf->verbose && (xt->gerr != NULL)) {
-            g_print("  ** Markup parser error (%d): %s **\n\n",
-                    xt->gerr->code, xt->gerr->message);
-        }
-
-        priv->err = STEAM_ERROR_PARSE_XML;
-        goto parse;
-    }
-
-    if (steam_util_xt_node(xt->root, "error", &xn)) {
-        if (!g_ascii_strncasecmp(xn->text, "Not Logged On", 13)) {
-            priv->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
-            goto parse;
-        }
-
-        if (!g_ascii_strncasecmp(xn->text, "Service Unavailable", 19)) {
-            priv->err = STEAM_ERROR_HTTP_UNAUTHORIZED;
-            goto parse;
-        }
-    }
-
-parse:
-    if (xt != NULL) {
-        steam_api_parse(priv, xt->root);
+    if (xt != NULL)
         xt_free(xt);
-    } else {
-        steam_api_parse(priv, NULL);
-    }
 
     return TRUE;
 }
@@ -642,7 +583,7 @@ void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
 
     if (friends == NULL) {
         if (func != NULL)
-            func(api, NULL, STEAM_ERROR_SUCCESS, data);
+            func(api, NULL, NULL, data);
 
         return;
     }
@@ -707,47 +648,6 @@ void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
 
     req->flags = STEAM_HTTP_FLAG_SSL;
     steam_http_req_send(req);
-}
-
-gchar *steam_api_error_str(SteamError err)
-{
-    gchar *strs[STEAM_ERROR_LAST];
-
-    if ((err < 0) || (err > STEAM_ERROR_LAST))
-        return "";
-
-    strs[STEAM_ERROR_SUCCESS]             = "Success";
-
-    strs[STEAM_ERROR_EMPTY_FRIENDS]       = "Empty friends list";
-    strs[STEAM_ERROR_EMPTY_MESSAGE]       = "Empty message";
-    strs[STEAM_ERROR_EMPTY_STEAMID]       = "Empty SteamID";
-    strs[STEAM_ERROR_EMPTY_SUMMARY]       = "Empty summary "
-                                            "information returned";
-    strs[STEAM_ERROR_EMPTY_UMQID]         = "Empty UMQID";
-
-    strs[STEAM_ERROR_FAILED_AUTH]         = "Authentication failed";
-    strs[STEAM_ERROR_FAILED_LOGOFF]       = "Unknown logoff failure";
-    strs[STEAM_ERROR_FAILED_LOGON]        = "Unknown logon failure";
-    strs[STEAM_ERROR_FAILED_MESSAGE_SEND] = "Failed to send message";
-    strs[STEAM_ERROR_FAILED_POLL]         = "Failed to poll server";
-
-    strs[STEAM_ERROR_HTTP_BAD_REQUEST]    = "Bad HTTP request";
-    strs[STEAM_ERROR_HTTP_EMPTY]          = "Empty HTTP reply returned";
-    strs[STEAM_ERROR_HTTP_GENERIC]        = "Generic HTTP error returned";
-    strs[STEAM_ERROR_HTTP_INT_SERVER]     = "Internal server error";
-    strs[STEAM_ERROR_HTTP_UNAUTHORIZED]   = "Not authorized";
-    strs[STEAM_ERROR_HTTP_UNAVAILABLE]    = "Service unavailable";
-
-    strs[STEAM_ERROR_INVALID_AUTH_CODE]   = "Invalid SteamGuard "
-                                            "authentication code";
-    strs[STEAM_ERROR_INVALID_LOGON]       = "Invalid login details";
-
-    strs[STEAM_ERROR_MISMATCH_UMQID]      = "Mismatch in UMQIDs";
-    strs[STEAM_ERROR_PARSE_XML]           = "Failed to parse XML reply";
-    strs[STEAM_ERROR_REQ_AUTH_CODE]       = "SteamGuard authentication "
-                                            "code required";
-
-    return strs[err];
 }
 
 gchar *steam_message_type_str(SteamMessageType type)

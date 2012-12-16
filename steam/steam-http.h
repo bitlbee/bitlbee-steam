@@ -60,13 +60,14 @@ struct _SteamHttpReq
 
     struct http_request *request;
 
-    gint   errcode;
-    gchar *errstr;
-
-    gchar *body;
-    gint   body_size;
+    GError *err;
+    gchar  *body;
+    gint    body_size;
 };
 
+#define STEAM_HTTP_ERROR steam_http_error_quark()
+
+GQuark steam_http_error_quark(void);
 
 SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc);
 

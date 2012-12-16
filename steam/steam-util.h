@@ -35,7 +35,13 @@ void steam_util_buddy_status(SteamData *sd, const gchar *steamid,
 
 gint steam_util_user_mode(gchar *mode);
 
-gboolean steam_util_xt_node(struct xt_node *xr, const gchar *name,
+gboolean steam_util_xn_node(struct xt_node *xr, const gchar *name,
                             struct xt_node **xn);
+
+gboolean steam_util_xn_text(struct xt_node *xn, const gchar *name,
+                            gchar **text);
+
+gboolean steam_util_xn_cmp(struct xt_node *xr, const gchar *name,
+                           const gchar *match, gchar **text);
 
 #endif /* _STEAM_UTIL_H */

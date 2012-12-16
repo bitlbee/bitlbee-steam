@@ -20,13 +20,13 @@
 #include "steam.h"
 #include "steam-util.h"
 
-static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data);
+static void steam_logon_cb(SteamAPI *api, GError *err, gpointer data);
 
-static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
+static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
                           gpointer data);
 
 static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
-                               SteamError err, gpointer data);
+                               GError *err, gpointer data);
 
 
 static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
@@ -43,7 +43,7 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
     return FALSE;
 }
 
-static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
+static void steam_auth_cb(SteamAPI *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
     account_t *acc;
@@ -54,8 +54,7 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
 
     g_return_if_fail(sd != NULL);
 
-    switch (err) {
-    case STEAM_ERROR_SUCCESS:
+    if (err == NULL) {
         acc = sd->ic->acc;
         irc = acc->bee->ui_data;
 
@@ -65,14 +64,12 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
         imcb_log(sd->ic, "Authentication finished");
         imcb_log(sd->ic, "Sending login request");
         steam_api_logon(api, steam_logon_cb, sd);
-        break;
+        return;
+    }
 
-    case STEAM_ERROR_INVALID_AUTH_CODE:
-        imcb_error(sd->ic, "SteamGuard authentication code invalid");
-        imc_logout(sd->ic, FALSE);
-        break;
+    imcb_log(sd->ic, err->message);
 
-    case STEAM_ERROR_REQ_AUTH_CODE:
+    if (err->code == STEAM_API_ERROR_AUTH_REQ) {
         acc = sd->ic->acc->bee->accounts;
 
         for (i = 0; acc != NULL; acc = acc->next, i++) {
@@ -80,19 +77,13 @@ static void steam_auth_cb(SteamAPI *api, SteamError err, gpointer data)
                 break;
         }
 
-        imcb_log(sd->ic, "SteamGuard requires an authentication code");
-        imcb_log(sd->ic, "An authentication code has been emailed to you");
         imcb_log(sd->ic, "Run: account %d set authcode <code>", i);
-        imc_logout(sd->ic, FALSE);
-        break;
-
-    default:
-        imcb_error(sd->ic, steam_api_error_str(err));
-        imc_logout(sd->ic, FALSE);
     }
+
+    imc_logout(sd->ic, FALSE);
 }
 
-static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
+static void steam_friends_cb(SteamAPI *api, GSList *friends, GError *err,
                              gpointer data)
 {
     SteamData *sd = data;
@@ -100,10 +91,10 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
 
     g_return_if_fail(sd != NULL);
 
-    if (err != STEAM_ERROR_SUCCESS) {
-        imcb_error(sd->ic, steam_api_error_str(err));
+    if (err != NULL) {
+        imcb_error(sd->ic, err->message);
 
-        if (err != STEAM_ERROR_EMPTY_FRIENDS) {
+        if (err->code != STEAM_API_ERROR_FRIENDS) {
             imc_logout(sd->ic, TRUE);
             return;
         }
@@ -115,14 +106,14 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, SteamError err,
     steam_api_summaries(sd->api, friends, steam_summaries_cb, sd);
 }
 
-static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
+static void steam_logon_cb(SteamAPI *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
     g_return_if_fail(sd != NULL);
 
-    if (err != STEAM_ERROR_SUCCESS) {
-        imcb_error(sd->ic, steam_api_error_str(err));
+    if (err != NULL) {
+        imcb_error(sd->ic, err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
@@ -131,7 +122,7 @@ static void steam_logon_cb(SteamAPI *api, SteamError err, gpointer data)
     steam_api_friends(sd->api, steam_friends_cb, sd);
 }
 
-static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
+static void steam_reset_cb(SteamAPI *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
@@ -141,7 +132,7 @@ static void steam_reset_cb(SteamAPI *api, SteamError err, gpointer data)
     steam_api_logon(sd->api, steam_logon_cb, sd);
 }
 
-static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
+static void steam_logoff_cb(SteamAPI *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
@@ -150,20 +141,20 @@ static void steam_logoff_cb(SteamAPI *api, SteamError err, gpointer data)
     steam_data_free(sd);
 }
 
-static void steam_message_cb(SteamAPI *api, SteamError err, gpointer data)
+static void steam_message_cb(SteamAPI *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
     g_return_if_fail(sd != NULL);
 
-    if (err == STEAM_ERROR_SUCCESS)
+    if (err == NULL)
         return;
 
-    imcb_error(sd->ic, steam_api_error_str(err));
+    imcb_error(sd->ic, err->message);
     imc_logout(sd->ic, TRUE);
 }
 
-static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
+static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
                           gpointer data)
 {
     SteamData    *sd = data;
@@ -179,8 +170,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
     if (!sd->poll)
         return;
 
-    if (err != STEAM_ERROR_SUCCESS) {
-        imcb_error(sd->ic, steam_api_error_str(err));
+    if (err != NULL) {
+        imcb_error(sd->ic, err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
@@ -234,8 +225,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, SteamError err,
     sd->ml_id = b_timeout_add(1000, steam_main_loop, sd);
 }
 
-static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
-                               SteamError err, gpointer data)
+static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
+                               gpointer data)
 {
     SteamData    *sd = data;
     SteamSummary *ss;
@@ -244,8 +235,8 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
 
     g_return_if_fail(sd != NULL);
 
-    if (err != STEAM_ERROR_SUCCESS) {
-        imcb_error(sd->ic, steam_api_error_str(err));
+    if (err != NULL) {
+        imcb_error(sd->ic, err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
@@ -269,8 +260,8 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
     steam_api_poll(sd->api, steam_poll_cb, sd);
 }
 
-static void steam_summary_cb(SteamAPI *api, GSList *summaries,
-                             SteamError err, gpointer data)
+static void steam_summary_cb(SteamAPI *api, GSList *summaries, GError *err,
+                             gpointer data)
 {
     SteamData    *sd = data;
     SteamSummary *ss;
@@ -278,8 +269,8 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries,
 
     g_return_if_fail(sd != NULL);
 
-    if (err != STEAM_ERROR_SUCCESS) {
-        imcb_error(sd->ic, steam_api_error_str(err));
+    if (err != NULL) {
+        imcb_error(sd->ic, err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
