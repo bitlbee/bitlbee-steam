@@ -225,8 +225,8 @@ static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
 {
     struct xt_node *xn;
     gchar          *text;
-    SteamMessage   *sm;
     GSList         *mu;
+    SteamMessage    sm;
 
     if (!steam_util_xn_cmp(xr, "messagelast", priv->api->lmid, &text)) {
         g_free(priv->api->lmid);
@@ -247,39 +247,48 @@ static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
     mu = NULL;
 
     for (xn = xn->children; xn != NULL; xn = xn->next) {
+        memset(&sm, 0, sizeof sm);
+
         if (steam_util_xn_cmp(xn, "steamid_from", priv->api->steamid, &text))
             continue;
 
-        sm = g_new0(SteamMessage, 1);
-        sm->steamid = text;
+        sm.steamid = text;
 
-        if (!steam_util_xn_text(xn, "type", &text)) {
-            g_free(sm);
+        if (!steam_util_xn_text(xn, "type", &text))
+            continue;
+
+        if (!g_strcmp0("emote", text)) {
+            if (!steam_util_xn_text(xn, "text", &text))
+                continue;
+
+            sm.type = STEAM_MESSAGE_TYPE_EMOTE;
+            sm.text = text;
+        } else if (!g_strcmp0("leftconversation", text)) {
+            sm.type = STEAM_MESSAGE_TYPE_LEFT_CONV;
+        } else if (!g_strcmp0("saytext", text)) {
+            if (!steam_util_xn_text(xn, "text", &text))
+                continue;
+
+            sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
+            sm.text = text;
+        } else if (!g_strcmp0("typing", text)) {
+            sm.type = STEAM_MESSAGE_TYPE_TYPING;
+        } else if (!g_strcmp0("personastate", text)) {
+            if (!steam_util_xn_text(xn, "persona_name", &text))
+                continue;
+
+            sm.type = STEAM_MESSAGE_TYPE_STATE;
+            sm.nick = text;
+
+            if (!steam_util_xn_text(xn, "persona_state", &text))
+                continue;
+
+            sm.state = g_ascii_strtoll(text, NULL, 10);
+        } else {
             continue;
         }
 
-        if (!g_strcmp0("emote", text)) {
-            steam_util_xn_text(xn, "text", &text);
-            sm->type = STEAM_MESSAGE_TYPE_EMOTE;
-            sm->text = text;
-        } else if (!g_strcmp0("leftconversation", text)) {
-            sm->type = STEAM_MESSAGE_TYPE_LEFT_CONV;
-        } else if (!g_strcmp0("saytext", text)) {
-            steam_util_xn_text(xn, "text", &text);
-            sm->type = STEAM_MESSAGE_TYPE_SAYTEXT;
-            sm->text = text;
-        } else if (!g_strcmp0("typing", text)) {
-            sm->type = STEAM_MESSAGE_TYPE_TYPING;
-        } else if (!g_strcmp0("personastate", text)) {
-            steam_util_xn_text(xn, "persona_name", &text);
-            sm->nick = text;
-
-            steam_util_xn_text(xn, "persona_state", &text);
-            sm->type  = STEAM_MESSAGE_TYPE_STATE;
-            sm->state = g_ascii_strtoll(text, NULL, 10);
-        }
-
-        mu = g_slist_prepend(mu, sm);
+        mu = g_slist_prepend(mu, g_memdup(&sm, sizeof sm));
     }
 
     priv->rdata = mu;
