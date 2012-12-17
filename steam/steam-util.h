@@ -24,14 +24,11 @@
 #include "steam-api.h"
 #include "xmltree.h"
 
-#define STEAM_CHANNEL_USER_OFF -1
-
 #ifndef g_slist_free_full
 void g_slist_free_full(GSList *list, GDestroyNotify free_func);
 #endif
 
-void steam_util_buddy_status(SteamData *sd, const gchar *steamid,
-                             SteamState state, const gchar *game);
+void steam_util_buddy_status(SteamData *sd, SteamSummary *ss);
 
 gint steam_util_user_mode(gchar *mode);
 

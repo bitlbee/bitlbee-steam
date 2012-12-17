@@ -272,7 +272,7 @@ static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
             sm->type = STEAM_MESSAGE_TYPE_TYPING;
         } else if (!g_strcmp0("personastate", text)) {
             steam_util_xn_text(xn, "persona_name", &text);
-            sm->name = text;
+            sm->nick = text;
 
             steam_util_xn_text(xn, "persona_state", &text);
             sm->type  = STEAM_MESSAGE_TYPE_STATE;
@@ -312,13 +312,13 @@ static void steam_api_summaries_cb(SteamApiPriv *priv, struct xt_node *xr)
         ss->server = text;
 
         steam_util_xn_text(xn, "personaname", &text);
-        ss->name = text;
+        ss->nick = text;
 
         steam_util_xn_text(xn, "profileurl", &text);
         ss->profile = text;
 
         steam_util_xn_text(xn, "realname", &text);
-        ss->realname = text;
+        ss->fullname = text;
 
         if (steam_util_xn_text(xn, "personastate", &text))
             ss->state = g_ascii_strtoll(text, NULL, 10);

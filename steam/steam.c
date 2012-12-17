@@ -159,6 +159,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
 {
     SteamData    *sd = data;
     SteamMessage *sm;
+    SteamSummary  ss;
     bee_user_t   *bu;
 
     GSList *l;
@@ -202,15 +203,18 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
             break;
 
         case STEAM_MESSAGE_TYPE_STATE:
-            if (sd->show_playing == STEAM_CHANNEL_USER_OFF) {
-                steam_util_buddy_status(sd, sm->steamid, sm->state, NULL);
+            if (sd->extra_info) {
+                steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
                 break;
             }
 
-            if (sm->state == STEAM_STATE_OFFLINE)
-                steam_util_buddy_status(sd, sm->steamid, sm->state, NULL);
-            else
-                steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
+            memset(&ss, 0, sizeof ss);
+
+            ss.state    = sm->state;
+            ss.steamid  = sm->steamid;
+            ss.nick     = sm->nick;
+
+            steam_util_buddy_status(sd, &ss);
             break;
 
         case STEAM_MESSAGE_TYPE_TYPING:
@@ -228,10 +232,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
 static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
                                gpointer data)
 {
-    SteamData    *sd = data;
-    SteamSummary *ss;
-    bee_user_t   *bu;
-    GSList       *l;
+    SteamData *sd = data;
+    GSList    *l;
 
     g_return_if_fail(sd != NULL);
 
@@ -244,14 +246,8 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
     if (!(sd->ic->flags & OPT_LOGGED_IN))
         imcb_connected(sd->ic);
 
-    for (l = m_updates; l != NULL; l = l->next) {
-        ss = l->data;
-
-        if (!sd->poll)
-            imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->name);
-
-        steam_util_buddy_status(sd, ss->steamid, ss->state, ss->game);
-    }
+    for (l = m_updates; l != NULL; l = l->next)
+        steam_util_buddy_status(sd, l->data);
 
     if (sd->poll)
         return;
@@ -277,8 +273,8 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries, GError *err,
 
     ss = summaries->data;
 
-    if (ss->name != NULL)
-        imcb_log(sd->ic, "Name:      %s", ss->name);
+    if (ss->nick != NULL)
+        imcb_log(sd->ic, "Name:      %s", ss->nick);
 
     if (ss->game != NULL)
         imcb_log(sd->ic, "Playing:   %s", ss->game);
@@ -288,8 +284,8 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries, GError *err,
         imcb_log(sd->ic, "Server:    %s%s", url, ss->server);
     }
 
-    if (ss->realname != NULL)
-        imcb_log(sd->ic, "Real Name: %s", ss->realname);
+    if (ss->fullname != NULL)
+        imcb_log(sd->ic, "Real Name: %s", ss->fullname);
 
     imcb_log(sd->ic, "Steam ID:  %s", ss->steamid);
     imcb_log(sd->ic, "Status:    %s", steam_state_str(ss->state));
@@ -327,8 +323,8 @@ static char *steam_eval_show_playing(set_t *set, char *value)
     GSList     *l;
     gint        p;
 
-    SteamData  *sd;
-    SteamState  s;
+    SteamData    *sd;
+    SteamSummary  ss;
 
     g_return_val_if_fail(acc      != NULL, value);
     g_return_val_if_fail(acc->bee != NULL, value);
@@ -354,9 +350,35 @@ static char *steam_eval_show_playing(set_t *set, char *value)
         if (!(bu->flags & BEE_USER_ONLINE))
             continue;
 
-        s = steam_state_from_str(bu->status);
-        steam_util_buddy_status(sd, bu->handle, s, bu->status_msg);
+        memset(&ss, 0, sizeof ss);
+
+        ss.state    = steam_state_from_str(bu->status);
+        ss.steamid  = bu->handle;
+        ss.nick     = bu->nick;
+        ss.game     = bu->status_msg;
+        ss.fullname = bu->fullname;
+
+        steam_util_buddy_status(sd, &ss);
     }
+
+    return value;
+}
+
+static char *steam_eval_extra_info(set_t *set, char *value)
+{
+    account_t *acc = set->data;
+    SteamData *sd;
+
+    g_return_val_if_fail(acc != NULL, value);
+
+    if (!is_bool(value))
+        return SET_INVALID;
+
+    if (acc->ic == NULL)
+        return value;
+
+    sd = acc->ic->proto_data;
+    sd->extra_info = bool2int(value);
 
     return value;
 }
@@ -396,6 +418,7 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;
 
+    set_add(&acc->set, "extra_info", "true", steam_eval_extra_info, acc);
     set_add(&acc->set, "server_url", "true", steam_eval_server_url, acc);
 }
 
@@ -412,6 +435,7 @@ static void steam_login(account_t *acc)
 
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sd->show_playing = steam_util_user_mode(tmp);
+    sd->extra_info   = set_getbool(&acc->set, "extra_info");
     sd->server_url   = set_getbool(&acc->set, "server_url");
 
     imcb_log(sd->ic, "Connecting");

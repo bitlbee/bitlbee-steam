@@ -32,8 +32,9 @@ struct _SteamData
     gint     ml_id;
     gboolean poll;
 
-    gint     show_playing;
+    gboolean extra_info;
     gboolean server_url;
+    gint     show_playing;
 };
 
 

@@ -27,8 +27,7 @@ void g_slist_free_full(GSList *list, GDestroyNotify free_func)
 }
 #endif
 
-void steam_util_buddy_status(SteamData *sd, const gchar *steamid,
-                             SteamState state, const gchar *game)
+void steam_util_buddy_status(SteamData *sd, SteamSummary *ss)
 {
     bee_user_t    *bu;
     irc_channel_t *ircc;
@@ -37,44 +36,47 @@ void steam_util_buddy_status(SteamData *sd, const gchar *steamid,
     gint   f;
     gchar *m;
 
-    g_return_if_fail(sd      != NULL);
-    g_return_if_fail(steamid != NULL);
+    g_return_if_fail(sd != NULL);
+    g_return_if_fail(ss != NULL);
 
-    bu = bee_user_by_handle(sd->ic->bee, sd->ic, steamid);
+    bu = bee_user_by_handle(sd->ic->bee, sd->ic, ss->steamid);
 
     if (bu == NULL)
         return;
 
-    if (state == STEAM_STATE_OFFLINE) {
-        imcb_buddy_status(sd->ic, steamid, 0, NULL, NULL);
+    /* Check rather than freeing/reallocating */
+    if (g_strcmp0(bu->nick, ss->nick))
+        imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
+
+    imcb_rename_buddy(sd->ic, ss->steamid, ss->fullname);
+
+    if (ss->state == STEAM_STATE_OFFLINE) {
+        imcb_buddy_status(sd->ic, ss->steamid, 0, NULL, NULL);
         return;
     }
 
     f = OPT_LOGGED_IN;
-    m = steam_state_str(state);
+    m = steam_state_str(ss->state);
 
-    if (state != STEAM_STATE_ONLINE)
+    if (ss->state != STEAM_STATE_ONLINE)
         f |= OPT_AWAY;
 
-    imcb_buddy_status(sd->ic, steamid, f, m, game);
+    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
 
-    if (sd->show_playing == STEAM_CHANNEL_USER_OFF)
+    if (!sd->extra_info)
         return;
 
     ircu = bu->ui_data;
     ircc = ircu->irc->default_channel;
 
-    if (game != NULL)
+    if (ss->game != NULL)
         irc_channel_user_set_mode(ircc, ircu, sd->show_playing);
 }
 
 gint steam_util_user_mode(gchar *mode)
 {
     if (mode == NULL)
-        return STEAM_CHANNEL_USER_OFF;
-
-    if (is_bool(mode) && !bool2int(mode))
-        return STEAM_CHANNEL_USER_OFF;
+        return IRC_CHANNEL_USER_NONE;
 
     switch (mode[0]) {
     case '@':

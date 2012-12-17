@@ -101,7 +101,7 @@ struct _SteamMessage
 
     const gchar *steamid;
     const gchar *text;
-    const gchar *name;
+    const gchar *nick;
 };
 
 struct _SteamSummary
@@ -109,11 +109,11 @@ struct _SteamSummary
     SteamState state;
 
     const gchar *steamid;
-    const gchar *name;
+    const gchar *nick;
+    const gchar *fullname;
+    const gchar *profile;
     const gchar *game;
     const gchar *server;
-    const gchar *realname;
-    const gchar *profile;
 };
 
 #define STEAM_API_ERROR steam_api_error_quark()
