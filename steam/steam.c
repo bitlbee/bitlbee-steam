@@ -43,6 +43,160 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
     return FALSE;
 }
 
+static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
+{
+    irc_channel_t *ircc;
+    irc_user_t    *ircu;
+    SteamState     st;
+
+    gint   f;
+    gchar *m;
+
+    g_return_if_fail(sd != NULL);
+    g_return_if_fail(ss != NULL);
+
+    if (bu == NULL) {
+        bu = bee_user_by_handle(sd->ic->bee, sd->ic, ss->steamid);
+
+        if (bu == NULL)
+            return;
+    }
+
+    /* Check rather than freeing/reallocating */
+    if (g_strcmp0(bu->nick, ss->nick))
+        imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
+
+    imcb_rename_buddy(sd->ic, ss->steamid, ss->fullname);
+
+    if (bu->data != NULL) {
+        memcpy(&st, bu->data, sizeof st);
+        g_free(bu->data);
+        bu->data = NULL;
+
+        switch (st) {
+        case STEAM_STATE_REQUEST:
+            imcb_log(sd->ic, "Friendship invite from `%s'", ss->nick);
+            return;
+
+        case STEAM_STATE_REQUESTED:
+            imcb_log(sd->ic, "Friendship invitation sent to `%s'", ss->nick);
+            return;
+        }
+    }
+
+    if (ss->state == STEAM_STATE_OFFLINE) {
+        imcb_buddy_status(sd->ic, ss->steamid, 0, NULL, NULL);
+        return;
+    }
+
+    f = OPT_LOGGED_IN;
+    m = steam_state_str(ss->state);
+
+    if (ss->state != STEAM_STATE_ONLINE)
+        f |= OPT_AWAY;
+
+    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
+
+    if (!sd->extra_info)
+        return;
+
+    ircu = bu->ui_data;
+    ircc = ircu->irc->default_channel;
+
+    if (ss->game != NULL)
+        irc_channel_user_set_mode(ircc, ircu, sd->show_playing);
+}
+
+static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
+{
+    bee_user_t   *bu;
+    gchar        *m;
+    SteamSummary  ss;
+
+    bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
+
+    if (bu == NULL) {
+        if (sm->type != STEAM_MESSAGE_TYPE_RELATIONSHIP)
+            return;
+
+        switch (sm->state) {
+        case STEAM_STATE_REQUEST:
+        case STEAM_STATE_REQUESTED:
+            imcb_add_buddy(sd->ic, sm->steamid, NULL);
+            bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
+            break;
+
+        default:
+            return;
+        }
+
+        if (G_UNLIKELY(bu == NULL))
+            return;
+    }
+
+    switch (sm->type) {
+    case STEAM_MESSAGE_TYPE_EMOTE:
+    case STEAM_MESSAGE_TYPE_SAYTEXT:
+        if (sm->type == STEAM_MESSAGE_TYPE_EMOTE)
+            m = g_strconcat("/me ", sm->text, NULL);
+        else
+            m = g_strdup(sm->text);
+
+        imcb_buddy_msg(sd->ic, sm->steamid, m, 0, 0);
+        imcb_buddy_typing(sd->ic, sm->steamid, 0);
+
+        g_free(m);
+        break;
+
+    case STEAM_MESSAGE_TYPE_LEFT_CONV:
+        imcb_buddy_typing(sd->ic, sm->steamid, 0);
+        break;
+
+    case STEAM_MESSAGE_TYPE_RELATIONSHIP:
+        switch (sm->state) {
+        case STEAM_STATE_REMOVE:
+            imcb_log(sd->ic, "Removed `%s' from friends list", bu->nick);
+            imcb_remove_buddy(sd->ic, sm->steamid, NULL);
+            break;
+
+        case STEAM_STATE_IGNORE:
+            imcb_log(sd->ic, "Friendship invite from `%s' ignored", bu->nick);
+            imcb_remove_buddy(sd->ic, sm->steamid, NULL);
+            return;
+
+        case STEAM_STATE_ADD:
+            imcb_log(sd->ic, "Added `%s' to friends list", bu->nick);
+            steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
+            break;
+
+        case STEAM_STATE_REQUEST:
+        case STEAM_STATE_REQUESTED:
+            g_free(bu->data);
+            bu->data = g_memdup(&sm->state, sizeof sm->state);
+            steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
+            break;
+        }
+        break;
+
+    case STEAM_MESSAGE_TYPE_STATE:
+        if (sd->extra_info) {
+            steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
+            break;
+        }
+
+        steam_util_smtoss(sm, &ss);
+        steam_buddy_status(sd, &ss, bu);
+        break;
+
+    case STEAM_MESSAGE_TYPE_TYPING:
+        if (bu->flags & OPT_TYPING)
+            imcb_buddy_typing(sd->ic, sm->steamid, 0);
+        else
+            imcb_buddy_typing(sd->ic, sm->steamid, OPT_TYPING);
+        break;
+    }
+}
+
 static void steam_auth_cb(SteamAPI *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
@@ -157,14 +311,8 @@ static void steam_message_cb(SteamAPI *api, GError *err, gpointer data)
 static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
                           gpointer data)
 {
-    SteamData    *sd = data;
-    SteamMessage *sm;
-    SteamSummary  ss;
-    bee_user_t   *bu;
-
-    GSList *l;
-    gchar  *m;
-    gint    f;
+    SteamData *sd = data;
+    GSList    *l;
 
     g_return_if_fail(sd != NULL);
 
@@ -177,54 +325,8 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
         return;
     }
 
-    for (l = m_updates; l != NULL; l = l->next) {
-        sm = l->data;
-        bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
-
-        if (bu == NULL)
-            continue;
-
-        switch (sm->type) {
-        case STEAM_MESSAGE_TYPE_EMOTE:
-        case STEAM_MESSAGE_TYPE_SAYTEXT:
-            if (sm->type == STEAM_MESSAGE_TYPE_EMOTE)
-                m = g_strconcat("/me ", sm->text, NULL);
-            else
-                m = g_strdup(sm->text);
-
-            imcb_buddy_msg(sd->ic, sm->steamid, m, 0, 0);
-            imcb_buddy_typing(sd->ic, sm->steamid, 0);
-
-            g_free(m);
-            break;
-
-        case STEAM_MESSAGE_TYPE_LEFT_CONV:
-            imcb_buddy_typing(sd->ic, sm->steamid, 0);
-            break;
-
-        case STEAM_MESSAGE_TYPE_STATE:
-            if (sd->extra_info) {
-                steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
-                break;
-            }
-
-            memset(&ss, 0, sizeof ss);
-
-            ss.state    = sm->state;
-            ss.steamid  = sm->steamid;
-            ss.nick     = sm->nick;
-
-            steam_util_buddy_status(sd, &ss);
-            break;
-
-        case STEAM_MESSAGE_TYPE_TYPING:
-            if (bu->flags & OPT_TYPING)
-                imcb_buddy_typing(sd->ic, sm->steamid, 0);
-            else
-                imcb_buddy_typing(sd->ic, sm->steamid, OPT_TYPING);
-            break;
-        }
-    }
+    for (l = m_updates; l != NULL; l = l->next)
+        steam_poll_cb_p(sd, l->data);
 
     sd->ml_id = b_timeout_add(1000, steam_main_loop, sd);
 }
@@ -247,7 +349,7 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
         imcb_connected(sd->ic);
 
     for (l = m_updates; l != NULL; l = l->next)
-        steam_util_buddy_status(sd, l->data);
+        steam_buddy_status(sd, l->data, NULL);
 
     if (sd->poll)
         return;
@@ -358,7 +460,7 @@ static char *steam_eval_show_playing(set_t *set, char *value)
         ss.game     = bu->status_msg;
         ss.fullname = bu->fullname;
 
-        steam_util_buddy_status(sd, &ss);
+        steam_buddy_status(sd, &ss, bu);
     }
 
     return value;
@@ -549,25 +651,31 @@ static void steam_get_info(struct im_connection *ic, char *who)
     steam_api_summary(sd->api, who, steam_summary_cb, sd);
 }
 
+static void steam_buddy_data_free(struct bee_user *bu)
+{
+    g_free(bu->data);
+}
+
 void init_plugin()
 {
     struct prpl *pp;
 
     pp = g_new0(struct prpl, 1);
 
-    pp->name         = "steam";
-    pp->mms          = 0;
-    pp->init         = steam_init;
-    pp->login        = steam_login;
-    pp->logout       = steam_logout;
-    pp->away_states  = steam_away_states;
-    pp->buddy_msg    = steam_buddy_msg;
-    pp->set_away     = steam_set_away;
-    pp->send_typing  = steam_send_typing;
-    pp->add_buddy    = steam_add_buddy;
-    pp->remove_buddy = steam_remove_buddy;
-    pp->get_info     = steam_get_info;
-    pp->handle_cmp   = g_strcmp0;
+    pp->name            = "steam";
+    pp->mms             = 0;
+    pp->init            = steam_init;
+    pp->login           = steam_login;
+    pp->logout          = steam_logout;
+    pp->away_states     = steam_away_states;
+    pp->buddy_msg       = steam_buddy_msg;
+    pp->set_away        = steam_set_away;
+    pp->send_typing     = steam_send_typing;
+    pp->add_buddy       = steam_add_buddy;
+    pp->remove_buddy    = steam_remove_buddy;
+    pp->get_info        = steam_get_info;
+    pp->handle_cmp      = g_strcmp0;
+    pp->buddy_data_free = steam_buddy_data_free;
 
     register_protocol(pp);
 }

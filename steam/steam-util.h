@@ -28,7 +28,7 @@
 void g_slist_free_full(GSList *list, GDestroyNotify free_func);
 #endif
 
-void steam_util_buddy_status(SteamData *sd, SteamSummary *ss);
+void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss);
 
 gint steam_util_user_mode(gchar *mode);
 

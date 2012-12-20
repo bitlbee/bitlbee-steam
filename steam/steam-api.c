@@ -257,23 +257,7 @@ static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
         if (!steam_util_xn_text(xn, "type", &text))
             continue;
 
-        if (!g_strcmp0("emote", text)) {
-            if (!steam_util_xn_text(xn, "text", &text))
-                continue;
-
-            sm.type = STEAM_MESSAGE_TYPE_EMOTE;
-            sm.text = text;
-        } else if (!g_strcmp0("leftconversation", text)) {
-            sm.type = STEAM_MESSAGE_TYPE_LEFT_CONV;
-        } else if (!g_strcmp0("saytext", text)) {
-            if (!steam_util_xn_text(xn, "text", &text))
-                continue;
-
-            sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
-            sm.text = text;
-        } else if (!g_strcmp0("typing", text)) {
-            sm.type = STEAM_MESSAGE_TYPE_TYPING;
-        } else if (!g_strcmp0("personastate", text)) {
+        if (!g_strcmp0("personastate", text)) {
             if (!steam_util_xn_text(xn, "persona_name", &text))
                 continue;
 
@@ -283,6 +267,28 @@ static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
             if (!steam_util_xn_text(xn, "persona_state", &text))
                 continue;
 
+            sm.state = g_ascii_strtoll(text, NULL, 10);
+        } else if (!g_strcmp0("saytext", text)) {
+            if (!steam_util_xn_text(xn, "text", &text))
+                continue;
+
+            sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
+            sm.text = text;
+        } else if (!g_strcmp0("typing", text)) {
+            sm.type = STEAM_MESSAGE_TYPE_TYPING;
+        } else if (!g_strcmp0("emote", text)) {
+            if (!steam_util_xn_text(xn, "text", &text))
+                continue;
+
+            sm.type = STEAM_MESSAGE_TYPE_EMOTE;
+            sm.text = text;
+        } else if (!g_strcmp0("leftconversation", text)) {
+            sm.type = STEAM_MESSAGE_TYPE_LEFT_CONV;
+        } else if (!g_strcmp0("personarelationship", text)) {
+            if (!steam_util_xn_text(xn, "persona_state", &text))
+                continue;
+
+            sm.type  = STEAM_MESSAGE_TYPE_RELATIONSHIP;
             sm.state = g_ascii_strtoll(text, NULL, 10);
         } else {
             continue;
@@ -666,11 +672,12 @@ gchar *steam_message_type_str(SteamMessageType type)
     if ((type < 0) || (type > STEAM_MESSAGE_TYPE_LAST))
         return "";
 
-    strs[STEAM_MESSAGE_TYPE_SAYTEXT]   = "saytext";
-    strs[STEAM_MESSAGE_TYPE_EMOTE]     = "emote";
-    strs[STEAM_MESSAGE_TYPE_LEFT_CONV] = "leftconversation";
-    strs[STEAM_MESSAGE_TYPE_STATE]     = "personastate";
-    strs[STEAM_MESSAGE_TYPE_TYPING]    = "typing";
+    strs[STEAM_MESSAGE_TYPE_SAYTEXT]      = "saytext";
+    strs[STEAM_MESSAGE_TYPE_EMOTE]        = "emote";
+    strs[STEAM_MESSAGE_TYPE_LEFT_CONV]    = "leftconversation";
+    strs[STEAM_MESSAGE_TYPE_RELATIONSHIP] = "personarelationship";
+    strs[STEAM_MESSAGE_TYPE_STATE]        = "personastate";
+    strs[STEAM_MESSAGE_TYPE_TYPING]       = "typing";
 
     return strs[type];
 }

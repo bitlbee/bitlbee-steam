@@ -27,50 +27,16 @@ void g_slist_free_full(GSList *list, GDestroyNotify free_func)
 }
 #endif
 
-void steam_util_buddy_status(SteamData *sd, SteamSummary *ss)
+void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss)
 {
-    bee_user_t    *bu;
-    irc_channel_t *ircc;
-    irc_user_t    *ircu;
-
-    gint   f;
-    gchar *m;
-
-    g_return_if_fail(sd != NULL);
+    g_return_if_fail(sm != NULL);
     g_return_if_fail(ss != NULL);
 
-    bu = bee_user_by_handle(sd->ic->bee, sd->ic, ss->steamid);
+    memset(ss, 0, sizeof (SteamSummary));
 
-    if (bu == NULL)
-        return;
-
-    /* Check rather than freeing/reallocating */
-    if (g_strcmp0(bu->nick, ss->nick))
-        imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
-
-    imcb_rename_buddy(sd->ic, ss->steamid, ss->fullname);
-
-    if (ss->state == STEAM_STATE_OFFLINE) {
-        imcb_buddy_status(sd->ic, ss->steamid, 0, NULL, NULL);
-        return;
-    }
-
-    f = OPT_LOGGED_IN;
-    m = steam_state_str(ss->state);
-
-    if (ss->state != STEAM_STATE_ONLINE)
-        f |= OPT_AWAY;
-
-    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
-
-    if (!sd->extra_info)
-        return;
-
-    ircu = bu->ui_data;
-    ircc = ircu->irc->default_channel;
-
-    if (ss->game != NULL)
-        irc_channel_user_set_mode(ircc, ircu, sd->show_playing);
+    ss->state   = sm->state;
+    ss->steamid = sm->steamid;
+    ss->nick    = sm->nick;
 }
 
 gint steam_util_user_mode(gchar *mode)
