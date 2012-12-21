@@ -115,6 +115,9 @@ void steam_http_req_free(SteamHttpReq *req)
     if ((req->ddfunc != NULL) && (req->data != NULL))
         req->ddfunc(req->data);
 
+    if (req->err != NULL)
+        g_error_free(req->err);
+
     g_tree_destroy(req->headers);
     g_tree_destroy(req->params);
 
@@ -223,12 +226,10 @@ static void steam_http_req_cb(struct http_request *request)
 
     req->http->requests = g_slist_remove(req->http->requests, req);
 
-    if (req->err != NULL)
-        g_error_free(req->err);
-
-    if (request->status_code != 200)
+    if (request->status_code != 200) {
         g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
-                    request->status_string);
+                    "HTTP: %s", request->status_string);
+    }
 
     /* Shortcut some req->request values into req */
     req->body      = request->reply_body;
@@ -264,6 +265,7 @@ static void steam_http_req_cb(struct http_request *request)
     if (req->err != NULL)
         g_error_free(req->err);
 
+    req->request   = NULL;
     req->err       = NULL;
     req->body      = NULL;
     req->body_size = 0;

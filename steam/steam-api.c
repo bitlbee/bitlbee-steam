@@ -365,7 +365,7 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
     xt = NULL;
 
     if (req->err != NULL) {
-        g_propagate_prefixed_error(&priv->err, req->err, "HTTP error: ");
+        g_propagate_error(&priv->err, req->err);
         req->err = NULL;
         goto parse;
     }
