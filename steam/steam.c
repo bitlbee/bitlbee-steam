@@ -45,9 +45,10 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 
 static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 {
-    irc_channel_t *ircc;
-    irc_user_t    *ircu;
-    SteamState     st;
+    irc_channel_t      *ic;
+    irc_user_t         *iu;
+    irc_channel_user_t *icu;
+    SteamState          st;
 
     gint   f;
     gchar *m;
@@ -97,14 +98,18 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 
     imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
 
-    if (!sd->extra_info)
+    if (!sd->extra_info || (ss->game == NULL))
         return;
 
-    ircu = bu->ui_data;
-    ircc = ircu->irc->default_channel;
+    iu  = bu->ui_data;
+    ic  = iu->irc->default_channel;
+    icu = irc_channel_has_user(ic, iu);
+    f   = sd->show_playing;
 
-    if (ss->game != NULL)
-        irc_channel_user_set_mode(ircc, ircu, sd->show_playing);
+    if (icu != NULL)
+        f |= icu->flags;
+
+    irc_channel_user_set_mode(ic, iu, f);
 }
 
 static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
