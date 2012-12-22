@@ -20,27 +20,27 @@
 
 #include <bitlbee.h>
 
+#include "json_util.h"
 #include "steam.h"
 #include "steam-api.h"
-#include "xmltree.h"
 
 #ifndef g_slist_free_full
 void g_slist_free_full(GSList *list, GDestroyNotify free_func);
 #endif
 
+gboolean steam_util_json_val(json_value *json, const gchar *name,
+                             json_type type, json_value **val);
+
+gboolean steam_util_json_int(json_value *json, const gchar *name, gint *i);
+
+gboolean steam_util_json_str(json_value *json, const gchar *name,
+                             const gchar **str);
+
+gboolean steam_util_json_scmp(json_value *json, const gchar *name,
+                              const gchar *match, const gchar **str);
+
 void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss);
 
 gint steam_util_user_mode(gchar *mode);
-
-gboolean steam_util_xn_node(struct xt_node *xr, const gchar *name,
-                            struct xt_node **xn);
-
-gboolean steam_util_xn_int(struct xt_node *xr, const gchar *name, gint *i);
-
-gboolean steam_util_xn_str(struct xt_node *xn, const gchar *name,
-                           const gchar **str);
-
-gboolean steam_util_xn_cmp(struct xt_node *xr, const gchar *name,
-                           const gchar *match, const gchar **str);
 
 #endif /* _STEAM_UTIL_H */

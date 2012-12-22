@@ -27,6 +27,64 @@ void g_slist_free_full(GSList *list, GDestroyNotify free_func)
 }
 #endif
 
+gboolean steam_util_json_val(json_value *json, const gchar *name,
+                             json_type type, json_value **val)
+{
+    g_return_val_if_fail(json != NULL, FALSE);
+    g_return_val_if_fail(name != NULL, FALSE);
+    g_return_val_if_fail(val  != NULL, FALSE);
+
+    *val = json_o_get(json, name);
+
+    if (*val == NULL)
+        return FALSE;
+
+    return ((*val)->type == type);
+}
+
+gboolean steam_util_json_int(json_value *json, const gchar *name, gint *i)
+{
+    json_value *jv;
+
+    g_return_val_if_fail(i != NULL, FALSE);
+
+    *i = 0;
+
+    if (!steam_util_json_val(json, name, json_integer, &jv) || (jv == NULL))
+        return FALSE;
+
+    *i = jv->u.integer;
+    return TRUE;
+}
+
+gboolean steam_util_json_str(json_value *json, const gchar *name,
+                             const gchar **str)
+{
+    json_value *jv;
+
+    g_return_val_if_fail(str != NULL, FALSE);
+
+    *str = NULL;
+
+    if (!steam_util_json_val(json, name, json_string, &jv))
+        return FALSE;
+
+    if ((jv == NULL) && (jv->u.string.length < 1))
+        return FALSE;
+
+    *str = jv->u.string.ptr;
+    return TRUE;
+}
+
+gboolean steam_util_json_scmp(json_value *json, const gchar *name,
+                              const gchar *match, const gchar **str)
+{
+    if (!steam_util_json_str(json, name, str) || g_strcmp0(*str, match))
+        return FALSE;
+
+    return TRUE;
+}
+
 void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss)
 {
     g_return_if_fail(sm != NULL);
@@ -57,60 +115,4 @@ gint steam_util_user_mode(gchar *mode)
     default:
         return IRC_CHANNEL_USER_NONE;
     }
-}
-
-gboolean steam_util_xn_node(struct xt_node *xr, const gchar *name,
-                            struct xt_node **xn)
-{
-    g_return_val_if_fail(xr   != NULL, FALSE);
-    g_return_val_if_fail(name != NULL, FALSE);
-
-    *xn = xt_find_node(xr->children, name);
-    return (*xn != NULL);
-}
-
-gboolean steam_util_xn_str(struct xt_node *xr, const gchar *name,
-                           const gchar **str)
-{
-    struct xt_node *xn;
-
-    g_return_val_if_fail(name != NULL, FALSE);
-
-    *str = NULL;
-
-    if (xr == NULL)
-        return FALSE;
-
-    if (!steam_util_xn_node(xr, name, &xn))
-        return FALSE;
-
-    *str = xn->text;
-    return (*str != NULL);
-}
-
-gboolean steam_util_xn_int(struct xt_node *xr, const gchar *name, gint *i)
-{
-    const gchar *str;
-
-    g_return_val_if_fail(i != NULL, FALSE);
-
-    *i = 0;
-
-    if (!steam_util_xn_str(xr, name, &str))
-        return FALSE;
-
-    *i = g_ascii_strtoll(str, NULL, 10);
-    return TRUE;
-}
-
-gboolean steam_util_xn_cmp(struct xt_node *xr, const gchar *name,
-                           const gchar *match, const gchar **str)
-{
-    if (!steam_util_xn_str(xr, name, str))
-        return FALSE;
-
-    if (g_strcmp0(*str, match))
-        return FALSE;
-
-    return TRUE;
 }
