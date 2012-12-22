@@ -71,14 +71,14 @@ gboolean steam_util_xn_node(struct xt_node *xr, const gchar *name,
     return (*xn != NULL);
 }
 
-gboolean steam_util_xn_text(struct xt_node *xr, const gchar *name,
-                            gchar **text)
+gboolean steam_util_xn_str(struct xt_node *xr, const gchar *name,
+                           const gchar **str)
 {
     struct xt_node *xn;
 
     g_return_val_if_fail(name != NULL, FALSE);
 
-    *text = NULL;
+    *str = NULL;
 
     if (xr == NULL)
         return FALSE;
@@ -86,17 +86,32 @@ gboolean steam_util_xn_text(struct xt_node *xr, const gchar *name,
     if (!steam_util_xn_node(xr, name, &xn))
         return FALSE;
 
-    *text = xn->text;
-    return (*text != NULL);
+    *str = xn->text;
+    return (*str != NULL);
+}
+
+gboolean steam_util_xn_int(struct xt_node *xr, const gchar *name, gint *i)
+{
+    const gchar *str;
+
+    g_return_val_if_fail(i != NULL, FALSE);
+
+    *i = 0;
+
+    if (!steam_util_xn_str(xr, name, &str))
+        return FALSE;
+
+    *i = g_ascii_strtoll(str, NULL, 10);
+    return TRUE;
 }
 
 gboolean steam_util_xn_cmp(struct xt_node *xr, const gchar *name,
-                           const gchar *match, gchar **text)
+                           const gchar *match, const gchar **str)
 {
-    if (!steam_util_xn_text(xr, name, text))
+    if (!steam_util_xn_str(xr, name, str))
         return FALSE;
 
-    if (g_strcmp0(*text, match))
+    if (g_strcmp0(*str, match))
         return FALSE;
 
     return TRUE;

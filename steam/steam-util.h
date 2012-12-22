@@ -35,10 +35,12 @@ gint steam_util_user_mode(gchar *mode);
 gboolean steam_util_xn_node(struct xt_node *xr, const gchar *name,
                             struct xt_node **xn);
 
-gboolean steam_util_xn_text(struct xt_node *xn, const gchar *name,
-                            gchar **text);
+gboolean steam_util_xn_int(struct xt_node *xr, const gchar *name, gint *i);
+
+gboolean steam_util_xn_str(struct xt_node *xn, const gchar *name,
+                           const gchar **str);
 
 gboolean steam_util_xn_cmp(struct xt_node *xr, const gchar *name,
-                           const gchar *match, gchar **text);
+                           const gchar *match, const gchar **str);
 
 #endif /* _STEAM_UTIL_H */
