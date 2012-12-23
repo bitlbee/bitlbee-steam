@@ -62,8 +62,6 @@ gint steam_util_user_mode(gchar *mode)
 gboolean steam_util_xn_node(struct xt_node *xr, const gchar *name,
                             struct xt_node **xn)
 {
-    struct xt_node *xe;
-
     g_return_val_if_fail(xr   != NULL, FALSE);
     g_return_val_if_fail(name != NULL, FALSE);
 

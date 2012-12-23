@@ -82,6 +82,9 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
         case STEAM_STATE_REQUESTED:
             imcb_log(sd->ic, "Friendship invitation sent to `%s'", ss->nick);
             return;
+
+        default:
+            break;
         }
     }
 
@@ -180,6 +183,9 @@ static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
             bu->data = g_memdup(&sm->state, sizeof sm->state);
             steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
             break;
+
+        default:
+            break;
         }
         break;
 
@@ -199,6 +205,9 @@ static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
         else
             imcb_buddy_typing(sd->ic, sm->steamid, OPT_TYPING);
         break;
+
+    default:
+        break;
     }
 }
 
@@ -207,7 +216,6 @@ static void steam_auth_cb(SteamAPI *api, GError *err, gpointer data)
     SteamData *sd = data;
     account_t *acc;
     irc_t     *irc;
-    gchar     *msg;
 
     guint i;
 
@@ -226,7 +234,7 @@ static void steam_auth_cb(SteamAPI *api, GError *err, gpointer data)
         return;
     }
 
-    imcb_log(sd->ic, err->message);
+    imcb_log(sd->ic, "%s", err->message);
 
     if (err->code == STEAM_API_ERROR_AUTH_REQ) {
         acc = sd->ic->acc->bee->accounts;
@@ -251,7 +259,7 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, GError *err,
     g_return_if_fail(sd != NULL);
 
     if (err != NULL) {
-        imcb_error(sd->ic, err->message);
+        imcb_error(sd->ic, "%s", err->message);
 
         if (err->code != STEAM_API_ERROR_FRIENDS) {
             imc_logout(sd->ic, TRUE);
@@ -272,7 +280,7 @@ static void steam_logon_cb(SteamAPI *api, GError *err, gpointer data)
     g_return_if_fail(sd != NULL);
 
     if (err != NULL) {
-        imcb_error(sd->ic, err->message);
+        imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
@@ -309,7 +317,7 @@ static void steam_message_cb(SteamAPI *api, GError *err, gpointer data)
     if (err == NULL)
         return;
 
-    imcb_error(sd->ic, err->message);
+    imcb_error(sd->ic, "%s", err->message);
     imc_logout(sd->ic, TRUE);
 }
 
@@ -325,7 +333,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
         return;
 
     if (err != NULL) {
-        imcb_error(sd->ic, err->message);
+        imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
@@ -345,7 +353,7 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
     g_return_if_fail(sd != NULL);
 
     if (err != NULL) {
-        imcb_error(sd->ic, err->message);
+        imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
@@ -373,7 +381,7 @@ static void steam_summary_cb(SteamAPI *api, GSList *summaries, GError *err,
     g_return_if_fail(sd != NULL);
 
     if (err != NULL) {
-        imcb_error(sd->ic, err->message);
+        imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }

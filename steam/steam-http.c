@@ -188,7 +188,7 @@ void steam_http_req_params_set(SteamHttpReq *req, gsize size, ...)
     va_end(ap);
 }
 
-static gboolean steam_tree_headers(gpointer key, gpointer value, GString *gstr)
+static gboolean steam_tree_headers(gchar *key, gchar *value, GString *gstr)
 {
     if (key == NULL)
         return FALSE;
@@ -200,7 +200,7 @@ static gboolean steam_tree_headers(gpointer key, gpointer value, GString *gstr)
     return FALSE;
 }
 
-static gboolean steam_tree_params(gpointer key, gpointer value, GString *gstr)
+static gboolean steam_tree_params(gchar *key, gchar *value, GString *gstr)
 {
     gchar *sep;
 
@@ -285,7 +285,7 @@ void steam_http_req_send(SteamHttpReq *req)
 
     gstr = g_string_sized_new(128);
     g_tree_foreach(req->params, (GTraverseFunc) steam_tree_params, gstr);
-    len = g_strdup_printf("%lu", gstr->len);
+    len = g_strdup_printf("%" G_GSIZE_FORMAT, gstr->len);
     ps  = g_string_free(gstr, FALSE);
 
     if (req->flags & STEAM_HTTP_FLAG_POST) {

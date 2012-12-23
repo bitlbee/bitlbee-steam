@@ -148,7 +148,7 @@ static void steam_api_auth_cb(SteamApiPriv *priv, struct xt_node *xr)
         err = STEAM_API_ERROR_AUTH;
 
     steam_util_xn_str(xr, "error_description", &str);
-    g_set_error(&priv->err, STEAM_API_ERROR, err, str);
+    g_set_error(&priv->err, STEAM_API_ERROR, err, "%s", str);
 }
 
 static void steam_api_friends_cb(SteamApiPriv *priv, struct xt_node *xr)
@@ -188,7 +188,8 @@ static void steam_api_logon_cb(SteamApiPriv *priv, struct xt_node *xr)
     const gchar *str;
 
     if (!steam_util_xn_cmp(xr, "error", "OK", &str)) {
-        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON, str);
+        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON,
+                    "%s", str);
         return;
     }
 
@@ -208,7 +209,8 @@ static void steam_api_logoff_cb(SteamApiPriv *priv, struct xt_node *xr)
     if (steam_util_xn_cmp(xr, "error", "OK", &str))
         return;
 
-    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF, str);
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
+                "%s", str);
 }
 
 static void steam_api_message_cb(SteamApiPriv *priv, struct xt_node *xr)
@@ -218,7 +220,8 @@ static void steam_api_message_cb(SteamApiPriv *priv, struct xt_node *xr)
     if (steam_util_xn_cmp(xr, "error", "OK", &str))
         return;
 
-    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_MESSAGE, str);
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_MESSAGE,
+                "%s", str);
 }
 
 static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
@@ -235,7 +238,8 @@ static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
 
     if (!steam_util_xn_cmp(xr, "error", "Timeout", &str)) {
         if (g_strcmp0(str, "OK")) {
-            g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL, str);
+            g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+                        "%s", str);
             return;
         }
     }
@@ -389,6 +393,9 @@ parse:
         case STEAM_PAIR_SUMMARIES:
             ((SteamListFunc) priv->func)(priv->api, priv->rdata, priv->err,
                                          priv->data);
+            break;
+
+        default:
             break;
         }
     }
