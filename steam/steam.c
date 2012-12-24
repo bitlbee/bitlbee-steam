@@ -50,8 +50,9 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     irc_channel_user_t *icu;
     SteamState          st;
 
-    gint   f;
-    gchar *m;
+    GSList *l;
+    gchar  *m;
+    gint    f;
 
     g_return_if_fail(sd != NULL);
     g_return_if_fail(ss != NULL);
@@ -104,15 +105,18 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     if (!sd->extra_info || (ss->game == NULL))
         return;
 
-    iu  = bu->ui_data;
-    ic  = iu->irc->default_channel;
-    icu = irc_channel_has_user(ic, iu);
-    f   = sd->show_playing;
+    iu = bu->ui_data;
 
-    if (icu != NULL)
-        f |= icu->flags;
+    for (l = iu->irc->channels; l != NULL; l = l->next) {
+        ic  = l->data;
+        icu = irc_channel_has_user(ic, iu);
+        f   = sd->show_playing;
 
-    irc_channel_user_set_mode(ic, iu, f);
+        if (icu != NULL)
+            f |= icu->flags;
+
+        irc_channel_user_set_mode(ic, iu, f);
+    }
 }
 
 static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
