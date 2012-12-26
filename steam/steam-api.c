@@ -353,12 +353,6 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
         goto parse;
     }
 
-    if (req->body_size < 1) {
-        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_EMPTY_REPLY,
-                    "Empty HTTP reply");
-        goto parse;
-    }
-
     xt = xt_new(NULL, NULL);
 
     if (xt_feed(xt, req->body, req->body_size) < 0) {

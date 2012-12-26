@@ -22,6 +22,8 @@
 
 #include "steam-api.h"
 
+#define STEAM_POLL_TIMEOUT  1000
+
 typedef struct _SteamData SteamData;
 
 struct _SteamData
@@ -29,7 +31,7 @@ struct _SteamData
     struct im_connection *ic;
     SteamAPI             *api;
 
-    gint     ml_id;
+    gint     mlid;
     gboolean poll;
 
     gboolean extra_info;

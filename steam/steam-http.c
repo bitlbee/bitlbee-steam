@@ -107,6 +107,9 @@ void steam_http_req_free(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
+    if (req->rsid > 0)
+        b_event_remove(req->rsid);
+
     if (req->request != NULL) {
         req->request->func = steam_http_req_cb_null;
         req->request->data = NULL;
@@ -216,6 +219,18 @@ static gboolean steam_tree_params(gchar *key, gchar *value, GString *gstr)
     return FALSE;
 }
 
+static gboolean steam_http_req_resend(gpointer data, gint fd,
+                                      b_input_condition cond)
+{
+    SteamHttpReq *req = data;
+
+    g_return_val_if_fail(req != NULL, FALSE);
+
+    req->rsid = 0;
+    steam_http_req_send(req);
+    return FALSE;
+}
+
 static void steam_http_req_cb(struct http_request *request)
 {
     SteamHttpReq  *req = request->data;
@@ -226,17 +241,15 @@ static void steam_http_req_cb(struct http_request *request)
 
     req->http->requests = g_slist_remove(req->http->requests, req);
 
-    if (request->status_code != 200) {
-        g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
-                    "HTTP: %s", request->status_string);
-    }
-
     /* Shortcut some req->request values into req */
     req->body      = request->reply_body;
     req->body_size = request->body_size;
 
     if (global.conf->verbose) {
         g_print("HTTP Reply (%s): %s\n", req->path, request->status_string);
+
+        if (req->errc > 0)
+            g_print("Reattempted request: #%u\n", req->errc);
 
         if (req->body_size > 0) {
             ls = g_strsplit(req->body, "\n", 0);
@@ -252,6 +265,34 @@ static void steam_http_req_cb(struct http_request *request)
         g_print("\n");
     }
 
+    if (req->rsid > 0) {
+        b_event_remove(req->rsid);
+        req->rsid = 0;
+    }
+
+    if (request->status_code != 200) {
+        g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
+                    "%s", request->status_string);
+    } else if (req->body_size < 1) {
+        g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
+                    "Empty reply");
+    }
+
+    if (req->err != NULL) {
+        req->errc++;
+
+        if (req->errc < STEAM_HTTP_ERROR_MAX) {
+            g_error_free(req->err);
+            req->err = NULL;
+
+            req->rsid = b_timeout_add(STEAM_HTTP_ERROR_TIMEOUT,
+                                      steam_http_req_resend, req);
+            return;
+        }
+
+        g_prefix_error(&req->err, "HTTP: ");
+    }
+
     if (req->func != NULL)
         freeup = req->func(req, req->data);
     else
@@ -262,13 +303,15 @@ static void steam_http_req_cb(struct http_request *request)
         return;
     }
 
-    if (req->err != NULL)
+    if (req->err != NULL) {
         g_error_free(req->err);
+        req->err = NULL;
+    }
 
     req->request   = NULL;
-    req->err       = NULL;
     req->body      = NULL;
     req->body_size = 0;
+    req->errc      = 0;
 }
 
 void steam_http_req_send(SteamHttpReq *req)

@@ -21,6 +21,9 @@
 #include <glib.h>
 #include <http_client.h>
 
+#define STEAM_HTTP_ERROR_MAX      3
+#define STEAM_HTTP_ERROR_TIMEOUT  2000
+
 typedef enum   _SteamHttpFlags SteamHttpFlags;
 typedef struct _SteamHttp      SteamHttp;
 typedef struct _SteamHttpReq   SteamHttpReq;
@@ -63,6 +66,9 @@ struct _SteamHttpReq
     GError *err;
     gchar  *body;
     gint    body_size;
+
+    guint8 errc;
+    gint   rsid;
 };
 
 #define STEAM_HTTP_ERROR steam_http_error_quark()

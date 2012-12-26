@@ -35,7 +35,7 @@ static gboolean steam_main_loop(gpointer data, gint fd, b_input_condition cond)
 
     g_return_val_if_fail(sd != NULL, FALSE);
 
-    sd->ml_id = 0;
+    sd->mlid = 0;
 
     if (sd->poll)
         steam_api_poll(sd->api, steam_poll_cb, sd);
@@ -345,7 +345,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
     for (l = m_updates; l != NULL; l = l->next)
         steam_poll_cb_p(sd, l->data);
 
-    sd->ml_id = b_timeout_add(1000, steam_main_loop, sd);
+    sd->mlid = b_timeout_add(STEAM_POLL_TIMEOUT, steam_main_loop, sd);
 }
 
 static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
@@ -579,8 +579,8 @@ static void steam_logout(struct im_connection *ic)
 
     sd->poll = FALSE;
 
-    if (sd->ml_id > 0)
-        b_event_remove(sd->ml_id);
+    if (sd->mlid > 0)
+        b_event_remove(sd->mlid);
 
     if (ic->flags & OPT_LOGGING_OUT) {
         steam_http_free_reqs(sd->api->http);
