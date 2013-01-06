@@ -293,7 +293,7 @@ static void steam_api_poll_cb(SteamApiPriv *priv, struct xt_node *xr)
         mu = g_slist_prepend(mu, g_memdup(&sm, sizeof sm));
     }
 
-    priv->rdata = mu;
+    priv->rdata = g_slist_reverse(mu);
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
 }
 
