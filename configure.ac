@@ -35,11 +35,11 @@ PKG_CHECK_MODULES([BITLBEE], [bitlbee])
 
 # No "reliable" version set in bitlbee.pc, check manually
 CPPFLAGS="$GLIB_CFLAGS $BITLBEE_CFLAGS"
-AC_MSG_CHECKING([for bitlbee >= 3.0.1])
+AC_MSG_CHECKING([for bitlbee >= 3.2])
 AC_PREPROC_IFELSE(
     [AC_LANG_PROGRAM([[
         #include <bitlbee.h>
-        #if BITLBEE_VERSION_CODE < BITLBEE_VER(3, 0, 1)
+        #if BITLBEE_VERSION_CODE < BITLBEE_VER(3, 2, 0)
         #error outdated bitlbee version
         #endif]], [])],
     [HAVE_REQ_BITLBEE=yes],
@@ -49,7 +49,7 @@ AC_MSG_RESULT([$HAVE_REQ_BITLBEE])
 
 AS_IF(
     [test "x$HAVE_REQ_BITLBEE" == "xno"],
-    [AC_MSG_ERROR([Package requirements (bitlbee >= 3.0.1) were not met.])])
+    [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2) were not met.])])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
