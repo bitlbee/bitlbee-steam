@@ -54,6 +54,7 @@ enum _SteamApiError
     STEAM_API_ERROR_FRIENDS,
     STEAM_API_ERROR_LOGOFF,
     STEAM_API_ERROR_LOGON,
+    STEAM_API_ERROR_RELOGON,
     STEAM_API_ERROR_MESSAGE,
     STEAM_API_ERROR_POLL,
     STEAM_API_ERROR_SUMMARIES,
@@ -100,6 +101,9 @@ struct _SteamAPI
     gchar *lmid;
 
     SteamHttp *http;
+
+    gboolean  relog;
+    GSList   *rlreqs;
 };
 
 struct _SteamMessage

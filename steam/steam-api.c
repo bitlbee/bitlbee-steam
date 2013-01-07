@@ -31,6 +31,7 @@ enum _SteamApiType
     STEAM_PAIR_AUTH = 0,
     STEAM_PAIR_FRIENDS,
     STEAM_PAIR_LOGON,
+    STEAM_PAIR_RELOGON,
     STEAM_PAIR_LOGOFF,
     STEAM_PAIR_MESSAGE,
     STEAM_PAIR_POLL,
@@ -52,6 +53,7 @@ struct _SteamApiPriv
     GDestroyNotify rfunc;
 };
 
+static gboolean steam_api_logon_check(SteamApiPriv *priv, SteamHttpReq *req);
 
 static SteamApiPriv *steam_api_priv_new(SteamApiType type, SteamAPI *api,
                                         gpointer func, gpointer data)
@@ -200,6 +202,29 @@ static void steam_api_logon_cb(SteamApiPriv *priv, struct xt_node *xr)
     steam_util_xn_str(xr, "message", &str);
     g_free(priv->api->lmid);
     priv->api->lmid = g_strdup(str);
+}
+
+static void steam_api_relogon_cb(SteamApiPriv *priv, struct xt_node *xr)
+{
+    const gchar  *str;
+    GSList       *l;
+
+    priv->api->relog = FALSE;
+
+    if (!steam_util_xn_cmp(xr, "error", "OK", &str)) {
+        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
+                    "%s", str);
+        return;
+    }
+
+    for (l = priv->api->rlreqs; l != NULL; l = l->next)
+        steam_http_req_send(l->data);
+
+    if (priv->api->rlreqs == NULL)
+        return;
+
+    g_slist_free(priv->api->rlreqs);
+    priv->api->rlreqs = NULL;
 }
 
 static void steam_api_logoff_cb(SteamApiPriv *priv, struct xt_node *xr)
@@ -365,6 +390,7 @@ parse:
     pf[STEAM_PAIR_AUTH]      = steam_api_auth_cb;
     pf[STEAM_PAIR_FRIENDS]   = steam_api_friends_cb;
     pf[STEAM_PAIR_LOGON]     = steam_api_logon_cb;
+    pf[STEAM_PAIR_RELOGON]   = steam_api_relogon_cb;
     pf[STEAM_PAIR_LOGOFF]    = steam_api_logoff_cb;
     pf[STEAM_PAIR_MESSAGE]   = steam_api_message_cb;
     pf[STEAM_PAIR_POLL]      = steam_api_poll_cb;
@@ -373,10 +399,18 @@ parse:
     if ((priv->err == NULL) && (xt != NULL))
         pf[priv->type](priv, xt->root);
 
+    if (!steam_api_logon_check(priv, req)) {
+        if (xt != NULL)
+            xt_free(xt);
+
+        return FALSE;
+    }
+
     if (priv->func != NULL) {
         switch (priv->type) {
         case STEAM_PAIR_AUTH:
         case STEAM_PAIR_LOGON:
+        case STEAM_PAIR_RELOGON:
         case STEAM_PAIR_LOGOFF:
         case STEAM_PAIR_MESSAGE:
             ((SteamApiFunc) priv->func)(priv->api, priv->err, priv->data);
@@ -471,6 +505,53 @@ void steam_api_logon(SteamAPI *api, SteamApiFunc func, gpointer data)
 
     req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
     steam_http_req_send(req);
+}
+
+static gboolean steam_api_logon_check(SteamApiPriv *priv, SteamHttpReq *req)
+{
+    SteamHttpReq *pr;
+    SteamApiPriv *pp;
+
+    g_return_val_if_fail(priv != NULL, FALSE);
+    g_return_val_if_fail(req  != NULL, FALSE);
+
+    if (priv->err == NULL)
+        return TRUE;
+
+    switch (priv->type) {
+    case STEAM_PAIR_FRIENDS:
+    case STEAM_PAIR_MESSAGE:
+    case STEAM_PAIR_POLL:
+    case STEAM_PAIR_SUMMARIES:
+        break;
+
+    default:
+        return TRUE;
+    }
+
+    if (g_strncasecmp(priv->err->message, "Not Logged On", 13))
+        return TRUE;
+
+    priv->api->rlreqs = g_slist_prepend(priv->api->rlreqs, req);
+
+    if (priv->api->relog)
+        return FALSE;
+
+    priv->api->relog = TRUE;
+
+    pp = steam_api_priv_new(STEAM_PAIR_RELOGON, priv->api, NULL, NULL);
+    pr = steam_http_req_new(priv->api->http, STEAM_API_HOST, 443,
+                            STEAM_PATH_LOGON, steam_api_cb, pp);
+
+    steam_http_req_params_set(pr, 3,
+        "format",       "xml",
+        "access_token", priv->api->token,
+        "umqid",        priv->api->umqid
+    );
+
+    pr->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
+    steam_http_req_send(pr);
+    return FALSE;
 }
 
 void steam_api_logoff(SteamAPI *api, SteamApiFunc func, gpointer data)
