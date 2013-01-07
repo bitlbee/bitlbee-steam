@@ -98,22 +98,12 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     return req;
 }
 
-static void steam_http_req_cb_null(struct http_request *request)
-{
-    /* Fake callback for http_request */
-}
-
-void steam_http_req_free(SteamHttpReq *req)
+static void steam_http_req_free_noreq(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
     if (req->rsid > 0)
         b_event_remove(req->rsid);
-
-    if (req->request != NULL) {
-        req->request->func = steam_http_req_cb_null;
-        req->request->data = NULL;
-    }
 
     if ((req->ddfunc != NULL) && (req->data != NULL))
         req->ddfunc(req->data);
@@ -127,6 +117,14 @@ void steam_http_req_free(SteamHttpReq *req)
     g_free(req->path);
     g_free(req->host);
     g_free(req);
+}
+
+void steam_http_req_free(SteamHttpReq *req)
+{
+    g_return_if_fail(req != NULL);
+
+    http_close(req->request);
+    steam_http_req_free_noreq(req);
 }
 
 void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...)
@@ -299,7 +297,7 @@ static void steam_http_req_cb(struct http_request *request)
         freeup = TRUE;
 
     if (freeup) {
-        steam_http_req_free(req);
+        steam_http_req_free_noreq(req);
         return;
     }
 
