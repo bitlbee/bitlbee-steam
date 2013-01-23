@@ -20,12 +20,12 @@
 #include "steam.h"
 #include "steam-util.h"
 
-static void steam_logon_cb(SteamAPI *api, GError *err, gpointer data);
+static void steam_logon_cb(SteamApi *api, GError *err, gpointer data);
 
-static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
+static void steam_poll_cb(SteamApi *api, GSList *m_updates, GError *err,
                           gpointer data);
 
-static void steam_summaries_cb(SteamAPI *api, GSList *m_updates,
+static void steam_summaries_cb(SteamApi *api, GSList *m_updates,
                                GError *err, gpointer data);
 
 
@@ -215,7 +215,7 @@ static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
     }
 }
 
-static void steam_auth_cb(SteamAPI *api, GError *err, gpointer data)
+static void steam_auth_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
     account_t *acc;
@@ -254,7 +254,7 @@ static void steam_auth_cb(SteamAPI *api, GError *err, gpointer data)
     imc_logout(sd->ic, FALSE);
 }
 
-static void steam_friends_cb(SteamAPI *api, GSList *friends, GError *err,
+static void steam_friends_cb(SteamApi *api, GSList *friends, GError *err,
                              gpointer data)
 {
     SteamData *sd = data;
@@ -277,7 +277,7 @@ static void steam_friends_cb(SteamAPI *api, GSList *friends, GError *err,
     steam_api_summaries(sd->api, friends, steam_summaries_cb, sd);
 }
 
-static void steam_logon_cb(SteamAPI *api, GError *err, gpointer data)
+static void steam_logon_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
@@ -293,7 +293,7 @@ static void steam_logon_cb(SteamAPI *api, GError *err, gpointer data)
     steam_api_friends(sd->api, steam_friends_cb, sd);
 }
 
-static void steam_reset_cb(SteamAPI *api, GError *err, gpointer data)
+static void steam_reset_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
@@ -303,7 +303,7 @@ static void steam_reset_cb(SteamAPI *api, GError *err, gpointer data)
     steam_api_logon(sd->api, steam_logon_cb, sd);
 }
 
-static void steam_logoff_cb(SteamAPI *api, GError *err, gpointer data)
+static void steam_logoff_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
@@ -312,7 +312,7 @@ static void steam_logoff_cb(SteamAPI *api, GError *err, gpointer data)
     steam_data_free(sd);
 }
 
-static void steam_message_cb(SteamAPI *api, GError *err, gpointer data)
+static void steam_message_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
 
@@ -325,7 +325,7 @@ static void steam_message_cb(SteamAPI *api, GError *err, gpointer data)
     imc_logout(sd->ic, TRUE);
 }
 
-static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
+static void steam_poll_cb(SteamApi *api, GSList *m_updates, GError *err,
                           gpointer data)
 {
     SteamData *sd = data;
@@ -348,7 +348,7 @@ static void steam_poll_cb(SteamAPI *api, GSList *m_updates, GError *err,
     sd->mlid = b_timeout_add(STEAM_POLL_TIMEOUT, steam_main_loop, sd);
 }
 
-static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
+static void steam_summaries_cb(SteamApi *api, GSList *m_updates, GError *err,
                                gpointer data)
 {
     SteamData *sd = data;
@@ -375,7 +375,7 @@ static void steam_summaries_cb(SteamAPI *api, GSList *m_updates, GError *err,
     steam_api_poll(sd->api, steam_poll_cb, sd);
 }
 
-static void steam_summary_cb(SteamAPI *api, GSList *summaries, GError *err,
+static void steam_summary_cb(SteamApi *api, GSList *summaries, GError *err,
                              gpointer data)
 {
     SteamData    *sd = data;

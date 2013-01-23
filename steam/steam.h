@@ -29,7 +29,7 @@ typedef struct _SteamData SteamData;
 struct _SteamData
 {
     struct im_connection *ic;
-    SteamAPI             *api;
+    SteamApi             *api;
 
     gint     mlid;
     gboolean poll;

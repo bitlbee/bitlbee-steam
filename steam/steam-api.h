@@ -20,33 +20,33 @@
 
 #include "steam-http.h"
 
-#define STEAM_API_HOST        "api.steampowered.com"
-#define STEAM_API_AGENT       "Steam App / BitlBee / " PACKAGE_VERSION " / 0"
-#define STEAM_API_FORMAT      "json"
-#define STEAM_API_KEEP_ALIVE  "30" /* Max of 30 seconds */
+#define STEAM_API_HOST            "api.steampowered.com"
+#define STEAM_API_AGENT           "Steam App / BitlBee / " PACKAGE_VERSION " / 0"
+#define STEAM_API_FORMAT          "json"
+#define STEAM_API_KEEP_ALIVE      "30" /* Max of 30 seconds */
 
 /* Required for GetTokenWithCredentials */
-#define STEAM_API_AGENT_AUTH  "Steam App / Android / 1.0 / 0"
-#define STEAM_API_CLIENT_ID   "DE45CD61" /* The "public" mobile client id */
+#define STEAM_API_AGENT_AUTH      "Steam App / Android / 1.0 / 0"
+#define STEAM_API_CLIENT_ID       "DE45CD61" /* The "public" mobile client id */
 
-#define STEAM_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
-#define STEAM_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"
-#define STEAM_PATH_LOGON      "/ISteamWebUserPresenceOAuth/Logon/v0001"
-#define STEAM_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
-#define STEAM_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
-#define STEAM_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
-#define STEAM_PATH_SUMMARIES  "/ISteamUserOAuth/GetUserSummaries/v0001"
+#define STEAM_API_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
+#define STEAM_API_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"
+#define STEAM_API_PATH_LOGON      "/ISteamWebUserPresenceOAuth/Logon/v0001"
+#define STEAM_API_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
+#define STEAM_API_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
+#define STEAM_API_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
+#define STEAM_API_PATH_SUMMARIES  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
 typedef enum   _SteamApiError    SteamApiError;
 typedef enum   _SteamState       SteamState;
 typedef enum   _SteamMessageType SteamMessageType;
-typedef struct _SteamAPI         SteamAPI;
+typedef struct _SteamApi         SteamApi;
 typedef struct _SteamMessage     SteamMessage;
 typedef struct _SteamSummary     SteamSummary;
 
-typedef void (*SteamApiFunc)  (SteamAPI *api, GError *err, gpointer data);
+typedef void (*SteamApiFunc)  (SteamApi *api, GError *err, gpointer data);
 
-typedef void (*SteamListFunc) (SteamAPI *api, GSList *list, GError *err,
+typedef void (*SteamListFunc) (SteamApi *api, GSList *list, GError *err,
                                gpointer data);
 
 enum _SteamApiError
@@ -95,7 +95,7 @@ enum _SteamMessageType
     STEAM_MESSAGE_TYPE_LAST
 };
 
-struct _SteamAPI
+struct _SteamApi
 {
     gchar  *token;
     gchar  *steamid;
@@ -133,29 +133,29 @@ struct _SteamSummary
 
 GQuark steam_api_error_quark(void);
 
-SteamAPI *steam_api_new(const gchar *umqid);
+SteamApi *steam_api_new(const gchar *umqid);
 
-void steam_api_free(SteamAPI *api);
+void steam_api_free(SteamApi *api);
 
-void steam_api_auth(SteamAPI *api, const gchar *authcode,
+void steam_api_auth(SteamApi *api, const gchar *authcode,
                     const gchar *user, const gchar *pass,
                     SteamApiFunc func, gpointer data);
 
-void steam_api_friends(SteamAPI *api, SteamListFunc func, gpointer data);
+void steam_api_friends(SteamApi *api, SteamListFunc func, gpointer data);
 
-void steam_api_logon(SteamAPI *api, SteamApiFunc func, gpointer data);
+void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data);
 
-void steam_api_logoff(SteamAPI *api, SteamApiFunc func, gpointer data);
+void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data);
 
-void steam_api_message(SteamAPI *api, SteamMessage *sm, SteamApiFunc func,
+void steam_api_message(SteamApi *api, SteamMessage *sm, SteamApiFunc func,
                        gpointer data);
 
-void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data);
+void steam_api_poll(SteamApi *api, SteamListFunc func, gpointer data);
 
-void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,
+void steam_api_summaries(SteamApi *api, GSList *friends, SteamListFunc func,
                         gpointer data);
 
-void steam_api_summary(SteamAPI *api, const gchar *steamid, SteamListFunc func,
+void steam_api_summary(SteamApi *api, const gchar *steamid, SteamListFunc func,
                        gpointer data);
 
 gchar *steam_message_type_str(SteamMessageType type);
