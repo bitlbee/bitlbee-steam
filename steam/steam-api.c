@@ -124,7 +124,6 @@ void steam_api_free(SteamAPI *api)
     g_free(api->token);
     g_free(api->steamid);
     g_free(api->umqid);
-    g_free(api->lmid);
     g_free(api);
 }
 
@@ -205,9 +204,7 @@ static void steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
     g_free(priv->api->steamid);
     priv->api->steamid = g_strdup(str);
 
-    steam_util_json_str(json, "message", &str);
-    g_free(priv->api->lmid);
-    priv->api->lmid = g_strdup(str);
+    steam_util_json_int(json, "message", &priv->api->lmid);
 }
 
 static void steam_api_relogon_cb(SteamApiPriv *priv, json_value *json)
@@ -260,15 +257,14 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
     json_value   *jv;
     json_value   *je;
     GSList       *mu;
-    guint         i;
     SteamMessage  sm;
+    guint         i;
+    gint64        in;
 
     const gchar *str;
 
-    if (!steam_util_json_scmp(json, "messagelast", priv->api->lmid, &str)) {
-        g_free(priv->api->lmid);
-        priv->api->lmid = g_strdup(str);
-    }
+    if (steam_util_json_int(json, "messagelast", &in))
+        priv->api->lmid = in;
 
     if (!steam_util_json_scmp(json, "error", "Timeout", &str)) {
         if (g_strcmp0(str, "OK")) {
@@ -301,8 +297,10 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
             if (!steam_util_json_str(je, "persona_name", &sm.nick))
                 continue;
 
-            if (!steam_util_json_int(je, "persona_state", (gint *) &sm.state))
+            if (!steam_util_json_int(je, "persona_state", &in))
                 continue;
+
+            sm.state = in;
         } else if (!g_strcmp0("saytext", str)) {
             sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
 
@@ -320,8 +318,10 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         } else if (!g_strcmp0("personarelationship", str)) {
             sm.type = STEAM_MESSAGE_TYPE_RELATIONSHIP;
 
-            if (!steam_util_json_int(je, "persona_state", (gint *) &sm.state))
+            if (!steam_util_json_int(je, "persona_state", &in))
                 continue;
+
+            sm.state = in;
         } else {
             continue;
         }
@@ -340,6 +340,7 @@ static void steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
     GSList       *mu;
     SteamSummary  ss;
     guint         i;
+    gint64        in;
 
     if (!steam_util_json_val(json, "players", json_array, &jv))
         goto error;
@@ -358,8 +359,9 @@ static void steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
         steam_util_json_str(je, "personaname",   &ss.nick);
         steam_util_json_str(je, "profileurl",    &ss.profile);
         steam_util_json_str(je, "realname",      &ss.fullname);
-        steam_util_json_int(je, "personastate",  (gint *) &ss.state);
+        steam_util_json_int(je, "personastate",  &in);
 
+        ss.state = in;
         mu = g_slist_prepend(mu, g_memdup(&ss, sizeof ss));
     }
 
@@ -635,9 +637,11 @@ void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
 {
     SteamHttpReq *req;
     SteamApiPriv *priv;
+    gchar        *lmid;
 
     g_return_if_fail(api != NULL);
 
+    lmid = g_strdup_printf("%" G_GINT64_FORMAT, api->lmid);
     priv = steam_api_priv_new(STEAM_PAIR_POLL, api, func, data);
     req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
                               STEAM_PATH_POLL, steam_api_cb, priv);
@@ -648,12 +652,13 @@ void steam_api_poll(SteamAPI *api, SteamListFunc func, gpointer data)
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "umqid",        api->umqid,
-        "message",      api->lmid,
+        "message",      lmid,
         "sectimeout",   STEAM_API_KEEP_ALIVE
     );
 
     req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
     steam_http_req_send(req);
+    g_free(lmid);
 }
 
 void steam_api_summaries(SteamAPI *api, GSList *friends, SteamListFunc func,

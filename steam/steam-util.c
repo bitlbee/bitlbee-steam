@@ -42,7 +42,7 @@ gboolean steam_util_json_val(json_value *json, const gchar *name,
     return ((*val)->type == type);
 }
 
-gboolean steam_util_json_int(json_value *json, const gchar *name, gint *i)
+gboolean steam_util_json_int(json_value *json, const gchar *name, gint64 *i)
 {
     json_value *jv;
 
@@ -79,10 +79,7 @@ gboolean steam_util_json_str(json_value *json, const gchar *name,
 gboolean steam_util_json_scmp(json_value *json, const gchar *name,
                               const gchar *match, const gchar **str)
 {
-    if (!steam_util_json_str(json, name, str) || g_strcmp0(*str, match))
-        return FALSE;
-
-    return TRUE;
+    return (steam_util_json_str(json, name, str) && !g_strcmp0(match, *str));
 }
 
 void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss)

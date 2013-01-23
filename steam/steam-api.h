@@ -97,15 +97,14 @@ enum _SteamMessageType
 
 struct _SteamAPI
 {
-    gchar *token;
-    gchar *steamid;
-    gchar *umqid;
-    gchar *lmid;
+    gchar  *token;
+    gchar  *steamid;
+    gchar  *umqid;
+    gint64  lmid;
 
     SteamHttp *http;
-
-    gboolean  relog;
-    GSList   *rlreqs;
+    GSList    *rlreqs;
+    gboolean   relog;
 };
 
 struct _SteamMessage
