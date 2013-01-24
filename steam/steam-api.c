@@ -24,7 +24,7 @@
 typedef enum   _SteamApiType SteamApiType;
 typedef struct _SteamApiPriv SteamApiPriv;
 
-typedef void (*SteamParseFunc) (SteamApiPriv *priv, json_value *json);
+typedef gboolean (*SteamParseFunc) (SteamApiPriv *priv, json_value *json);
 
 enum _SteamApiType
 {
@@ -51,9 +51,12 @@ struct _SteamApiPriv
 
     gpointer       rdata;
     GDestroyNotify rfunc;
+
+    SteamHttpReq *req;
 };
 
-static gboolean steam_api_logon_check(SteamApiPriv *priv, SteamHttpReq *req);
+static gboolean steam_api_relogon_check(SteamApiPriv *priv);
+static void steam_api_relogon(SteamApi *api);
 
 static SteamApiPriv *steam_api_priv_new(SteamApiType type, SteamApi *api,
                                         gpointer func, gpointer data)
@@ -109,6 +112,7 @@ SteamApi *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
+    api->msgq = g_queue_new();
     api->http = steam_http_new(STEAM_API_AGENT,
                                (GDestroyNotify) steam_api_priv_free);
 
@@ -118,6 +122,9 @@ SteamApi *steam_api_new(const gchar *umqid)
 void steam_api_free(SteamApi *api)
 {
     g_return_if_fail(api != NULL);
+
+    g_queue_foreach(api->msgq, (GFunc) steam_http_req_free, NULL);
+    g_queue_free(api->msgq);
 
     steam_http_free(api->http);
 
@@ -132,7 +139,7 @@ static void steam_slist_free_full(GSList *list)
     g_slist_free_full(list, g_free);
 }
 
-static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
 {
     SteamApiError  err;
     const gchar   *str;
@@ -140,7 +147,7 @@ static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
     if (steam_util_json_str(json, "access_token", &str)) {
         g_free(priv->api->token);
         priv->api->token = g_strdup(str);
-        return;
+        return TRUE;
     }
 
     if (steam_util_json_scmp(json, "x_errorcode", "steamguard_code_required",
@@ -151,9 +158,10 @@ static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
 
     steam_util_json_str(json, "error_description", &str);
     g_set_error(&priv->err, STEAM_API_ERROR, err, "%s", str);
+    return TRUE;
 }
 
-static void steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
 {
     json_value *jv;
     json_value *je;
@@ -183,21 +191,22 @@ static void steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
     priv->rfunc = (GDestroyNotify) g_slist_free;
 
     if (fl != NULL)
-        return;
+        return TRUE;
 
 error:
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIENDS,
                 "Empty friends list");
+    return TRUE;
 }
 
-static void steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
     if (!steam_util_json_scmp(json, "error", "OK", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON,
                     "%s", str);
-        return;
+        return TRUE;
     }
 
     steam_util_json_str(json, "steamid", &str);
@@ -205,54 +214,81 @@ static void steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
     priv->api->steamid = g_strdup(str);
 
     steam_util_json_int(json, "message", &priv->api->lmid);
+    return TRUE;
 }
 
-static void steam_api_relogon_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_relogon_cb(SteamApiPriv *priv, json_value *json)
 {
+    SteamHttpReq *req;
     const gchar  *str;
-    GSList       *l;
 
     priv->api->relog = FALSE;
 
     if (!steam_util_json_scmp(json, "error", "OK", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
                     "%s", str);
-        return;
+        return TRUE;
     }
 
-    for (l = priv->api->rlreqs; l != NULL; l = l->next)
-        steam_http_req_send(l->data);
+    req = g_queue_pop_head(priv->api->msgq);
 
-    if (priv->api->rlreqs == NULL)
-        return;
+    if (req != NULL)
+        steam_http_req_send(req);
 
-    g_slist_free(priv->api->rlreqs);
-    priv->api->rlreqs = NULL;
+    return TRUE;
 }
 
-static void steam_api_logoff_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_logoff_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
     if (steam_util_json_scmp(json, "error", "OK", &str))
-        return;
+        return TRUE;
 
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
                 "%s", str);
+    return TRUE;
 }
 
-static void steam_api_message_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_message_cb(SteamApiPriv *priv, json_value *json)
 {
-    const gchar *str;
+    SteamHttpReq *req;
+    const gchar  *str;
 
-    if (steam_util_json_scmp(json, "error", "OK", &str))
-        return;
+    if (priv->api->relog) {
+        priv->req->flags |= STEAM_HTTP_FLAG_NOFREE;
+        steam_http_req_reset(priv->req);
+        return FALSE;
+    }
+
+    g_queue_remove(priv->api->msgq, priv->req);
+
+    if (g_queue_get_length(priv->api->msgq) == 0)
+        priv->api->msgr = FALSE;
+
+    if (steam_util_json_scmp(json, "error", "OK", &str)) {
+        req = g_queue_pop_head(priv->api->msgq);
+
+        if (req != NULL)
+            steam_http_req_send(req);
+        return TRUE;
+    }
+
+    if (!steam_api_relogon_check(priv)) {
+        priv->req->flags |= STEAM_HTTP_FLAG_NOFREE;
+
+        steam_http_req_reset(priv->req);
+        g_queue_push_head(priv->api->msgq, priv->req);
+        steam_api_relogon(priv->api);
+        return FALSE;
+    }
 
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_MESSAGE,
                 "%s", str);
+    return TRUE;
 }
 
-static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
 {
     json_value   *jv;
     json_value   *je;
@@ -270,12 +306,12 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         if (g_strcmp0(str, "OK")) {
             g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
                         "%s", str);
-            return;
+            return TRUE;
         }
     }
 
     if (!steam_util_json_val(json, "messages", json_array, &jv))
-        return;
+        return TRUE;
 
     mu = NULL;
 
@@ -331,9 +367,10 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
 
     priv->rdata = g_slist_reverse(mu);
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
+    return TRUE;
 }
 
-static void steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
+static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
 {
     json_value   *jv;
     json_value   *je;
@@ -369,26 +406,29 @@ static void steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
 
     if (mu != NULL)
-        return;
+        return TRUE;
 
 error:
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARIES,
                 "No friends returned");
+    return TRUE;
 }
 
-static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
+static void steam_api_cb(SteamHttpReq *req, gpointer data)
 {
     SteamApiPriv  *priv = data;
     json_value    *json;
     json_settings  js;
+    gboolean       callf;
 
     SteamParseFunc saf[STEAM_API_TYPE_LAST];
     gchar          err[128];
 
     if ((priv->type < 0) || (priv->type > STEAM_API_TYPE_LAST))
-        return TRUE;
+        return;
 
-    json = NULL;
+    json  = NULL;
+    callf = TRUE;
 
     if (req->err != NULL) {
         g_propagate_error(&priv->err, req->err);
@@ -402,7 +442,6 @@ static gboolean steam_api_cb(SteamHttpReq *req, gpointer data)
     if (json == NULL) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_PARSER,
                     "Parser: %s", err);
-        goto parse;
     }
 
 parse:
@@ -415,17 +454,13 @@ parse:
     saf[STEAM_API_TYPE_POLL]      = steam_api_poll_cb;
     saf[STEAM_API_TYPE_SUMMARIES] = steam_api_summaries_cb;
 
-    if ((priv->err == NULL) && (json != NULL))
-        saf[priv->type](priv, json);
-
-    if (!steam_api_logon_check(priv, req)) {
-        if (json != NULL)
-            json_value_free(json);
-
-        return FALSE;
+    if ((priv->err == NULL) && (json != NULL)) {
+        priv->req = req;
+        callf     = saf[priv->type](priv, json);
+        priv->req = NULL;
     }
 
-    if (priv->func != NULL) {
+    if (callf && (priv->func != NULL)) {
         switch (priv->type) {
         case STEAM_API_TYPE_AUTH:
         case STEAM_API_TYPE_LOGON:
@@ -449,8 +484,6 @@ parse:
 
     if (json != NULL)
         json_value_free(json);
-
-    return TRUE;
 }
 
 void steam_api_auth(SteamApi *api, const gchar *authcode,
@@ -526,51 +559,37 @@ void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
     steam_http_req_send(req);
 }
 
-static gboolean steam_api_logon_check(SteamApiPriv *priv, SteamHttpReq *req)
+static gboolean steam_api_relogon_check(SteamApiPriv *priv)
 {
-    SteamHttpReq *pr;
-    SteamApiPriv *pp;
-
-    g_return_val_if_fail(priv != NULL, FALSE);
-    g_return_val_if_fail(req  != NULL, FALSE);
+    g_return_val_if_fail(priv != NULL, TRUE);
 
     if (priv->err == NULL)
         return TRUE;
 
-    switch (priv->type) {
-    case STEAM_API_TYPE_FRIENDS:
-    case STEAM_API_TYPE_MESSAGE:
-    case STEAM_API_TYPE_POLL:
-    case STEAM_API_TYPE_SUMMARIES:
-        break;
+    return (!g_strncasecmp(priv->err->message, "Not Logged On", 13));
+}
 
-    default:
-        return TRUE;
-    }
+static void steam_api_relogon(SteamApi *api)
+{
+    SteamHttpReq *req;
+    SteamApiPriv *priv;
 
-    if (g_strncasecmp(priv->err->message, "Not Logged On", 13))
-        return TRUE;
+    g_return_if_fail(api != NULL);
 
-    priv->api->rlreqs = g_slist_prepend(priv->api->rlreqs, req);
+    priv = steam_api_priv_new(STEAM_API_TYPE_RELOGON, api, NULL, NULL);
+    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
+                              STEAM_API_PATH_LOGON, steam_api_cb, priv);
 
-    if (priv->api->relog)
-        return FALSE;
-
-    priv->api->relog = TRUE;
-
-    pp = steam_api_priv_new(STEAM_API_TYPE_RELOGON, priv->api, NULL, NULL);
-    pr = steam_http_req_new(priv->api->http, STEAM_API_HOST, 443,
-                            STEAM_API_PATH_LOGON, steam_api_cb, pp);
-
-    steam_http_req_params_set(pr, 3,
-        "format",       "xml",
-        "access_token", priv->api->token,
-        "umqid",        priv->api->umqid
+    steam_http_req_params_set(req, 3,
+        "format",       STEAM_API_FORMAT,
+        "access_token", api->token,
+        "umqid",        api->umqid
     );
 
-    pr->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
-    steam_http_req_send(pr);
-    return FALSE;
+    api->relog = TRUE;
+    req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
+
+    steam_http_req_send(req);
 }
 
 void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data)
@@ -630,7 +649,13 @@ void steam_api_message(SteamApi *api, SteamMessage *sm, SteamApiFunc func,
     }
 
     req->flags = STEAM_HTTP_FLAG_POST | STEAM_HTTP_FLAG_SSL;
-    steam_http_req_send(req);
+
+    if (!api->msgr && !api->relog) {
+        api->msgr = TRUE;
+        steam_http_req_send(req);
+    } else {
+        g_queue_push_tail(api->msgq, req);
+    }
 }
 
 void steam_api_poll(SteamApi *api, SteamListFunc func, gpointer data)

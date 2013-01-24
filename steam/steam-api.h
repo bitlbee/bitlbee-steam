@@ -103,7 +103,8 @@ struct _SteamApi
     gint64  lmid;
 
     SteamHttp *http;
-    GSList    *rlreqs;
+    GQueue    *msgq;
+    gboolean   msgr;
     gboolean   relog;
 };
 

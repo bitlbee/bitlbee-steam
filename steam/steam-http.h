@@ -28,13 +28,15 @@ typedef enum   _SteamHttpFlags SteamHttpFlags;
 typedef struct _SteamHttp      SteamHttp;
 typedef struct _SteamHttpReq   SteamHttpReq;
 
-typedef gboolean (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
+typedef void (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
 
 enum _SteamHttpFlags
 {
-    STEAM_HTTP_FLAG_GET = 0,
-    STEAM_HTTP_FLAG_POST,
-    STEAM_HTTP_FLAG_SSL
+    STEAM_HTTP_FLAG_GET    = 1 << 0,
+    STEAM_HTTP_FLAG_POST   = 1 << 1,
+    STEAM_HTTP_FLAG_SSL    = 1 << 2,
+
+    STEAM_HTTP_FLAG_NOFREE = 1 << 3
 };
 
 struct _SteamHttp
@@ -76,6 +78,8 @@ struct _SteamHttpReq
 GQuark steam_http_error_quark(void);
 
 SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc);
+
+void steam_http_req_reset(SteamHttpReq *req);
 
 void steam_http_free_reqs(SteamHttp *http);
 

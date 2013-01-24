@@ -98,6 +98,24 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     return req;
 }
 
+void steam_http_req_reset(SteamHttpReq *req)
+{
+    g_return_if_fail(req != NULL);
+
+    if (req->rsid > 0)
+        b_event_remove(req->rsid);
+
+    if (req->err != NULL) {
+        g_error_free(req->err);
+        req->err = NULL;
+    }
+
+    req->request   = NULL;
+    req->body      = NULL;
+    req->body_size = 0;
+    req->errc      = 0;
+}
+
 static void steam_http_req_free_noreq(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
@@ -233,9 +251,7 @@ static void steam_http_req_cb(struct http_request *request)
 {
     SteamHttpReq  *req = request->data;
     gchar        **ls;
-
-    gboolean freeup;
-    guint    i;
+    guint          i;
 
     req->http->requests = g_slist_remove(req->http->requests, req);
 
@@ -292,37 +308,25 @@ static void steam_http_req_cb(struct http_request *request)
     }
 
     if (req->func != NULL)
-        freeup = req->func(req, req->data);
-    else
-        freeup = TRUE;
+        req->func(req, req->data);
 
-    if (freeup) {
+    if (!(req->flags & STEAM_HTTP_FLAG_NOFREE))
         steam_http_req_free_noreq(req);
-        return;
-    }
-
-    if (req->err != NULL) {
-        g_error_free(req->err);
-        req->err = NULL;
-    }
-
-    req->request   = NULL;
-    req->body      = NULL;
-    req->body_size = 0;
-    req->errc      = 0;
 }
 
 void steam_http_req_send(SteamHttpReq *req)
 {
-    GString *gstr;
-    gchar   *sreq;
-    gchar   *hs;
-    gchar   *ps;
-    gchar   *len;
-
-    gboolean ssl;
+    GString  *gstr;
+    gchar    *sreq;
+    gchar    *hs;
+    gchar    *ps;
+    gchar    *len;
+    gboolean  ssl;
 
     g_return_if_fail(req != NULL);
+
+    if (req->flags & STEAM_HTTP_FLAG_NOFREE)
+        req->flags &= ~STEAM_HTTP_FLAG_NOFREE;
 
     gstr = g_string_sized_new(128);
     g_tree_foreach(req->params, (GTraverseFunc) steam_tree_params, gstr);
