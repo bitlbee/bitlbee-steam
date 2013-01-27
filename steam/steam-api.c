@@ -57,6 +57,7 @@ struct _SteamApiPriv
 
 static gboolean steam_api_relogon_check(SteamApiPriv *priv);
 static void steam_api_relogon(SteamApi *api);
+static gchar *steam_api_type_str(SteamApiType type);
 
 static SteamApiPriv *steam_api_priv_new(SteamApiType type, SteamApi *api,
                                         gpointer func, gpointer data)
@@ -460,6 +461,9 @@ parse:
         priv->req = NULL;
     }
 
+    if (priv->err != NULL)
+        g_prefix_error(&priv->err, "%s: ", steam_api_type_str(priv->type));
+
     if (callf && (priv->func != NULL)) {
         switch (priv->type) {
         case STEAM_API_TYPE_AUTH:
@@ -771,6 +775,25 @@ void steam_api_summary(SteamApi *api, const gchar *steamid, SteamListFunc func,
 
     req->flags = STEAM_HTTP_FLAG_SSL;
     steam_http_req_send(req);
+}
+
+static gchar *steam_api_type_str(SteamApiType type)
+{
+    gchar *strs[STEAM_API_TYPE_LAST];
+
+    if ((type < 0) || (type > STEAM_API_TYPE_LAST))
+        return "Generic";
+
+    strs[STEAM_API_TYPE_AUTH]      = "Authentication";
+    strs[STEAM_API_TYPE_FRIENDS]   = "Friends";
+    strs[STEAM_API_TYPE_LOGON]     = "Logon";
+    strs[STEAM_API_TYPE_RELOGON]   = "Relogon";
+    strs[STEAM_API_TYPE_LOGOFF]    = "Logoff";
+    strs[STEAM_API_TYPE_MESSAGE]   = "Message";
+    strs[STEAM_API_TYPE_POLL]      = "Polling";
+    strs[STEAM_API_TYPE_SUMMARIES] = "Summaries";
+
+    return strs[type];
 }
 
 gchar *steam_message_type_str(SteamMessageType type)
