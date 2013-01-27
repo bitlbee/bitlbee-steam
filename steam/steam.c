@@ -610,8 +610,19 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
     g_return_val_if_fail(sd != NULL, 0);
 
     memset(&sm, 0, sizeof sm);
-    sm.steamid = to;
 
+    sm.type    = STEAM_MESSAGE_TYPE_SAYTEXT;
+    sm.steamid = to;
+    sm.text    = message;
+
+    /* As of January 23, 2013, Valve has disabled support for /me. It
+     * was disabled as it "allowed some users to modify the color of
+     * their chat text."
+     *
+     * See the ChangeLog for more information: http://goo.gl/TETV5
+     */
+
+    /*
     if (g_str_has_prefix(message, "/me")) {
         if (strlen(message) < 5)
             return 0;
@@ -622,6 +633,7 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
         sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
         sm.text = message;
     }
+    */
 
     steam_api_message(sd->api, &sm, steam_message_cb, sd);
     return 0;
