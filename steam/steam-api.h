@@ -23,7 +23,7 @@
 #define STEAM_API_HOST            "api.steampowered.com"
 #define STEAM_API_AGENT           "Steam App / BitlBee / " PACKAGE_VERSION " / 0"
 #define STEAM_API_FORMAT          "json"
-#define STEAM_API_KEEP_ALIVE      "30" /* Max of 30 seconds */
+#define STEAM_API_KEEP_ALIVE      "15" /* Max of 30 seconds */
 
 /* Required for GetTokenWithCredentials */
 #define STEAM_API_AGENT_AUTH      "Steam App / Android / 1.0 / 0"
