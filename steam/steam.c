@@ -65,7 +65,7 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     }
 
     /* Check rather than freeing/reallocating */
-    if (g_strcmp0(bu->nick, ss->nick))
+    if (g_strcmp0(bu->nick, ss->nick) != 0)
         imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
 
     imcb_rename_buddy(sd->ic, ss->steamid, ss->fullname);

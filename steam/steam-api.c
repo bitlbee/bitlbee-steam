@@ -304,7 +304,7 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         priv->api->lmid = in;
 
     if (!steam_util_json_scmp(json, "error", "Timeout", &str)) {
-        if (g_strcmp0(str, "OK")) {
+        if (g_strcmp0(str, "OK") != 0) {
             g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
                         "%s", str);
             return TRUE;
@@ -328,7 +328,7 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         if (!steam_util_json_str(je, "type", &str))
             continue;
 
-        if (!g_strcmp0("personastate", str)) {
+        if (g_strcmp0("personastate", str) == 0) {
             sm.type = STEAM_MESSAGE_TYPE_STATE;
 
             if (!steam_util_json_str(je, "persona_name", &sm.nick))
@@ -338,21 +338,21 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
                 continue;
 
             sm.state = in;
-        } else if (!g_strcmp0("saytext", str)) {
+        } else if (g_strcmp0("saytext", str) == 0) {
             sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
 
             if (!steam_util_json_str(je, "text", &sm.text))
                 continue;
-        } else if (!g_strcmp0("typing", str)) {
+        } else if (g_strcmp0("typing", str) == 0) {
             sm.type = STEAM_MESSAGE_TYPE_TYPING;
-        } else if (!g_strcmp0("emote", str)) {
+        } else if (g_strcmp0("emote", str) == 0) {
             sm.type = STEAM_MESSAGE_TYPE_EMOTE;
 
             if (!steam_util_json_str(je, "text", &sm.text))
                 continue;
-        } else if (!g_strcmp0("leftconversation", str)) {
+        } else if (g_strcmp0("leftconversation", str) == 0) {
             sm.type = STEAM_MESSAGE_TYPE_LEFT_CONV;
-        } else if (!g_strcmp0("personarelationship", str)) {
+        } else if (g_strcmp0("personarelationship", str) == 0) {
             sm.type = STEAM_MESSAGE_TYPE_RELATIONSHIP;
 
             if (!steam_util_json_int(je, "persona_state", &in))
@@ -570,7 +570,7 @@ static gboolean steam_api_relogon_check(SteamApiPriv *priv)
     if (priv->err == NULL)
         return TRUE;
 
-    return (!g_strncasecmp(priv->err->message, "Not Logged On", 13));
+    return (g_ascii_strncasecmp(priv->err->message, "Not Logged On", 13) != 0);
 }
 
 static void steam_api_relogon(SteamApi *api)
