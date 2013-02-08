@@ -106,7 +106,7 @@ SteamApi *steam_api_new(const gchar *umqid)
 
     if (umqid == NULL) {
         rand       = g_rand_new();
-        api->umqid = g_strdup_printf("%u", g_rand_int(rand));
+        api->umqid = g_strdup_printf("%" G_GUINT32_FORMAT, g_rand_int(rand));
 
         g_rand_free(rand);
     } else {
