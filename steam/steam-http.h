@@ -24,33 +24,42 @@
 #define STEAM_HTTP_ERROR_MAX      3
 #define STEAM_HTTP_ERROR_TIMEOUT  2000
 
-typedef enum   _SteamHttpFlags SteamHttpFlags;
-typedef struct _SteamHttp      SteamHttp;
-typedef struct _SteamHttpReq   SteamHttpReq;
+typedef enum   _SteamHttpReqFlags SteamHttpReqFlags;
+typedef enum   _SteamHttpFlags    SteamHttpFlags;
+typedef struct _SteamHttp         SteamHttp;
+typedef struct _SteamHttpReq      SteamHttpReq;
 
 typedef void (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
 
 enum _SteamHttpFlags
 {
-    STEAM_HTTP_FLAG_GET    = 1 << 0,
-    STEAM_HTTP_FLAG_POST   = 1 << 1,
-    STEAM_HTTP_FLAG_SSL    = 1 << 2,
+    STEAM_HTTP_FLAG_PAUSED = 1 << 0,
+    STEAM_HTTP_FLAG_QUEUED = 1 << 1
+};
 
-    STEAM_HTTP_FLAG_NOFREE = 1 << 3
+enum _SteamHttpReqFlags
+{
+    STEAM_HTTP_REQ_FLAG_GET    = 1 << 0,
+    STEAM_HTTP_REQ_FLAG_POST   = 1 << 1,
+    STEAM_HTTP_REQ_FLAG_SSL    = 1 << 2,
+
+    STEAM_HTTP_REQ_FLAG_NOFREE = 1 << 3,
+    STEAM_HTTP_REQ_FLAG_QUEUED = 1 << 4
 };
 
 struct _SteamHttp
 {
-    gchar          *agent;
+    SteamHttpFlags  flags;
     GDestroyNotify  ddfunc;
 
-    GSList *requests;
+    gchar  *agent;
+    GQueue *reqq;
 };
 
 struct _SteamHttpReq
 {
-    SteamHttp      *http;
-    SteamHttpFlags  flags;
+    SteamHttp         *http;
+    SteamHttpReqFlags  flags;
 
     gchar *host;
     gint   port;
@@ -79,11 +88,11 @@ GQuark steam_http_error_quark(void);
 
 SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc);
 
-void steam_http_req_reset(SteamHttpReq *req);
-
 void steam_http_free_reqs(SteamHttp *http);
 
 void steam_http_free(SteamHttp *http);
+
+void steam_http_queue_pause(SteamHttp *http, gboolean puase);
 
 SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
                                  gint port, const gchar *path,
@@ -94,6 +103,8 @@ void steam_http_req_free(SteamHttpReq *req);
 void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...);
 
 void steam_http_req_params_set(SteamHttpReq *req, gsize size, ...);
+
+void steam_http_req_resend(SteamHttpReq *req);
 
 void steam_http_req_send(SteamHttpReq *req);
 
