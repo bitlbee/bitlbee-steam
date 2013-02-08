@@ -95,6 +95,38 @@ void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss)
     ss->nick    = sm->nick;
 }
 
+void steam_util_tree_ins(GTree *tree, gsize size, gboolean escape, va_list ap)
+{
+    gchar *key;
+    gchar *val;
+    gsize  i;
+
+    g_return_if_fail(tree != NULL);
+
+    if (size < 1)
+        return;
+
+    for (i = 0; i < size; i++) {
+        key = va_arg(ap, gchar*);
+        val = va_arg(ap, gchar*);
+
+        if (key == NULL)
+            continue;
+
+        if (escape)
+            key = g_uri_escape_string(key, NULL, TRUE);
+        else
+            key = g_strdup(key);
+
+        if (escape && (val != NULL))
+            val = g_uri_escape_string(val, NULL, TRUE);
+        else
+            val = g_strdup(val);
+
+        g_tree_insert(tree, key, val);
+    }
+}
+
 gint steam_util_user_mode(gchar *mode)
 {
     if (mode == NULL)

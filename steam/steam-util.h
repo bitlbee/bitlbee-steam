@@ -18,6 +18,8 @@
 #ifndef _STEAM_UTIL_H
 #define _STEAM_UTIL_H
 
+#include <stdarg.h>
+
 #include <bitlbee.h>
 
 #include "json_util.h"
@@ -40,6 +42,8 @@ gboolean steam_util_json_scmp(json_value *json, const gchar *name,
                               const gchar *match, const gchar **str);
 
 void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss);
+
+void steam_util_tree_ins(GTree *tree, gsize size, gboolean strip, va_list ap);
 
 gint steam_util_user_mode(gchar *mode);
 

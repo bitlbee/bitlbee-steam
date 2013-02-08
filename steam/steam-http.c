@@ -16,7 +16,6 @@
  */
 
 #include <bitlbee.h>
-#include <stdarg.h>
 #include <string.h>
 
 #include "steam-http.h"
@@ -150,62 +149,22 @@ void steam_http_req_free(SteamHttpReq *req)
 void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...)
 {
     va_list  ap;
-    gsize    i;
-    gchar   *key;
-    gchar   *val;
 
     g_return_if_fail(req != NULL);
 
-    if (size < 1)
-        return;
-
     va_start(ap, size);
-
-    for (i = 0; i < size; i++) {
-        key = va_arg(ap, gchar*);
-        val = va_arg(ap, gchar*);
-
-        if ((key == NULL) || (val == NULL))
-            continue;
-
-        key = g_strdup(key);
-        val = g_strdup(val);
-
-        g_tree_insert(req->headers, key, val);
-    }
-
+    steam_util_tree_ins(req->headers, size, FALSE, ap);
     va_end(ap);
 }
 
 void steam_http_req_params_set(SteamHttpReq *req, gsize size, ...)
 {
     va_list  ap;
-    gsize    i;
-    gchar   *key;
-    gchar   *val;
 
     g_return_if_fail(req != NULL);
 
-    if (size < 1)
-        return;
-
     va_start(ap, size);
-
-    for (i = 0; i < size; i++) {
-        key = va_arg(ap, gchar*);
-        val = va_arg(ap, gchar*);
-
-        if (key == NULL)
-            continue;
-
-        key = g_uri_escape_string(key, NULL, TRUE);
-
-        if (val != NULL)
-            val = g_uri_escape_string(val, NULL, TRUE);
-
-        g_tree_insert(req->params, key, val);
-    }
-
+    steam_util_tree_ins(req->params, size, TRUE, ap);
     va_end(ap);
 }
 
