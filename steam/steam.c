@@ -521,15 +521,32 @@ static char *steam_eval_server_url(set_t *set, char *value)
     return value;
 }
 
+static char *steam_eval_password(set_t *set, char *value)
+{
+    account_t *acc = set->data;
+
+    g_return_val_if_fail(acc != NULL, value);
+
+    if (acc->ic == NULL)
+        return value;
+
+    imcb_log(acc->ic, "Password changed. Reauthenticating...");
+    imc_logout(acc->ic, FALSE);
+    set_reset(&acc->set, "token");
+    account_on(acc->bee, acc);
+
+    return SET_INVALID;
+}
+
 static void steam_init(account_t *acc)
 {
     set_t *s;
 
     s = set_add(&acc->set, "authcode", NULL, steam_eval_authcode, acc);
-    s->flags = SET_NOSAVE | SET_NULL_OK | SET_HIDDEN;
+    s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
 
     s = set_add(&acc->set, "token", NULL, NULL, acc);
-    s->flags = SET_HIDDEN;
+    s->flags = SET_NULL_OK | SET_HIDDEN;
 
     s = set_add(&acc->set, "umqid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN;
@@ -539,6 +556,7 @@ static void steam_init(account_t *acc)
 
     set_add(&acc->set, "extra_info", "true", steam_eval_extra_info, acc);
     set_add(&acc->set, "server_url", "true", steam_eval_server_url, acc);
+    set_add(&acc->set, "password",   NULL,   steam_eval_password,   acc);
 }
 
 static void steam_login(account_t *acc)
