@@ -62,6 +62,7 @@ enum _SteamApiError
 
     STEAM_API_ERROR_AUTH_REQ,
     STEAM_API_ERROR_EMPTY_REPLY,
+    STEAM_API_ERROR_MISMATCH,
     STEAM_API_ERROR_PARSER
 };
 
@@ -97,9 +98,9 @@ enum _SteamMessageType
 
 struct _SteamApi
 {
-    gchar  *token;
     gchar  *steamid;
     gchar  *umqid;
+    gchar  *token;
     gint64  lmid;
 
     SteamHttp *http;

@@ -126,8 +126,8 @@ void steam_api_free(SteamApi *api)
     steam_http_free(api->http);
 
     g_free(api->token);
-    g_free(api->steamid);
     g_free(api->umqid);
+    g_free(api->steamid);
     g_free(api);
 }
 
@@ -206,11 +206,18 @@ static gboolean steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
         return TRUE;
     }
 
-    steam_util_json_str(json, "steamid", &str);
-    g_free(priv->api->steamid);
-    priv->api->steamid = g_strdup(str);
-
     steam_util_json_int(json, "message", &priv->api->lmid);
+
+    if (!steam_util_json_scmp(json, "steamid", priv->api->steamid, &str)) {
+        g_free(priv->api->steamid);
+        priv->api->steamid = g_strdup(str);
+    }
+
+    if (!steam_util_json_scmp(json, "umqid", priv->api->steamid, &str)) {
+        g_free(priv->api->umqid);
+        priv->api->umqid = g_strdup(str);
+    }
+
     return TRUE;
 }
 

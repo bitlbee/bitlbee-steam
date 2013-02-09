@@ -219,7 +219,6 @@ static void steam_auth_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
     account_t *acc;
-    irc_t     *irc;
 
     guint i;
 
@@ -227,10 +226,10 @@ static void steam_auth_cb(SteamApi *api, GError *err, gpointer data)
 
     if (err == NULL) {
         acc = sd->ic->acc;
-        irc = acc->bee->ui_data;
 
-        set_setstr(&acc->set, "token", api->token);
-        storage_save(irc, NULL, TRUE);
+        set_setstr(&acc->set, "steamid", api->steamid);
+        set_setstr(&acc->set, "token",   api->token);
+        storage_save(acc->bee->ui_data, NULL, TRUE);
 
         imcb_log(sd->ic, "Authentication finished");
         imcb_log(sd->ic, "Sending login request");
@@ -280,17 +279,27 @@ static void steam_friends_cb(SteamApi *api, GSList *friends, GError *err,
 static void steam_logon_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
+    account_t *acc;
 
     g_return_if_fail(sd != NULL);
 
-    if (err != NULL) {
+    if (err == NULL) {
+        imcb_log(sd->ic, "Requesting friends list");
+        steam_api_friends(sd->api, steam_friends_cb, sd);
+        return;
+    }
+
+    if (err->code != STEAM_API_ERROR_MISMATCH) {
         imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
 
-    imcb_log(sd->ic, "Requesting friends list");
-    steam_api_friends(sd->api, steam_friends_cb, sd);
+    acc = sd->ic->acc;
+
+    set_setstr(&acc->set, "steamid", api->steamid);
+    set_setstr(&acc->set, "umqid",   api->umqid);
+    storage_save(acc->bee->ui_data, NULL, TRUE);
 }
 
 static void steam_reset_cb(SteamApi *api, GError *err, gpointer data)
@@ -545,11 +554,14 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "authcode", NULL, steam_eval_authcode, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
 
-    s = set_add(&acc->set, "token", NULL, NULL, acc);
-    s->flags = SET_NULL_OK | SET_HIDDEN | SET_PASSWORD;
+    s = set_add(&acc->set, "steamid", NULL, NULL, acc);
+    s->flags = SET_NULL_OK;
 
     s = set_add(&acc->set, "umqid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN;
+
+    s = set_add(&acc->set, "token", NULL, NULL, acc);
+    s->flags = SET_NULL_OK | SET_HIDDEN | SET_PASSWORD;
 
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;
@@ -570,6 +582,7 @@ static void steam_login(account_t *acc)
     set_setstr(&acc->set, "umqid", sd->api->umqid);
     tmp = set_getstr(&acc->set, "show_playing");
 
+    sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sd->show_playing = steam_util_user_mode(tmp);
     sd->extra_info   = set_getbool(&acc->set, "extra_info");
