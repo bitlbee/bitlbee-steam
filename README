@@ -1,27 +1,54 @@
-Steam for BitlBee is a plugin for the Steam chat protocol.
-
-Getting started:
-  > account add steam <username> <password>
-  > account <acc> on
-  > account <acc> set authcode <code>
-
-Disable the extra summary request sent upon poll events:
-  > account <acc> set extra_info false
-
-Modify game play statuses (default: %):
-  Note: this requires `extra_info` to be enabled.
-
-  > account <acc> set show_playing @
-
-Turn off the Steam URLs for the server in info replies:
-  > account <acc> set server_url false
+The Steam protocol plugin for bitlbee. This plugin uses the Steam Mobile
+API allowing it to run alongside the main Steam client. It is worth
+noting that the Steam Mobile API is HTTP based, which does lead to mild
+latency.
 
 Building and Installing:
+  Make sure bitlbee and its headers have been installed. If bitlbee came
+  from the distribution's repository, it will most likely need the
+  development package, usually bitlbee-dev.
+
+  If bitlbee was built by hand (or alike via a script), ensure the make
+  target `install-dev` is invoked. This target is not called by default,
+  and will install the headers that are needed.
+
+  Do *not* use the source tree headers unless you know what you are
+  doing. This can lead to mismatched header versions, which often times
+  will lead to bad things.
+
   $ git clone https://github.com/jgeboski/bitlbee-steam.git
   $ cd bitlbee-steam
+
+  With a "global" (or system) bitlbee installation:
+
   $ ./autogen.sh
   $ make
   $ make install
+
+  Or with a "local" bitlbee installation (location: $HOME/bitlbee):
+
+  $ export BITLBEE_CFLAGS="-I$HOME/bitlbee/include/bitlbee"
+  $ export BITLBEE_LIBS=""
+  $ ./autogen.sh --libdir=$HOME/bitlbee/lib
+  $ make
+  $ make install
+
+Usage:
+  Getting started:
+    > account add steam <username> <password>
+    > account <acc> on
+    > account <acc> set authcode <code>
+
+  Turn off the Steam URLs for the server in info replies:
+    > account <acc> set server_url false
+
+  Disable the extra summary request sent upon poll events:
+    > account <acc> set extra_info false
+
+  Modify game play statuses (default: %):
+    Note: this requires `extra_info` to be enabled.
+
+    > account <acc> set show_playing @
 
 Resources:
   - API Dump:      http://pastebin.com/qsX36TMT
