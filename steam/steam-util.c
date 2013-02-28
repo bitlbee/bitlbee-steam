@@ -83,18 +83,6 @@ gboolean steam_util_json_scmp(json_value *json, const gchar *name,
             (g_strcmp0(match, *str) == 0));
 }
 
-void steam_util_smtoss(SteamMessage *sm, SteamSummary *ss)
-{
-    g_return_if_fail(sm != NULL);
-    g_return_if_fail(ss != NULL);
-
-    memset(ss, 0, sizeof (SteamSummary));
-
-    ss->state   = sm->state;
-    ss->steamid = sm->steamid;
-    ss->nick    = sm->nick;
-}
-
 void steam_util_tree_ins(GTree *tree, gsize size, gboolean escape, va_list ap)
 {
     gchar *key;

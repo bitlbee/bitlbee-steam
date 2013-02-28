@@ -102,7 +102,7 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 
     imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
 
-    if (!sd->extra_info || (ss->game == NULL))
+    if (ss->game == NULL)
         return;
 
     iu = bu->ui_data;
@@ -121,9 +121,8 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 
 static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
 {
-    bee_user_t   *bu;
-    gchar        *m;
-    SteamSummary  ss;
+    bee_user_t *bu;
+    gchar      *m;
 
     bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
 
@@ -194,13 +193,7 @@ static void steam_poll_cb_p(SteamData *sd, SteamMessage *sm)
         break;
 
     case STEAM_MESSAGE_TYPE_STATE:
-        if (sd->extra_info) {
-            steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
-            break;
-        }
-
-        steam_util_smtoss(sm, &ss);
-        steam_buddy_status(sd, &ss, bu);
+        steam_api_summary(sd->api, sm->steamid, steam_summaries_cb, sd);
         break;
 
     case STEAM_MESSAGE_TYPE_TYPING:
@@ -492,25 +485,6 @@ static char *steam_eval_show_playing(set_t *set, char *value)
     return value;
 }
 
-static char *steam_eval_extra_info(set_t *set, char *value)
-{
-    account_t *acc = set->data;
-    SteamData *sd;
-
-    g_return_val_if_fail(acc != NULL, value);
-
-    if (!is_bool(value))
-        return SET_INVALID;
-
-    if (acc->ic == NULL)
-        return value;
-
-    sd = acc->ic->proto_data;
-    sd->extra_info = bool2int(value);
-
-    return value;
-}
-
 static char *steam_eval_server_url(set_t *set, char *value)
 {
     account_t *acc = set->data;
@@ -566,7 +540,6 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;
 
-    set_add(&acc->set, "extra_info", "true", steam_eval_extra_info, acc);
     set_add(&acc->set, "server_url", "true", steam_eval_server_url, acc);
     set_add(&acc->set, "password",   NULL,   steam_eval_password,   acc);
 }
@@ -585,7 +558,6 @@ static void steam_login(account_t *acc)
     sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sd->show_playing = steam_util_user_mode(tmp);
-    sd->extra_info   = set_getbool(&acc->set, "extra_info");
     sd->server_url   = set_getbool(&acc->set, "server_url");
 
     imcb_log(sd->ic, "Connecting");

@@ -42,12 +42,7 @@ Usage:
   Turn off the Steam URLs for the server in info replies:
     > account <acc> set server_url false
 
-  Disable the extra summary request sent upon poll events:
-    > account <acc> set extra_info false
-
   Modify game play statuses (default: %):
-    Note: this requires `extra_info` to be enabled.
-
     > account <acc> set show_playing @
 
 Resources:
