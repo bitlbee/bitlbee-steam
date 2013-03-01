@@ -91,7 +91,7 @@ void steam_util_tree_ins(GTree *tree, gsize size, gboolean escape, va_list ap)
 
     g_return_if_fail(tree != NULL);
 
-    if (size < 1)
+    if (G_UNLIKELY(size < 1))
         return;
 
     for (i = 0; i < size; i++) {
