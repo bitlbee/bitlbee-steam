@@ -157,9 +157,9 @@ void steam_api_summaries(SteamApi *api, GSList *friends, SteamListFunc func,
 void steam_api_summary(SteamApi *api, const gchar *steamid, SteamListFunc func,
                        gpointer data);
 
-gchar *steam_message_type_str(SteamMessageType type);
+const gchar *steam_message_type_str(SteamMessageType type);
 
-gchar *steam_state_str(SteamState state);
+const gchar *steam_state_str(SteamState state);
 
 SteamState steam_state_from_str(const gchar *state);
 

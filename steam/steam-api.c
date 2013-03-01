@@ -57,7 +57,7 @@ struct _SteamApiPriv
 
 static gboolean steam_api_relogon_check(SteamApiPriv *priv);
 static void steam_api_relogon(SteamApi *api);
-static gchar *steam_api_type_str(SteamApiType type);
+static const gchar *steam_api_type_str(SteamApiType type);
 
 static SteamApiPriv *steam_api_priv_new(SteamApiType type, SteamApi *api,
                                         gpointer func, gpointer data)
@@ -397,9 +397,18 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     json_value    *json;
     json_settings  js;
     gboolean       callf;
-
-    SteamParseFunc saf[STEAM_API_TYPE_LAST];
     gchar          err[128];
+
+    static const SteamParseFunc saf[STEAM_API_TYPE_LAST] = {
+        [STEAM_API_TYPE_AUTH]      = steam_api_auth_cb,
+        [STEAM_API_TYPE_FRIENDS]   = steam_api_friends_cb,
+        [STEAM_API_TYPE_LOGON]     = steam_api_logon_cb,
+        [STEAM_API_TYPE_RELOGON]   = steam_api_relogon_cb,
+        [STEAM_API_TYPE_LOGOFF]    = steam_api_logoff_cb,
+        [STEAM_API_TYPE_MESSAGE]   = steam_api_message_cb,
+        [STEAM_API_TYPE_POLL]      = steam_api_poll_cb,
+        [STEAM_API_TYPE_SUMMARIES] = steam_api_summaries_cb
+    };
 
     if ((priv->type < 0) || (priv->type > STEAM_API_TYPE_LAST))
         return;
@@ -422,15 +431,6 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     }
 
 parse:
-    saf[STEAM_API_TYPE_AUTH]      = steam_api_auth_cb;
-    saf[STEAM_API_TYPE_FRIENDS]   = steam_api_friends_cb;
-    saf[STEAM_API_TYPE_LOGON]     = steam_api_logon_cb;
-    saf[STEAM_API_TYPE_RELOGON]   = steam_api_relogon_cb;
-    saf[STEAM_API_TYPE_LOGOFF]    = steam_api_logoff_cb;
-    saf[STEAM_API_TYPE_MESSAGE]   = steam_api_message_cb;
-    saf[STEAM_API_TYPE_POLL]      = steam_api_poll_cb;
-    saf[STEAM_API_TYPE_SUMMARIES] = steam_api_summaries_cb;
-
     if ((priv->err == NULL) && (json != NULL)) {
         priv->req = req;
         callf     = saf[priv->type](priv, json);
@@ -749,62 +749,62 @@ void steam_api_summary(SteamApi *api, const gchar *steamid, SteamListFunc func,
     steam_http_req_send(req);
 }
 
-static gchar *steam_api_type_str(SteamApiType type)
+static const gchar *steam_api_type_str(SteamApiType type)
 {
-    gchar *strs[STEAM_API_TYPE_LAST];
+    static const gchar *strs[STEAM_API_TYPE_LAST] = {
+        [STEAM_API_TYPE_AUTH]      = "Authentication",
+        [STEAM_API_TYPE_FRIENDS]   = "Friends",
+        [STEAM_API_TYPE_LOGON]     = "Logon",
+        [STEAM_API_TYPE_RELOGON]   = "Relogon",
+        [STEAM_API_TYPE_LOGOFF]    = "Logoff",
+        [STEAM_API_TYPE_MESSAGE]   = "Message",
+        [STEAM_API_TYPE_POLL]      = "Polling",
+        [STEAM_API_TYPE_SUMMARIES] = "Summaries"
+    };
 
     if ((type < 0) || (type > STEAM_API_TYPE_LAST))
         return "Generic";
 
-    strs[STEAM_API_TYPE_AUTH]      = "Authentication";
-    strs[STEAM_API_TYPE_FRIENDS]   = "Friends";
-    strs[STEAM_API_TYPE_LOGON]     = "Logon";
-    strs[STEAM_API_TYPE_RELOGON]   = "Relogon";
-    strs[STEAM_API_TYPE_LOGOFF]    = "Logoff";
-    strs[STEAM_API_TYPE_MESSAGE]   = "Message";
-    strs[STEAM_API_TYPE_POLL]      = "Polling";
-    strs[STEAM_API_TYPE_SUMMARIES] = "Summaries";
-
     return strs[type];
 }
 
-gchar *steam_message_type_str(SteamMessageType type)
+const gchar *steam_message_type_str(SteamMessageType type)
 {
-    gchar *strs[STEAM_MESSAGE_TYPE_LAST];
+    static const gchar *strs[STEAM_MESSAGE_TYPE_LAST] = {
+        [STEAM_MESSAGE_TYPE_SAYTEXT]      = "saytext",
+        [STEAM_MESSAGE_TYPE_EMOTE]        = "emote",
+        [STEAM_MESSAGE_TYPE_LEFT_CONV]    = "leftconversation",
+        [STEAM_MESSAGE_TYPE_RELATIONSHIP] = "personarelationship",
+        [STEAM_MESSAGE_TYPE_STATE]        = "personastate",
+        [STEAM_MESSAGE_TYPE_TYPING]       = "typing"
+    };
 
     if ((type < 0) || (type > STEAM_MESSAGE_TYPE_LAST))
         return "";
 
-    strs[STEAM_MESSAGE_TYPE_SAYTEXT]      = "saytext";
-    strs[STEAM_MESSAGE_TYPE_EMOTE]        = "emote";
-    strs[STEAM_MESSAGE_TYPE_LEFT_CONV]    = "leftconversation";
-    strs[STEAM_MESSAGE_TYPE_RELATIONSHIP] = "personarelationship";
-    strs[STEAM_MESSAGE_TYPE_STATE]        = "personastate";
-    strs[STEAM_MESSAGE_TYPE_TYPING]       = "typing";
-
     return strs[type];
 }
 
-gchar *steam_state_str(SteamState state)
+const gchar *steam_state_str(SteamState state)
 {
-    gchar *strs[STEAM_STATE_LAST];
+    static const gchar *strs[STEAM_STATE_LAST] = {
+        [STEAM_STATE_OFFLINE] = "Offline",
+        [STEAM_STATE_ONLINE]  = "Online",
+        [STEAM_STATE_BUSY]    = "Busy",
+        [STEAM_STATE_AWAY]    = "Away",
+        [STEAM_STATE_SNOOZE]  = "Snooze"
+    };
 
     if ((state < 0) || (state > STEAM_STATE_LAST))
         return "";
-
-    strs[STEAM_STATE_OFFLINE] = "Offline";
-    strs[STEAM_STATE_ONLINE]  = "Online";
-    strs[STEAM_STATE_BUSY]    = "Busy";
-    strs[STEAM_STATE_AWAY]    = "Away";
-    strs[STEAM_STATE_SNOOZE]  = "Snooze";
 
     return strs[state];
 }
 
 SteamState steam_state_from_str(const gchar *state)
 {
-    gchar *s;
-    guint  i;
+    const gchar *s;
+    guint        i;
 
     if (state == NULL)
         return STEAM_STATE_OFFLINE;

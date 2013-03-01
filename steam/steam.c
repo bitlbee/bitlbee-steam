@@ -50,9 +50,9 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     irc_channel_user_t *icu;
     SteamState          st;
 
-    GSList *l;
-    gchar  *m;
-    gint    f;
+    const gchar *m;
+    GSList      *l;
+    gint         f;
 
     g_return_if_fail(sd != NULL);
     g_return_if_fail(ss != NULL);
@@ -599,11 +599,14 @@ static void steam_logout(struct im_connection *ic)
 
 static GList *steam_away_states(struct im_connection *ic)
 {
-    GList *l = NULL;
+    static GList *l = NULL;
 
-    l = g_list_append(l, steam_state_str(STEAM_STATE_AWAY));
-    l = g_list_append(l, steam_state_str(STEAM_STATE_BUSY));
-    l = g_list_append(l, steam_state_str(STEAM_STATE_SNOOZE));
+    if (G_LIKELY(l != NULL))
+        return l;
+
+    l = g_list_append(l, (gchar *) steam_state_str(STEAM_STATE_AWAY));
+    l = g_list_append(l, (gchar *) steam_state_str(STEAM_STATE_BUSY));
+    l = g_list_append(l, (gchar *) steam_state_str(STEAM_STATE_SNOOZE));
 
     return l;
 }
