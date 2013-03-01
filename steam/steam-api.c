@@ -58,6 +58,7 @@ struct _SteamApiPriv
 static gboolean steam_api_relogon_check(SteamApiPriv *priv);
 static void steam_api_relogon(SteamApi *api);
 static const gchar *steam_api_type_str(SteamApiType type);
+static SteamMessageType steam_message_type_from_str(const gchar *type);
 
 static SteamApiPriv *steam_api_priv_new(SteamApiType type, SteamApi *api,
                                         gpointer func, gpointer data)
@@ -304,38 +305,31 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         if (!steam_util_json_str(je, "type", &str))
             continue;
 
-        if (g_strcmp0("personastate", str) == 0) {
-            sm.type = STEAM_MESSAGE_TYPE_STATE;
+        sm.type = steam_message_type_from_str(str);
 
+        switch (sm.type) {
+        case STEAM_MESSAGE_TYPE_SAYTEXT:
+        case STEAM_MESSAGE_TYPE_EMOTE:
+            if (!steam_util_json_str(je, "text", &sm.text))
+                continue;
+            break;
+
+        case STEAM_MESSAGE_TYPE_STATE:
             if (!steam_util_json_str(je, "persona_name", &sm.nick))
                 continue;
 
+        case STEAM_MESSAGE_TYPE_RELATIONSHIP:
             if (!steam_util_json_int(je, "persona_state", &in))
                 continue;
 
             sm.state = in;
-        } else if (g_strcmp0("saytext", str) == 0) {
-            sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
+            break;
 
-            if (!steam_util_json_str(je, "text", &sm.text))
-                continue;
-        } else if (g_strcmp0("typing", str) == 0) {
-            sm.type = STEAM_MESSAGE_TYPE_TYPING;
-        } else if (g_strcmp0("emote", str) == 0) {
-            sm.type = STEAM_MESSAGE_TYPE_EMOTE;
+        case STEAM_MESSAGE_TYPE_TYPING:
+        case STEAM_MESSAGE_TYPE_LEFT_CONV:
+            break;
 
-            if (!steam_util_json_str(je, "text", &sm.text))
-                continue;
-        } else if (g_strcmp0("leftconversation", str) == 0) {
-            sm.type = STEAM_MESSAGE_TYPE_LEFT_CONV;
-        } else if (g_strcmp0("personarelationship", str) == 0) {
-            sm.type = STEAM_MESSAGE_TYPE_RELATIONSHIP;
-
-            if (!steam_util_json_int(je, "persona_state", &in))
-                continue;
-
-            sm.state = in;
-        } else {
+        default:
             continue;
         }
 
@@ -801,6 +795,24 @@ const gchar *steam_state_str(SteamState state)
     return strs[state];
 }
 
+static SteamMessageType steam_message_type_from_str(const gchar *type)
+{
+    const gchar *s;
+    guint        i;
+
+    if (type == NULL)
+        return STEAM_MESSAGE_TYPE_LAST;
+
+    for (i = 0; i < STEAM_MESSAGE_TYPE_LAST; i++) {
+        s = steam_message_type_str(i);
+
+        if (g_ascii_strcasecmp(type, s) == 0)
+            return i;
+    }
+
+    return STEAM_MESSAGE_TYPE_LAST;
+}
+
 SteamState steam_state_from_str(const gchar *state)
 {
     const gchar *s;
@@ -812,7 +824,7 @@ SteamState steam_state_from_str(const gchar *state)
     for (i = 0; i < STEAM_STATE_LAST; i++) {
         s = steam_state_str(i);
 
-        if (!g_ascii_strcasecmp(state, s))
+        if (g_ascii_strcasecmp(state, s) == 0)
             return i;
     }
 
