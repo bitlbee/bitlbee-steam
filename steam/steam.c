@@ -597,20 +597,6 @@ static void steam_logout(struct im_connection *ic)
     }
 }
 
-static GList *steam_away_states(struct im_connection *ic)
-{
-    static GList *l = NULL;
-
-    if (G_LIKELY(l != NULL))
-        return l;
-
-    l = g_list_append(l, (gchar *) steam_state_str(STEAM_STATE_AWAY));
-    l = g_list_append(l, (gchar *) steam_state_str(STEAM_STATE_BUSY));
-    l = g_list_append(l, (gchar *) steam_state_str(STEAM_STATE_SNOOZE));
-
-    return l;
-}
-
 static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
@@ -647,12 +633,6 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
 
     steam_api_message(sd->api, &sm, steam_message_cb, sd);
     return 0;
-}
-
-static void steam_set_away(struct im_connection *ic, char *state,
-                           char *message)
-{
-    /* Set away status if possible via API */
 }
 
 static int steam_send_typing(struct im_connection *ic, char *who, int flags)
@@ -706,9 +686,7 @@ void init_plugin()
     pp->init            = steam_init;
     pp->login           = steam_login;
     pp->logout          = steam_logout;
-    pp->away_states     = steam_away_states;
     pp->buddy_msg       = steam_buddy_msg;
-    pp->set_away        = steam_set_away;
     pp->send_typing     = steam_send_typing;
     pp->add_buddy       = steam_add_buddy;
     pp->remove_buddy    = steam_remove_buddy;
