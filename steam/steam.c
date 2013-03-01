@@ -100,11 +100,15 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     if (ss->state != STEAM_STATE_ONLINE)
         f |= OPT_AWAY;
 
-    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
+    if (ss->game == NULL) {
+        imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
+        return;
+    }
 
-    if (ss->game == NULL)
+    if (g_strcmp0(ss->game, bu->status_msg) == 0)
         return;
 
+    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
     iu = bu->ui_data;
 
     for (l = iu->irc->channels; l != NULL; l = l->next) {
