@@ -83,11 +83,6 @@ void steam_http_queue_pause(SteamHttp *http, gboolean pause)
     }
 }
 
-static gint steam_strcmp(gconstpointer a, gconstpointer b, gpointer data)
-{
-    return g_strcmp0(a, b);
-}
-
 SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
                                  gint port, const gchar *path,
                                  SteamHttpFunc func, gpointer data)
@@ -104,8 +99,10 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     req->data   = data;
     req->ddfunc = http->ddfunc;
 
-    req->headers = g_tree_new_full(steam_strcmp, NULL, g_free, g_free);
-    req->params  = g_tree_new_full(steam_strcmp, NULL, g_free, g_free);
+    req->headers = g_tree_new_full((GCompareDataFunc) g_ascii_strcasecmp,
+                                   NULL, g_free, g_free);
+    req->params  = g_tree_new_full((GCompareDataFunc) g_ascii_strcasecmp,
+                                   NULL, g_free, g_free);
 
     steam_http_req_headers_set(req, 4,
         "User-Agent", http->agent,
