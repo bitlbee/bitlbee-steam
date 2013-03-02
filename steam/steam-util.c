@@ -19,14 +19,6 @@
 
 #include "steam-util.h"
 
-#ifndef g_slist_free_full
-void g_slist_free_full(GSList *list, GDestroyNotify free_func)
-{
-    g_slist_foreach(list, (GFunc) free_func, NULL);
-    g_slist_free(list);
-}
-#endif
-
 gboolean steam_util_json_val(json_value *json, const gchar *name,
                              json_type type, json_value **val)
 {
@@ -134,3 +126,26 @@ gint steam_util_user_mode(gchar *mode)
         return IRC_CHANNEL_USER_NONE;
     }
 }
+
+#ifndef g_slist_free_full
+/* Backwards compatibility with glib < 2.28 */
+void g_slist_free_full(GSList *list, GDestroyNotify free_func)
+{
+    g_slist_foreach(list, (GFunc) free_func, NULL);
+    g_slist_free(list);
+}
+#endif
+
+#ifndef g_strcmp0
+/* Backwards compatibility with glib < 2.16 */
+int g_strcmp0(const char *str1, const char *str2)
+{
+    if (str1 == NULL)
+        return -(str1 != str2);
+
+    if (str2 == NULL)
+        return str1 != str2;
+
+    return strcmp(str1, str2);
+}
+#endif

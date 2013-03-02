@@ -26,10 +26,6 @@
 #include "steam.h"
 #include "steam-api.h"
 
-#ifndef g_slist_free_full
-void g_slist_free_full(GSList *list, GDestroyNotify free_func);
-#endif
-
 gboolean steam_util_json_val(json_value *json, const gchar *name,
                              json_type type, json_value **val);
 
@@ -44,5 +40,13 @@ gboolean steam_util_json_scmp(json_value *json, const gchar *name,
 void steam_util_tree_ins(GTree *tree, gsize size, gboolean strip, va_list ap);
 
 gint steam_util_user_mode(gchar *mode);
+
+#ifndef g_slist_free_full
+void g_slist_free_full(GSList *list, GDestroyNotify free_func);
+#endif
+
+#ifndef g_strcmp0
+int g_strcmp0(const char *str1, const char *str2);
+#endif
 
 #endif /* _STEAM_UTIL_H */
