@@ -670,7 +670,7 @@ void init_plugin()
     pp = g_new0(struct prpl, 1);
 
     pp->name            = "steam";
-    pp->mms             = 0;
+    pp->options         = OPT_NOOTR;
     pp->init            = steam_init;
     pp->login           = steam_login;
     pp->logout          = steam_logout;
