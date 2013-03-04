@@ -75,38 +75,6 @@ gboolean steam_util_json_scmp(json_value *json, const gchar *name,
             (g_strcmp0(match, *str) == 0));
 }
 
-void steam_util_tree_ins(GTree *tree, gsize size, gboolean escape, va_list ap)
-{
-    gchar *key;
-    gchar *val;
-    gsize  i;
-
-    g_return_if_fail(tree != NULL);
-
-    if (G_UNLIKELY(size < 1))
-        return;
-
-    for (i = 0; i < size; i++) {
-        key = va_arg(ap, gchar*);
-        val = va_arg(ap, gchar*);
-
-        if (key == NULL)
-            continue;
-
-        if (escape)
-            key = g_uri_escape_string(key, NULL, TRUE);
-        else
-            key = g_strdup(key);
-
-        if (escape && (val != NULL))
-            val = g_uri_escape_string(val, NULL, TRUE);
-        else
-            val = g_strdup(val);
-
-        g_tree_insert(tree, key, val);
-    }
-}
-
 gint steam_util_user_mode(gchar *mode)
 {
     if (mode == NULL)

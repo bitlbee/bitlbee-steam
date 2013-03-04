@@ -108,4 +108,6 @@ void steam_http_req_resend(SteamHttpReq *req);
 
 void steam_http_req_send(SteamHttpReq *req);
 
+gchar *steam_http_uri_escape(const gchar *unescaped);
+
 #endif /* _STEAM_HTTP_H */

@@ -143,6 +143,39 @@ void steam_http_req_free(SteamHttpReq *req)
     steam_http_req_free_noreq(req);
 }
 
+static void steam_http_req_ins(GTree *tree, gsize size, gboolean escape,
+                               va_list ap)
+{
+    gchar *key;
+    gchar *val;
+    gsize  i;
+
+    g_return_if_fail(tree != NULL);
+
+    if (G_UNLIKELY(size < 1))
+        return;
+
+    for (i = 0; i < size; i++) {
+        key = va_arg(ap, gchar*);
+        val = va_arg(ap, gchar*);
+
+        if (key == NULL)
+            continue;
+
+        if (escape)
+            key = steam_http_uri_escape(key);
+        else
+            key = g_strdup(key);
+
+        if (escape && (val != NULL))
+            val = steam_http_uri_escape(val);
+        else
+            val = g_strdup(val);
+
+        g_tree_insert(tree, key, val);
+    }
+}
+
 void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...)
 {
     va_list  ap;
@@ -150,7 +183,7 @@ void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...)
     g_return_if_fail(req != NULL);
 
     va_start(ap, size);
-    steam_util_tree_ins(req->headers, size, FALSE, ap);
+    steam_http_req_ins(req->headers, size, FALSE, ap);
     va_end(ap);
 }
 
@@ -161,7 +194,7 @@ void steam_http_req_params_set(SteamHttpReq *req, gsize size, ...)
     g_return_if_fail(req != NULL);
 
     va_start(ap, size);
-    steam_util_tree_ins(req->params, size, TRUE, ap);
+    steam_http_req_ins(req->params, size, TRUE, ap);
     va_end(ap);
 }
 
@@ -407,4 +440,21 @@ void steam_http_req_send(SteamHttpReq *req)
 
     g_queue_push_head(req->http->reqq, req);
     g_free(sreq);
+}
+
+gchar *steam_http_uri_escape(const gchar *unescaped)
+{
+    gchar *ret;
+    gchar *e;
+
+    if (unescaped == NULL)
+        return NULL;
+
+    e = g_strndup(unescaped, (strlen(unescaped) * 3) + 1);
+    http_encode(e);
+
+    ret = g_strdup(e);
+    g_free(e);
+
+    return ret;
 }
