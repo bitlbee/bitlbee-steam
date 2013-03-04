@@ -679,7 +679,7 @@ void init_plugin()
     pp->add_buddy       = steam_add_buddy;
     pp->remove_buddy    = steam_remove_buddy;
     pp->get_info        = steam_get_info;
-    pp->handle_cmp      = g_strcmp0;
+    pp->handle_cmp      = g_ascii_strcasecmp;
     pp->buddy_data_free = steam_buddy_data_free;
 
     register_protocol(pp);
