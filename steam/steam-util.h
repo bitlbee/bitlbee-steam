@@ -41,6 +41,10 @@ void steam_util_tree_ins(GTree *tree, gsize size, gboolean strip, va_list ap);
 
 gint steam_util_user_mode(gchar *mode);
 
+#ifndef g_prefix_error
+void g_prefix_error(GError **err, const gchar *format, ...);
+#endif
+
 #ifndef g_slist_free_full
 void g_slist_free_full(GSList *list, GDestroyNotify free_func);
 #endif

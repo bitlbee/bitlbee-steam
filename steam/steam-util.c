@@ -127,8 +127,31 @@ gint steam_util_user_mode(gchar *mode)
     }
 }
 
+#ifndef g_prefix_error
+/* Compatibility with glib < 2.16 */
+void g_prefix_error(GError **err, const gchar *format, ...)
+{
+    va_list  ap;
+    gchar   *p;
+    gchar   *m;
+
+    if ((err == NULL) || (*err == NULL))
+        return;
+
+    va_start(ap, format);
+    p = g_strdup_vprintf(format, ap);
+    va_end(ap);
+
+    m = (*err)->message;
+    (*err)->message = g_strconcat(p, m, NULL);
+
+    g_free(p);
+    g_free(m);
+}
+#endif
+
 #ifndef g_slist_free_full
-/* Backwards compatibility with glib < 2.28 */
+/* Compatibility with glib < 2.28 */
 void g_slist_free_full(GSList *list, GDestroyNotify free_func)
 {
     g_slist_foreach(list, (GFunc) free_func, NULL);
@@ -137,7 +160,7 @@ void g_slist_free_full(GSList *list, GDestroyNotify free_func)
 #endif
 
 #ifndef g_strcmp0
-/* Backwards compatibility with glib < 2.16 */
+/* Compatibility with glib < 2.16 */
 int g_strcmp0(const char *str1, const char *str2)
 {
     if (str1 == NULL)
