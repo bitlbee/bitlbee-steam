@@ -116,7 +116,7 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     return req;
 }
 
-static void steam_http_req_free_noreq(SteamHttpReq *req)
+void steam_http_req_free(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
@@ -129,20 +129,14 @@ static void steam_http_req_free_noreq(SteamHttpReq *req)
     if (req->err != NULL)
         g_error_free(req->err);
 
+    http_close(req->request);
+
     g_hash_table_destroy(req->headers);
     g_hash_table_destroy(req->params);
 
     g_free(req->path);
     g_free(req->host);
     g_free(req);
-}
-
-void steam_http_req_free(SteamHttpReq *req)
-{
-    g_return_if_fail(req != NULL);
-
-    http_close(req->request);
-    steam_http_req_free_noreq(req);
 }
 
 static void steam_http_req_ins(GHashTable *table, gsize size, gboolean escape,
@@ -299,8 +293,10 @@ static void steam_http_req_cb(struct http_request *request)
     if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED)
         steam_http_req_queue(req->http, TRUE);
 
-    if (!(req->flags & STEAM_HTTP_REQ_FLAG_NOFREE))
-        steam_http_req_free_noreq(req);
+    if (!(req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)) {
+        req->request = NULL;
+        steam_http_req_free(req);
+    }
 }
 
 static gboolean steam_table_headers(gchar *key, gchar *val, GString *gstr)
