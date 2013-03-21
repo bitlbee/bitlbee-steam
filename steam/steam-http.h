@@ -65,8 +65,8 @@ struct _SteamHttpReq
     gint   port;
     gchar *path;
 
-    GTree *headers;
-    GTree *params;
+    GHashTable *headers;
+    GHashTable *params;
 
     SteamHttpFunc  func;
     gpointer       data;
