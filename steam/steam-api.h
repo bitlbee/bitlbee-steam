@@ -21,7 +21,8 @@
 #include "steam-http.h"
 
 #define STEAM_API_HOST            "api.steampowered.com"
-#define STEAM_API_AGENT           "Steam App / BitlBee / " PACKAGE_VERSION " / 0"
+#define STEAM_API_AGENT           "Steam App / " PACKAGE " / " \
+                                  PACKAGE_VERSION " / 0"
 #define STEAM_API_FORMAT          "json"
 #define STEAM_API_KEEP_ALIVE      "15" /* Max of 30 seconds */
 
