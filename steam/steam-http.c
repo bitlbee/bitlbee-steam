@@ -198,8 +198,10 @@ void steam_http_req_resend(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
-    if (req->rsid > 0)
+    if (req->rsid > 0) {
         b_event_remove(req->rsid);
+        req->rsid = 0;
+    }
 
     if (req->err != NULL) {
         g_error_free(req->err);
@@ -327,15 +329,15 @@ static gboolean steam_table_params(gchar *key, gchar *val, GString *gstr)
     return FALSE;
 }
 
-static gchar *steam_http_req_assemble(SteamHttpReq *req)
+static void steam_http_req_sendasm(SteamHttpReq *req)
 {
-    GString  *gstr;
-    gchar    *sreq;
-    gchar    *hs;
-    gchar    *ps;
-    gchar    *len;
+    GString *gstr;
+    gchar   *sreq;
+    gchar   *hs;
+    gchar   *ps;
+    gchar   *len;
 
-    g_return_val_if_fail(req != NULL, NULL);
+    g_return_if_fail(req != NULL);
 
     gstr = g_string_sized_new(128);
     g_hash_table_foreach(req->params, (GHFunc) steam_table_params, gstr);
@@ -365,16 +367,19 @@ static gchar *steam_http_req_assemble(SteamHttpReq *req)
     g_free(ps);
     g_free(hs);
 
-    return sreq;
+    req->request = http_dorequest(req->host, req->port,
+                                  (req->flags & STEAM_HTTP_REQ_FLAG_SSL),
+                                  sreq, steam_http_req_cb, req);
+    g_free(sreq);
 }
 
 static void steam_http_req_queue(SteamHttp *http, gboolean force)
 {
     SteamHttpReq *req;
     SteamHttpReq *treq;
-    gchar        *sreq;
     GList        *l;
-    gboolean      ssl;
+
+    g_return_if_fail(http != NULL);
 
     if ((http->flags & STEAM_HTTP_FLAG_PAUSED) ||
         (!force && (http->flags & STEAM_HTTP_FLAG_QUEUED)))
@@ -399,23 +404,11 @@ static void steam_http_req_queue(SteamHttp *http, gboolean force)
         http->flags |= STEAM_HTTP_FLAG_QUEUED;
     }
 
-    ssl  = (req->flags & STEAM_HTTP_REQ_FLAG_SSL);
-    sreq = steam_http_req_assemble(req);
-
-    if (G_UNLIKELY(sreq == NULL))
-        return;
-
-    req->request = http_dorequest(req->host, req->port, ssl, sreq,
-                                  steam_http_req_cb, req);
-
-    g_free(sreq);
+    steam_http_req_sendasm(req);
 }
 
 void steam_http_req_send(SteamHttpReq *req)
 {
-    gchar    *sreq;
-    gboolean  ssl;
-
     g_return_if_fail(req != NULL);
 
     if (req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)
@@ -427,17 +420,10 @@ void steam_http_req_send(SteamHttpReq *req)
         return;
     }
 
-    ssl  = (req->flags & STEAM_HTTP_REQ_FLAG_SSL);
-    sreq = steam_http_req_assemble(req);
+    steam_http_req_sendasm(req);
 
-    if (G_UNLIKELY(sreq == NULL))
-        return;
-
-    req->request = http_dorequest(req->host, req->port, ssl, sreq,
-                                  steam_http_req_cb, req);
-
-    g_queue_push_head(req->http->reqq, req);
-    g_free(sreq);
+    if (req->request != NULL)
+        g_queue_push_head(req->http->reqq, req);
 }
 
 gchar *steam_http_uri_escape(const gchar *unescaped)
