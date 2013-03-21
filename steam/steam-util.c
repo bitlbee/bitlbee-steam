@@ -28,10 +28,7 @@ gboolean steam_util_json_val(json_value *json, const gchar *name,
 
     *val = json_o_get(json, name);
 
-    if (*val == NULL)
-        return FALSE;
-
-    return ((*val)->type == type);
+    return ((*val != NULL) && ((*val)->type == type));
 }
 
 gboolean steam_util_json_int(json_value *json, const gchar *name, gint64 *i)
@@ -42,7 +39,7 @@ gboolean steam_util_json_int(json_value *json, const gchar *name, gint64 *i)
 
     *i = 0;
 
-    if (!steam_util_json_val(json, name, json_integer, &jv) || (jv == NULL))
+    if (!steam_util_json_val(json, name, json_integer, &jv))
         return FALSE;
 
     *i = jv->u.integer;
@@ -58,10 +55,8 @@ gboolean steam_util_json_str(json_value *json, const gchar *name,
 
     *str = NULL;
 
-    if (!steam_util_json_val(json, name, json_string, &jv))
-        return FALSE;
-
-    if ((jv == NULL) && (jv->u.string.length < 1))
+    if (!steam_util_json_val(json, name, json_string, &jv) ||
+        (jv->u.string.length < 1))
         return FALSE;
 
     *str = jv->u.string.ptr;
@@ -71,8 +66,10 @@ gboolean steam_util_json_str(json_value *json, const gchar *name,
 gboolean steam_util_json_scmp(json_value *json, const gchar *name,
                               const gchar *match, const gchar **str)
 {
-    return (steam_util_json_str(json, name, str) &&
-            (g_strcmp0(match, *str) == 0));
+    if (!steam_util_json_str(json, name, str))
+        return FALSE;
+
+    return ((match != NULL) && (g_ascii_strcasecmp(match, *str) == 0));
 }
 
 gint steam_util_user_mode(gchar *mode)

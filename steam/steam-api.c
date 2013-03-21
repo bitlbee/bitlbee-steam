@@ -281,7 +281,7 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         priv->api->lmid = in;
 
     if (!steam_util_json_scmp(json, "error", "Timeout", &str)) {
-        if (g_strcmp0(str, "OK") != 0) {
+        if (g_ascii_strcasecmp(str, "OK") != 0) {
             g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
                         "%s", str);
             return TRUE;
