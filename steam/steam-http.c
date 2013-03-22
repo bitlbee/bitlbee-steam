@@ -241,6 +241,7 @@ static void steam_http_req_cb(struct http_request *request)
     req->body      = request->reply_body;
     req->body_size = request->body_size;
 
+#ifdef DEBUG
     if (global.conf->verbose) {
         g_print("HTTP Reply (%s): %s\n", req->path, request->status_string);
 
@@ -260,6 +261,7 @@ static void steam_http_req_cb(struct http_request *request)
 
         g_print("\n");
     }
+#endif /* DEBUG */
 
     if (req->rsid > 0) {
         b_event_remove(req->rsid);

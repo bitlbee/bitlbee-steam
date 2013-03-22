@@ -30,6 +30,16 @@ AM_PROG_CC_C_O
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+
+AC_ARG_ENABLE(
+    [debug],
+    [AS_HELP_STRING(
+        [--enable-debug],
+        [Enable debugging features])],
+    [AC_DEFINE(DEBUG, 1)
+     CFLAGS="$CFLAGS -Wall -g -O0"])
+
 AC_ARG_WITH(
     [plugindir],
     [AS_HELP_STRING(
@@ -83,8 +93,6 @@ AC_MSG_RESULT([$HAVE_BITLBEE_REQ])
 AS_IF(
     [test "x$HAVE_BITLBEE_REQ" == "xno"],
     [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2) were not met.])])
-
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_CONFIG_FILES([Makefile steam/Makefile])
 AC_SUBST([plugindir])
