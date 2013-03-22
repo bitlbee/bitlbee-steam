@@ -213,7 +213,7 @@ static gboolean steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
         priv->api->steamid = g_strdup(str);
     }
 
-    if (!steam_util_json_scmp(json, "umqid", priv->api->steamid, &str)) {
+    if (!steam_util_json_scmp(json, "umqid", priv->api->umqid, &str)) {
         g_free(priv->api->umqid);
         priv->api->umqid = g_strdup(str);
     }
