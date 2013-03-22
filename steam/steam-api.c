@@ -55,7 +55,6 @@ struct _SteamApiPriv
     SteamHttpReq *req;
 };
 
-static gboolean steam_api_relogon_check(SteamApiPriv *priv);
 static void steam_api_relogon(SteamApi *api);
 static const gchar *steam_api_type_str(SteamApiType type);
 static SteamMessageType steam_message_type_from_str(const gchar *type);
@@ -255,9 +254,9 @@ static gboolean steam_api_message_cb(SteamApiPriv *priv, json_value *json)
     if (steam_util_json_scmp(json, "error", "OK", &str))
         return TRUE;
 
-    if (!steam_api_relogon_check(priv)) {
-        steam_http_req_resend(priv->req);
+    if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
         steam_api_relogon(priv->api);
+        steam_http_req_resend(priv->req);
         return FALSE;
     }
 
@@ -280,12 +279,19 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
     if (steam_util_json_int(json, "messagelast", &in))
         priv->api->lmid = in;
 
-    if (!steam_util_json_scmp(json, "error", "Timeout", &str)) {
-        if (g_ascii_strcasecmp(str, "OK") != 0) {
-            g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
-                        "%s", str);
-            return TRUE;
+    if (steam_util_json_str(json, "error", &str)  &&
+        (g_ascii_strcasecmp(str, "Timeout") != 0) &&
+        (g_ascii_strcasecmp(str, "OK")      != 0)) {
+
+        if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
+            steam_api_relogon(priv->api);
+            steam_http_req_resend(priv->req);
+            return FALSE;
         }
+
+        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+                    "%s", str);
+        return TRUE;
     }
 
     if (!steam_util_json_val(json, "messages", json_array, &jv))
@@ -531,16 +537,6 @@ void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
 
     req->flags = STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_SSL;
     steam_http_req_send(req);
-}
-
-static gboolean steam_api_relogon_check(SteamApiPriv *priv)
-{
-    g_return_val_if_fail(priv != NULL, TRUE);
-
-    if (priv->err == NULL)
-        return TRUE;
-
-    return (g_ascii_strncasecmp(priv->err->message, "Not Logged On", 13) != 0);
 }
 
 static void steam_api_relogon(SteamApi *api)
