@@ -83,6 +83,11 @@ void steam_http_queue_pause(SteamHttp *http, gboolean pause)
     }
 }
 
+static gboolean steam_http_str_iequal(gconstpointer v1, gconstpointer v2)
+{
+    return (g_ascii_strcasecmp(v1, v2) == 0);
+}
+
 SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
                                  gint port, const gchar *path,
                                  SteamHttpFunc func, gpointer data)
@@ -99,11 +104,9 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     req->data   = data;
     req->ddfunc = http->ddfunc;
 
-    req->headers = g_hash_table_new_full(g_str_hash,
-                                         (GEqualFunc) g_ascii_strcasecmp,
+    req->headers = g_hash_table_new_full(g_str_hash, steam_http_str_iequal,
                                          g_free, g_free);
-    req->params  = g_hash_table_new_full(g_str_hash,
-                                         (GEqualFunc) g_ascii_strcasecmp,
+    req->params  = g_hash_table_new_full(g_str_hash, steam_http_str_iequal,
                                          g_free, g_free);
 
     steam_http_req_headers_set(req, 4,
@@ -168,7 +171,7 @@ static void steam_http_req_ins(GHashTable *table, gsize size, gboolean escape,
         else
             val = g_strdup(val);
 
-        g_hash_table_insert(table, key, val);
+        g_hash_table_replace(table, key, val);
     }
 }
 
