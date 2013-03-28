@@ -577,7 +577,7 @@ static void steam_logout(struct im_connection *ic)
 
     g_return_if_fail(sd != NULL);
 
-    if (ic->flags & OPT_LOGGING_OUT) {
+    if (ic->flags & OPT_LOGGED_IN) {
         steam_http_free_reqs(sd->api->http);
         steam_api_logoff(sd->api, steam_logoff_cb, sd);
     } else {
