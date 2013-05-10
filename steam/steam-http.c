@@ -220,8 +220,8 @@ void steam_http_req_resend(SteamHttpReq *req)
     steam_http_req_send(req);
 }
 
-static gboolean steam_http_req_resend_e(gpointer data, gint fd,
-                                        b_input_condition cond)
+static gboolean steam_http_req_done_error_cb(gpointer data, gint fd,
+                                             b_input_condition cond)
 {
     SteamHttpReq *req = data;
 
@@ -230,6 +230,35 @@ static gboolean steam_http_req_resend_e(gpointer data, gint fd,
     req->rsid = 0;
     steam_http_req_send(req);
     return FALSE;
+}
+
+static void steam_http_req_done(SteamHttpReq *req)
+{
+    if (req->err != NULL) {
+        if (req->errc < STEAM_HTTP_ERROR_MAX) {
+            g_error_free(req->err);
+            req->err = NULL;
+
+            req->rsid = b_timeout_add(STEAM_HTTP_ERROR_TIMEOUT,
+                                      steam_http_req_done_error_cb, req);
+
+            req->errc++;
+            return;
+        }
+
+        g_prefix_error(&req->err, "HTTP: ");
+    }
+
+    if (req->func != NULL)
+        req->func(req, req->data);
+
+    if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED)
+        steam_http_req_queue(req->http, TRUE);
+
+    if (!(req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)) {
+        req->request = NULL;
+        steam_http_req_free(req);
+    }
 }
 
 static void steam_http_req_cb(struct http_request *request)
@@ -279,31 +308,7 @@ static void steam_http_req_cb(struct http_request *request)
                     "Empty reply");
     }
 
-    if (req->err != NULL) {
-        req->errc++;
-
-        if (req->errc < STEAM_HTTP_ERROR_MAX) {
-            g_error_free(req->err);
-            req->err = NULL;
-
-            req->rsid = b_timeout_add(STEAM_HTTP_ERROR_TIMEOUT,
-                                      steam_http_req_resend_e, req);
-            return;
-        }
-
-        g_prefix_error(&req->err, "HTTP: ");
-    }
-
-    if (req->func != NULL)
-        req->func(req, req->data);
-
-    if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED)
-        steam_http_req_queue(req->http, TRUE);
-
-    if (!(req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)) {
-        req->request = NULL;
-        steam_http_req_free(req);
-    }
+    steam_http_req_done(req);
 }
 
 static gboolean steam_table_headers(gchar *key, gchar *val, GString *gstr)
@@ -376,6 +381,12 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
                                   (req->flags & STEAM_HTTP_REQ_FLAG_SSL),
                                   sreq, steam_http_req_cb, req);
     g_free(sreq);
+
+    if (req->request != NULL)
+        return;
+
+    g_set_error(&req->err, STEAM_HTTP_ERROR, 0, "Failed to init request");
+    steam_http_req_done(req);
 }
 
 static void steam_http_req_queue(SteamHttp *http, gboolean force)
