@@ -205,17 +205,19 @@ static void steam_auth_cb(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
     account_t *acc;
-
-    guint i;
+    guint      i;
 
     g_return_if_fail(sd != NULL);
 
-    if (err == NULL) {
-        acc = sd->ic->acc;
+    acc = sd->ic->acc;
 
+    if (err == NULL) {
         set_setstr(&acc->set, "steamid", api->steamid);
         set_setstr(&acc->set, "token",   api->token);
         storage_save(acc->bee->ui_data, NULL, TRUE);
+
+        steam_auth_free(api->auth);
+        api->auth = NULL;
 
         imcb_log(sd->ic, "Authentication finished");
         imcb_log(sd->ic, "Sending login request");
@@ -223,17 +225,26 @@ static void steam_auth_cb(SteamApi *api, GError *err, gpointer data)
         return;
     }
 
+    set_setstr(&acc->set, "esid", api->auth->esid);
+    set_setstr(&acc->set, "cgid", api->auth->cgid);
+
     imcb_log(sd->ic, "%s", err->message);
+    acc = sd->ic->acc->bee->accounts;
 
-    if (err->code == STEAM_API_ERROR_AUTH_REQ) {
-        acc = sd->ic->acc->bee->accounts;
+    for (i = 0; acc != NULL; acc = acc->next, i++) {
+        if (sd->ic->acc == acc)
+            break;
+    }
 
-        for (i = 0; acc != NULL; acc = acc->next, i++) {
-            if (sd->ic->acc == acc)
-                break;
-        }
+    switch (err->code) {
+    case STEAM_API_ERROR_AUTH_CAPTCHA:
+        imcb_log(sd->ic, "View: %s", sd->api->auth->curl);
+        imcb_log(sd->ic, "Run: account %d set captcha <text>",  i);
+        break;
 
+    case STEAM_API_ERROR_AUTH_GUARD:
         imcb_log(sd->ic, "Run: account %d set authcode <code>", i);
+        break;
     }
 
     imc_logout(sd->ic, FALSE);
@@ -260,6 +271,29 @@ static void steam_friends_cb(SteamApi *api, GSList *friends, GError *err,
         imcb_add_buddy(sd->ic, fl->data, NULL);
 
     steam_api_summaries(sd->api, friends, steam_summaries_friends_cb, sd);
+}
+
+static void steam_key_cb(SteamApi *api, GError *err, gpointer data)
+{
+    SteamData *sd = data;
+    account_t *acc;
+    gchar     *ac;
+    gchar     *cc;
+
+    g_return_if_fail(sd != NULL);
+
+    if (err != NULL) {
+        imcb_error(sd->ic, "%s", err->message);
+        imc_logout(sd->ic, FALSE);
+        return;
+    }
+
+    acc = sd->ic->acc;
+    ac  = set_getstr(&acc->set, "authcode");
+    cc  = set_getstr(&acc->set, "captcha");
+
+    imcb_log(sd->ic, "Requesting authentication token");
+    steam_api_auth(sd->api, acc->user, acc->pass, ac, cc, steam_auth_cb, sd);
 }
 
 static void steam_logon_cb(SteamApi *api, GError *err, gpointer data)
@@ -412,14 +446,14 @@ static void steam_summary_cb(SteamApi *api, GSList *summaries, GError *err,
         imcb_log(sd->ic, "Profile:   %s", ss->profile);
 }
 
-static char *steam_eval_authcode(set_t *set, char *value)
+static char *steam_eval_accounton(set_t *set, char *value)
 {
     account_t *acc = set->data;
 
     g_return_val_if_fail(acc != NULL, value);
 
     if ((acc->ic != NULL) && (acc->ic->flags & OPT_LOGGED_IN))
-        return NULL;
+        return value;
 
     /* Some hackery to auto connect upon authcode entry */
 
@@ -431,7 +465,7 @@ static char *steam_eval_authcode(set_t *set, char *value)
     g_free(set->value);
     set->value = NULL;
 
-    return NULL;
+    return value;
 }
 
 static char *steam_eval_show_playing(set_t *set, char *value)
@@ -522,7 +556,16 @@ static void steam_init(account_t *acc)
 {
     set_t *s;
 
-    s = set_add(&acc->set, "authcode", NULL, steam_eval_authcode, acc);
+    s = set_add(&acc->set, "authcode", NULL, steam_eval_accounton, acc);
+    s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
+
+    s = set_add(&acc->set, "captcha", NULL, steam_eval_accounton, acc);
+    s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
+
+    s = set_add(&acc->set, "esid", NULL, NULL, acc);
+    s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
+
+    s = set_add(&acc->set, "cgid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
 
     s = set_add(&acc->set, "steamid", NULL, NULL, acc);
@@ -544,17 +587,17 @@ static void steam_init(account_t *acc)
 static void steam_login(account_t *acc)
 {
     SteamData *sd;
-    gchar     *tmp;
+    gchar     *str;
 
-    tmp = set_getstr(&acc->set, "umqid");
-    sd  = steam_data_new(acc, tmp);
-
+    str = set_getstr(&acc->set, "umqid");
+    sd  = steam_data_new(acc, str);
     set_setstr(&acc->set, "umqid", sd->api->umqid);
-    tmp = set_getstr(&acc->set, "show_playing");
+
+    str = set_getstr(&acc->set, "show_playing");
 
     sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
-    sd->show_playing = steam_util_user_mode(tmp);
+    sd->show_playing = steam_util_user_mode(str);
     sd->server_url   = set_getbool(&acc->set, "server_url");
 
     imcb_log(sd->ic, "Connecting");
@@ -565,10 +608,16 @@ static void steam_login(account_t *acc)
         return;
     }
 
-    tmp = set_getstr(&acc->set, "authcode");
+    sd->api->auth = steam_auth_new();
 
-    imcb_log(sd->ic, "Requesting token");
-    steam_api_auth(sd->api, tmp, acc->user, acc->pass, steam_auth_cb, sd);
+    str = set_getstr(&acc->set, "cgid");
+    steam_auth_captcha(sd->api->auth, str);
+
+    str = set_getstr(&acc->set, "esid");
+    steam_auth_email(sd->api->auth, str);
+
+    imcb_log(sd->ic, "Requesting authentication key");
+    steam_api_key(sd->api, acc->user, steam_key_cb, sd);
 }
 
 static void steam_logout(struct im_connection *ic)

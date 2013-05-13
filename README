@@ -39,6 +39,11 @@ Usage:
     > account <acc> on
     > account <acc> set authcode <code>
 
+  Sometimes captcha interaction may be required:
+    > account add steam <username> <password>
+    > account <acc> on
+    > account <acc> set captcha <text>
+
   Turn off the Steam URLs for the server in info replies:
     > account <acc> set server_url false
 

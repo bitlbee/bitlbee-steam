@@ -29,6 +29,8 @@
 gboolean steam_util_json_val(json_value *json, const gchar *name,
                              json_type type, json_value **val);
 
+gboolean steam_util_json_bool(json_value *json, const gchar *name);
+
 gboolean steam_util_json_int(json_value *json, const gchar *name, gint64 *i);
 
 gboolean steam_util_json_str(json_value *json, const gchar *name,

@@ -18,25 +18,28 @@
 #ifndef _STEAM_API_H
 #define _STEAM_API_H
 
+#include "steam-auth.h"
 #include "steam-http.h"
 
 #define STEAM_API_HOST            "api.steampowered.com"
+#define STEAM_COM_HOST            "steamcommunity.com"
 #define STEAM_API_AGENT           "Steam App / " PACKAGE " / " \
                                   PACKAGE_VERSION " / 0"
+
+#define STEAM_API_CLIENT_ID       "DE45CD61" /* Public mobile client id */
 #define STEAM_API_FORMAT          "json"
-#define STEAM_API_KEEP_ALIVE      "15" /* Max of 30 seconds */
+#define STEAM_API_KEEP_ALIVE      "15"       /* Max of 30 seconds */
 
-/* Required for GetTokenWithCredentials */
-#define STEAM_API_AGENT_AUTH      "Steam App / Android / 1.0 / 0"
-#define STEAM_API_CLIENT_ID       "DE45CD61" /* The "public" mobile client id */
-
-#define STEAM_API_PATH_AUTH       "/ISteamOAuth2/GetTokenWithCredentials/v0001"
 #define STEAM_API_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"
 #define STEAM_API_PATH_LOGON      "/ISteamWebUserPresenceOAuth/Logon/v0001"
 #define STEAM_API_PATH_LOGOFF     "/ISteamWebUserPresenceOAuth/Logoff/v0001"
 #define STEAM_API_PATH_MESSAGE    "/ISteamWebUserPresenceOAuth/Message/v0001"
 #define STEAM_API_PATH_POLL       "/ISteamWebUserPresenceOAuth/Poll/v0001"
 #define STEAM_API_PATH_SUMMARIES  "/ISteamUserOAuth/GetUserSummaries/v0001"
+
+#define STEAM_COM_PATH_AUTH       "/mobilelogin/dologin/"
+#define STEAM_COM_PATH_CAPTCHA    "/public/captcha.php"
+#define STEAM_COM_PATH_KEY        "/mobilelogin/getrsakey/"
 
 typedef enum   _SteamApiError    SteamApiError;
 typedef enum   _SteamState       SteamState;
@@ -54,6 +57,7 @@ enum _SteamApiError
 {
     STEAM_API_ERROR_AUTH = 0,
     STEAM_API_ERROR_FRIENDS,
+    STEAM_API_ERROR_KEY,
     STEAM_API_ERROR_LOGOFF,
     STEAM_API_ERROR_LOGON,
     STEAM_API_ERROR_RELOGON,
@@ -61,7 +65,8 @@ enum _SteamApiError
     STEAM_API_ERROR_POLL,
     STEAM_API_ERROR_SUMMARIES,
 
-    STEAM_API_ERROR_AUTH_REQ,
+    STEAM_API_ERROR_AUTH_CAPTCHA,
+    STEAM_API_ERROR_AUTH_GUARD,
     STEAM_API_ERROR_EMPTY_REPLY,
     STEAM_API_ERROR_MISMATCH,
     STEAM_API_ERROR_PARSER
@@ -105,6 +110,7 @@ struct _SteamApi
     gint64  lmid;
 
     SteamHttp *http;
+    SteamAuth *auth;
 };
 
 struct _SteamMessage
@@ -137,11 +143,14 @@ SteamApi *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamApi *api);
 
-void steam_api_auth(SteamApi *api, const gchar *authcode,
-                    const gchar *user, const gchar *pass,
+void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
+                    const gchar *authcode, const gchar *captcha,
                     SteamApiFunc func, gpointer data);
 
 void steam_api_friends(SteamApi *api, SteamListFunc func, gpointer data);
+
+void steam_api_key(SteamApi *api, const gchar *user, SteamApiFunc func,
+                   gpointer data);
 
 void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data);
 

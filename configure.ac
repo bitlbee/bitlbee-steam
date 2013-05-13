@@ -55,6 +55,22 @@ m4_define_default(
      AC_MSG_RESULT([no])]
     [AC_MSG_ERROR([Package requirements (pkg-config) were not met.])])
 
+AC_CHECK_LIB(
+    [gmp],
+    [__gmpz_init],
+    [HAVE_GMP_LIB=yes],
+    [HAVE_GMP_LIB=no])
+
+AC_CHECK_HEADER(
+    [gmp.h],
+    [HAVE_GMP_HEADER=yes],
+    [HAVE_GMP_HEADER=no])
+
+AS_IF(
+    [test "x$HAVE_GMP_LIB" == "xno" -o "x$HAVE_GMP_HEADER" == "xno"],
+    [AC_MSG_ERROR([Package requirements (GMP) were not met.])],
+    [GMP_LIBS=-lgmp])
+
 PKG_CHECK_MODULES([GLIB],    [glib-2.0])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee])
 
@@ -96,5 +112,6 @@ AS_IF(
     [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2) were not met.])])
 
 AC_CONFIG_FILES([Makefile steam/Makefile])
+AC_SUBST([GMP_LIBS])
 AC_SUBST([plugindir])
 AC_OUTPUT

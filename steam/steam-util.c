@@ -31,6 +31,16 @@ gboolean steam_util_json_val(json_value *json, const gchar *name,
     return ((*val != NULL) && ((*val)->type == type));
 }
 
+gboolean steam_util_json_bool(json_value *json, const gchar *name)
+{
+    json_value *jv;
+
+    if (!steam_util_json_val(json, name, json_boolean, &jv))
+        return FALSE;
+
+    return jv->u.boolean;
+}
+
 gboolean steam_util_json_int(json_value *json, const gchar *name, gint64 *i)
 {
     json_value *jv;
