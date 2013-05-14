@@ -21,8 +21,8 @@
 #include <stdarg.h>
 
 #include <bitlbee.h>
+#include <json_util.h>
 
-#include "json_util.h"
 #include "steam.h"
 #include "steam-api.h"
 
