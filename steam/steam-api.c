@@ -530,11 +530,8 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     }
 
 parse:
-    if ((priv->err == NULL) && (json != NULL)) {
-        priv->req = req;
-        callf     = saf[priv->type](priv, json);
-        priv->req = NULL;
-    }
+    if ((priv->err == NULL) && (json != NULL))
+        callf = saf[priv->type](priv, json);
 
     if (priv->err != NULL)
         g_prefix_error(&priv->err, "%s: ", steam_api_type_str(priv->type));
@@ -544,12 +541,25 @@ parse:
 
     if (json != NULL)
         json_value_free(json);
+
+    if (!(priv->req->flags & STEAM_HTTP_REQ_FLAG_NOFREE))
+        priv->req = NULL;
+}
+
+static void steam_api_priv_req(SteamApiPriv *priv, gchar *host, gchar *path)
+{
+    SteamApi     *api = priv->api;
+    SteamHttpReq *req;
+
+    req = steam_http_req_new(api->http, host, 443, path, steam_api_cb, priv);
+
+    req->flags = STEAM_HTTP_REQ_FLAG_SSL;
+    priv->req  = req;
 }
 
 void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
                     const gchar *authcode, const gchar *captcha)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
     GTimeVal      tv;
     gchar        *pswd;
@@ -558,8 +568,8 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
     g_return_if_fail(api       != NULL);
     g_return_if_fail(api->auth != NULL);
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_AUTH);
     pswd = steam_auth_key_encrypt(api->auth, pass);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_AUTH);
 
     if (pswd == NULL) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
@@ -570,13 +580,11 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
         return;
     }
 
-    req = steam_http_req_new(api->http, STEAM_COM_HOST, 443,
-                             STEAM_COM_PATH_AUTH, steam_api_cb, priv);
-
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
+    steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_AUTH);
 
-    steam_http_req_params_set(req, 11,
+    steam_http_req_params_set(priv->req, 11,
         "username",        user,
         "password",        pswd,
         "emailauth",       authcode,
@@ -590,8 +598,8 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
         "oauth_scope", "read_profile write_profile read_client write_client"
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_SSL;
-    steam_http_req_send(req);
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
 
     g_free(pswd);
     g_free(ms);
@@ -599,130 +607,116 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
 
 void steam_api_friends(SteamApi *api)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIENDS);
-    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                              STEAM_API_PATH_FRIENDS, steam_api_cb, priv);
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_FRIENDS);
 
-    steam_http_req_params_set(req, 4,
+    steam_http_req_params_set(priv->req, 4,
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "steamid",      api->steamid,
         "relationship", "friend"
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_SSL;
-    steam_http_req_send(req);
+    steam_http_req_send(priv->req);
 }
 
 void steam_api_key(SteamApi *api, const gchar *user)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
     GTimeVal      tv;
     gchar        *ms;
 
     g_return_if_fail(api != NULL);
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_KEY);
-    req  = steam_http_req_new(api->http, STEAM_COM_HOST, 443,
-                              STEAM_COM_PATH_KEY, steam_api_cb, priv);
-
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
 
-    steam_http_req_params_set(req, 2,
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_KEY);
+    steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_KEY);
+
+    steam_http_req_params_set(priv->req, 2,
         "username",   user,
         "donotcache", ms
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_SSL;
-    steam_http_req_send(req);
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
     g_free(ms);
 }
 
 void steam_api_logoff(SteamApi *api)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
     priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGOFF);
-    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                              STEAM_API_PATH_LOGOFF, steam_api_cb, priv);
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGOFF);
 
-    steam_http_req_params_set(req, 3,
+    steam_http_req_params_set(priv->req, 3,
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "umqid",        api->umqid
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_SSL;
-    steam_http_req_send(req);
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
 }
 
 void steam_api_logon(SteamApi *api)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
     priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGON);
-    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                              STEAM_API_PATH_LOGON, steam_api_cb, priv);
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(req, 3,
+    steam_http_req_params_set(priv->req, 3,
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "umqid",        api->umqid
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_SSL;
-    steam_http_req_send(req);
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
 }
 
 static void steam_api_relogon(SteamApi *api)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
     priv = steam_api_priv_new(api, STEAM_API_TYPE_RELOGON);
-    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                              STEAM_API_PATH_LOGON, steam_api_cb, priv);
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(req, 3,
+    steam_http_req_params_set(priv->req, 3,
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "umqid",        api->umqid
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_SSL;
-
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_queue_pause(api->http, TRUE);
-    steam_http_req_send(req);
+    steam_http_req_send(priv->req);
 }
 
 void steam_api_message(SteamApi *api, SteamMessage *sm)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(sm  != NULL);
 
     priv = steam_api_priv_new(api, STEAM_API_TYPE_MESSAGE);
-    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                              STEAM_API_PATH_MESSAGE, steam_api_cb, priv);
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_MESSAGE);
 
-    steam_http_req_params_set(req, 5,
+    steam_http_req_params_set(priv->req, 5,
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "umqid",        api->umqid,
@@ -733,26 +727,23 @@ void steam_api_message(SteamApi *api, SteamMessage *sm)
     switch (sm->type) {
     case STEAM_MESSAGE_TYPE_SAYTEXT:
     case STEAM_MESSAGE_TYPE_EMOTE:
-        steam_http_req_params_set(req, 1, "text", sm->text);
+        steam_http_req_params_set(priv->req, 1, "text", sm->text);
         break;
 
     case STEAM_MESSAGE_TYPE_TYPING:
         break;
 
     default:
-        steam_http_req_free(req);
+        steam_http_req_free(priv->req);
         return;
     }
 
-    req->flags = STEAM_HTTP_REQ_FLAG_QUEUED | STEAM_HTTP_REQ_FLAG_POST |
-                 STEAM_HTTP_REQ_FLAG_SSL;
-
-    steam_http_req_send(req);
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_QUEUED | STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
 }
 
 void steam_api_poll(SteamApi *api)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
     gchar        *lmid;
 
@@ -760,12 +751,11 @@ void steam_api_poll(SteamApi *api)
 
     lmid = g_strdup_printf("%" G_GINT64_FORMAT, api->lmid);
     priv = steam_api_priv_new(api, STEAM_API_TYPE_POLL);
-    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                              STEAM_API_PATH_POLL, steam_api_cb, priv);
 
-    steam_http_req_headers_set(req, 1, "Connection", "Keep-Alive");
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_POLL);
+    steam_http_req_headers_set(priv->req, 1, "Connection", "Keep-Alive");
 
-    steam_http_req_params_set(req, 5,
+    steam_http_req_params_set(priv->req, 5,
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "umqid",        api->umqid,
@@ -773,14 +763,13 @@ void steam_api_poll(SteamApi *api)
         "sectimeout",   STEAM_API_KEEP_ALIVE
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_SSL;
-    steam_http_req_send(req);
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
     g_free(lmid);
 }
 
 void steam_api_summaries(SteamApi *api, GSList *friends)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
 
     GSList *s;
@@ -820,19 +809,16 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
         }
 
         priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES);
-        req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                                  STEAM_API_PATH_SUMMARIES, steam_api_cb, priv);
+        steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-        steam_http_req_params_set(req, 3,
+        steam_http_req_params_set(priv->req, 3,
             "format",       STEAM_API_FORMAT,
             "access_token", api->token,
             "steamids",     str
         );
 
+        steam_http_req_send(priv->req);
         g_free(str);
-
-        req->flags = STEAM_HTTP_REQ_FLAG_SSL;
-        steam_http_req_send(req);
 
         if (e != NULL)
             s = e->next;
@@ -844,24 +830,21 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
 static void steam_api_summary_p(SteamApi *api, const gchar *steamid,
                                 SteamApiType type)
 {
-    SteamHttpReq *req;
     SteamApiPriv *priv;
 
     g_return_if_fail(api     != NULL);
     g_return_if_fail(steamid != NULL);
 
     priv = steam_api_priv_new(api, type);
-    req  = steam_http_req_new(api->http, STEAM_API_HOST, 443,
-                              STEAM_API_PATH_SUMMARIES, steam_api_cb, priv);
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-    steam_http_req_params_set(req, 3,
+    steam_http_req_params_set(priv->req, 3,
         "format",       STEAM_API_FORMAT,
         "access_token", api->token,
         "steamids",     steamid
     );
 
-    req->flags = STEAM_HTTP_REQ_FLAG_SSL;
-    steam_http_req_send(req);
+    steam_http_req_send(priv->req);
 }
 
 void steam_api_summaries_s(SteamApi *api, const gchar *steamid)
