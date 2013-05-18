@@ -44,9 +44,6 @@ Usage:
     > account <acc> on
     > account <acc> set captcha <text>
 
-  Turn off the Steam URLs for the server in info replies:
-    > account <acc> set server_url false
-
   Modify game play statuses (default: %):
     > account <acc> set show_playing @
 

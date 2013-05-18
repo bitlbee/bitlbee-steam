@@ -37,8 +37,7 @@ struct _SteamData
 
     struct im_connection *ic;
 
-    gboolean server_url;
-    gint     show_playing;
+    gint show_playing;
 };
 
 

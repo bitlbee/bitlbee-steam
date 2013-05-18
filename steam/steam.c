@@ -396,7 +396,6 @@ static void steam_summary(SteamApi *api, GSList *summaries, GError *err)
 {
     SteamData    *sd = api->data;
     SteamSummary *ss;
-    gchar        *url;
 
     g_return_if_fail(sd != NULL);
 
@@ -414,10 +413,8 @@ static void steam_summary(SteamApi *api, GSList *summaries, GError *err)
     if (ss->game != NULL)
         imcb_log(sd->ic, "Playing:   %s", ss->game);
 
-    if (ss->server != NULL) {
-        url = (sd->server_url) ? "steam://connect/" : "";
-        imcb_log(sd->ic, "Server:    %s%s", url, ss->server);
-    }
+    if (ss->server != NULL)
+        imcb_log(sd->ic, "Server:    steam://connect/%s", ss->server);
 
     if (ss->fullname != NULL)
         imcb_log(sd->ic, "Real Name: %s", ss->fullname);
@@ -499,25 +496,6 @@ static char *steam_eval_show_playing(set_t *set, char *value)
     return value;
 }
 
-static char *steam_eval_server_url(set_t *set, char *value)
-{
-    account_t *acc = set->data;
-    SteamData *sd;
-
-    g_return_val_if_fail(acc != NULL, value);
-
-    if (!is_bool(value))
-        return SET_INVALID;
-
-    if (acc->ic == NULL)
-        return value;
-
-    sd = acc->ic->proto_data;
-    sd->server_url = bool2int(value);
-
-    return value;
-}
-
 static char *steam_eval_password(set_t *set, char *value)
 {
     account_t *acc = set->data;
@@ -563,8 +541,7 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;
 
-    set_add(&acc->set, "server_url", "true", steam_eval_server_url, acc);
-    set_add(&acc->set, "password",   NULL,   steam_eval_password,   acc);
+    set_add(&acc->set, "password", NULL, steam_eval_password, acc);
 }
 
 static void steam_login(account_t *acc)
@@ -581,7 +558,6 @@ static void steam_login(account_t *acc)
     sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sd->show_playing = steam_user_mode(str);
-    sd->server_url   = set_getbool(&acc->set, "server_url");
 
     imcb_log(sd->ic, "Connecting");
 
