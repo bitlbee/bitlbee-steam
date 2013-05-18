@@ -18,8 +18,22 @@
 #include <string.h>
 
 #include "steam.h"
-#include "steam-util.h"
+#include "steam-glib.h"
 
+static gint steam_user_mode(gchar *mode)
+{
+    if (mode == NULL)
+        return IRC_CHANNEL_USER_NONE;
+
+    switch (mode[0]) {
+    case '@': return IRC_CHANNEL_USER_OP;
+    case '%': return IRC_CHANNEL_USER_HALFOP;
+    case '+': return IRC_CHANNEL_USER_VOICE;
+
+    default:
+        return IRC_CHANNEL_USER_NONE;
+    }
+}
 
 static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 {
@@ -458,7 +472,7 @@ static char *steam_eval_show_playing(set_t *set, char *value)
     if (sd == NULL)
         return value;
 
-    p = steam_util_user_mode(value);
+    p = steam_user_mode(value);
 
     if (p == sd->show_playing)
         return value;
@@ -566,7 +580,7 @@ static void steam_login(account_t *acc)
 
     sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
-    sd->show_playing = steam_util_user_mode(str);
+    sd->show_playing = steam_user_mode(str);
     sd->server_url   = set_getbool(&acc->set, "server_url");
 
     imcb_log(sd->ic, "Connecting");

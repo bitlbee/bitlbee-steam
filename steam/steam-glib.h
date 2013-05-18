@@ -15,31 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _STEAM_UTIL_H
-#define _STEAM_UTIL_H
+#ifndef _STEAM_GLIB_H
+#define _STEAM_GLIB_H
 
-#include <stdarg.h>
-
-#include <bitlbee.h>
-#include <json_util.h>
-
-#include "steam.h"
-#include "steam-api.h"
-
-gboolean steam_util_json_val(json_value *json, const gchar *name,
-                             json_type type, json_value **val);
-
-gboolean steam_util_json_bool(json_value *json, const gchar *name);
-
-gboolean steam_util_json_int(json_value *json, const gchar *name, gint64 *i);
-
-gboolean steam_util_json_str(json_value *json, const gchar *name,
-                             const gchar **str);
-
-gboolean steam_util_json_scmp(json_value *json, const gchar *name,
-                              const gchar *match, const gchar **str);
-
-gint steam_util_user_mode(gchar *mode);
+#include <glib.h>
 
 #ifndef g_prefix_error
 void g_prefix_error(GError **err, const gchar *format, ...);
@@ -53,4 +32,4 @@ void g_slist_free_full(GSList *list, GDestroyNotify free_func);
 int g_strcmp0(const char *str1, const char *str2);
 #endif
 
-#endif /* _STEAM_UTIL_H */
+#endif /* _STEAM_GLIB_H */

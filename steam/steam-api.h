@@ -18,6 +18,8 @@
 #ifndef _STEAM_API_H
 #define _STEAM_API_H
 
+#include <bitlbee.h>
+
 #include "steam-auth.h"
 #include "steam-http.h"
 

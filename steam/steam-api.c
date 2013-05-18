@@ -18,8 +18,9 @@
 #include <string.h>
 
 #include "steam-api.h"
+#include "steam-glib.h"
 #include "steam-http.h"
-#include "steam-util.h"
+#include "steam-json.h"
 
 typedef enum   _SteamApiType SteamApiType;
 typedef struct _SteamApiPriv SteamApiPriv;
@@ -176,28 +177,28 @@ static gboolean steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
     json_settings  js;
     gchar          jerr[128];
 
-    if (steam_util_json_str(json, "captcha_gid", &str))
+    if (steam_json_str(json, "captcha_gid", &str))
         steam_auth_captcha(priv->api->auth, str);
 
-    if (steam_util_json_str(json, "emailsteamid", &str))
+    if (steam_json_str(json, "emailsteamid", &str))
         steam_auth_email(priv->api->auth, str);
 
-    if (!steam_util_json_bool(json, "success")) {
-        if (steam_util_json_bool(json, "emailauth_needed"))
+    if (!steam_json_bool(json, "success")) {
+        if (steam_json_bool(json, "emailauth_needed"))
             err = STEAM_API_ERROR_AUTH_GUARD;
-        else if (steam_util_json_bool(json, "captcha_needed"))
+        else if (steam_json_bool(json, "captcha_needed"))
             err = STEAM_API_ERROR_AUTH_CAPTCHA;
         else
             err = STEAM_API_ERROR_AUTH;
 
-        if (!steam_util_json_str(json, "message", &str))
+        if (!steam_json_str(json, "message", &str))
             str = "Failed to authenticate";
 
         g_set_error(&priv->err, STEAM_API_ERROR, err, "%s", str);
         return TRUE;
     }
 
-    if (!steam_util_json_str(json, "oauth", &str)) {
+    if (!steam_json_str(json, "oauth", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to obtain OAuth data");
         return TRUE;
@@ -212,7 +213,7 @@ static gboolean steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
         return TRUE;
     }
 
-    if (!steam_util_json_str(json, "oauth_token", &str)) {
+    if (!steam_json_str(json, "oauth_token", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to obtain OAuth token");
     }
@@ -233,7 +234,7 @@ static gboolean steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
 
     const gchar *str;
 
-    if (!steam_util_json_val(json, "friends", json_array, &jv))
+    if (!steam_json_val(json, "friends", json_array, &jv))
         goto error;
 
     fl = NULL;
@@ -241,10 +242,10 @@ static gboolean steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (!steam_util_json_scmp(je, "relationship", "friend", &str))
+        if (!steam_json_scmp(je, "relationship", "friend", &str))
             continue;
 
-        if (!steam_util_json_str(je, "steamid", &str))
+        if (!steam_json_str(je, "steamid", &str))
             continue;
 
         fl = g_slist_prepend(fl, (gchar *) str);
@@ -267,20 +268,20 @@ static gboolean steam_api_key_cb(SteamApiPriv *priv, json_value *json)
     SteamAuth   *auth;
     const gchar *str;
 
-    if (steam_util_json_scmp(json, "success", "false", &str))
+    if (steam_json_scmp(json, "success", "false", &str))
         goto error;
 
     auth = (priv->api->auth != NULL) ? priv->api->auth : steam_auth_new();
 
-    if (!steam_util_json_str(json, "publickey_mod", &str) ||
+    if (!steam_json_str(json, "publickey_mod", &str) ||
         !steam_auth_key_mod(auth, str))
         goto error;
 
-    if (!steam_util_json_str(json, "publickey_exp", &str) ||
+    if (!steam_json_str(json, "publickey_exp", &str) ||
         !steam_auth_key_exp(auth, str))
         goto error;
 
-    if (steam_util_json_str(json, "timestamp", &str))
+    if (steam_json_str(json, "timestamp", &str))
         auth->time = g_strdup(str);
 
     priv->api->auth = auth;
@@ -296,20 +297,20 @@ static gboolean steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
-    if (!steam_util_json_scmp(json, "error", "OK", &str)) {
+    if (!steam_json_scmp(json, "error", "OK", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON,
                     "%s", str);
         return TRUE;
     }
 
-    steam_util_json_int(json, "message", &priv->api->lmid);
+    steam_json_int(json, "message", &priv->api->lmid);
 
-    if (!steam_util_json_scmp(json, "steamid", priv->api->steamid, &str)) {
+    if (!steam_json_scmp(json, "steamid", priv->api->steamid, &str)) {
         g_free(priv->api->steamid);
         priv->api->steamid = g_strdup(str);
     }
 
-    if (!steam_util_json_scmp(json, "umqid", priv->api->umqid, &str)) {
+    if (!steam_json_scmp(json, "umqid", priv->api->umqid, &str)) {
         g_free(priv->api->umqid);
         priv->api->umqid = g_strdup(str);
     }
@@ -323,7 +324,7 @@ static gboolean steam_api_relogon_cb(SteamApiPriv *priv, json_value *json)
 
     steam_http_queue_pause(priv->api->http, FALSE);
 
-    if (steam_util_json_scmp(json, "error", "OK", &str))
+    if (steam_json_scmp(json, "error", "OK", &str))
         return TRUE;
 
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
@@ -335,7 +336,7 @@ static gboolean steam_api_logoff_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
-    if (steam_util_json_scmp(json, "error", "OK", &str))
+    if (steam_json_scmp(json, "error", "OK", &str))
         return TRUE;
 
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
@@ -347,7 +348,7 @@ static gboolean steam_api_message_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
-    if (steam_util_json_scmp(json, "error", "OK", &str))
+    if (steam_json_scmp(json, "error", "OK", &str))
         return TRUE;
 
     if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
@@ -372,10 +373,10 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
 
     const gchar *str;
 
-    if (steam_util_json_int(json, "messagelast", &in))
+    if (steam_json_int(json, "messagelast", &in))
         priv->api->lmid = in;
 
-    if (steam_util_json_str(json, "error", &str)  &&
+    if (steam_json_str(json, "error", &str)  &&
         (g_ascii_strcasecmp(str, "Timeout") != 0) &&
         (g_ascii_strcasecmp(str, "OK")      != 0)) {
 
@@ -390,7 +391,7 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         return TRUE;
     }
 
-    if (!steam_util_json_val(json, "messages", json_array, &jv))
+    if (!steam_json_val(json, "messages", json_array, &jv))
         return TRUE;
 
     mu = NULL;
@@ -399,12 +400,12 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         je = jv->u.array.values[i];
         memset(&sm, 0, sizeof sm);
 
-        if (steam_util_json_scmp(je, "steamid_from", priv->api->steamid, &str))
+        if (steam_json_scmp(je, "steamid_from", priv->api->steamid, &str))
             continue;
 
         sm.steamid = str;
 
-        if (!steam_util_json_str(je, "type", &str))
+        if (!steam_json_str(je, "type", &str))
             continue;
 
         sm.type = steam_message_type_from_str(str);
@@ -412,16 +413,16 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         switch (sm.type) {
         case STEAM_MESSAGE_TYPE_SAYTEXT:
         case STEAM_MESSAGE_TYPE_EMOTE:
-            if (!steam_util_json_str(je, "text", &sm.text))
+            if (!steam_json_str(je, "text", &sm.text))
                 continue;
             break;
 
         case STEAM_MESSAGE_TYPE_STATE:
-            if (!steam_util_json_str(je, "persona_name", &sm.nick))
+            if (!steam_json_str(je, "persona_name", &sm.nick))
                 continue;
 
         case STEAM_MESSAGE_TYPE_RELATIONSHIP:
-            if (!steam_util_json_int(je, "persona_state", &in))
+            if (!steam_json_int(je, "persona_state", &in))
                 continue;
 
             sm.state = in;
@@ -452,7 +453,7 @@ static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
     guint         i;
     gint64        in;
 
-    if (!steam_util_json_val(json, "players", json_array, &jv))
+    if (!steam_json_val(json, "players", json_array, &jv))
         goto error;
 
     mu = NULL;
@@ -461,15 +462,15 @@ static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
         je = jv->u.array.values[i];
         memset(&ss, 0, sizeof ss);
 
-        if (!steam_util_json_str(je, "steamid", &ss.steamid))
+        if (!steam_json_str(je, "steamid", &ss.steamid))
             continue;
 
-        steam_util_json_str(je, "gameextrainfo", &ss.game);
-        steam_util_json_str(je, "gameserverip",  &ss.server);
-        steam_util_json_str(je, "personaname",   &ss.nick);
-        steam_util_json_str(je, "profileurl",    &ss.profile);
-        steam_util_json_str(je, "realname",      &ss.fullname);
-        steam_util_json_int(je, "personastate",  &in);
+        steam_json_str(je, "gameextrainfo", &ss.game);
+        steam_json_str(je, "gameserverip",  &ss.server);
+        steam_json_str(je, "personaname",   &ss.nick);
+        steam_json_str(je, "profileurl",    &ss.profile);
+        steam_json_str(je, "realname",      &ss.fullname);
+        steam_json_int(je, "personastate",  &in);
 
         ss.state = in;
         mu = g_slist_prepend(mu, g_memdup(&ss, sizeof ss));

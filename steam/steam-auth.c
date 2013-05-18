@@ -17,8 +17,8 @@
 
 #include <string.h>
 
-#include "steam-auth.h"
 #include "steam-api.h"
+#include "steam-auth.h"
 
 SteamAuth *steam_auth_new(void)
 {

@@ -18,8 +18,8 @@
 #include <bitlbee.h>
 #include <string.h>
 
+#include "steam-glib.h"
 #include "steam-http.h"
-#include "steam-util.h"
 
 global_t global;
 
