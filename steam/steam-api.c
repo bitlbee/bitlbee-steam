@@ -235,7 +235,7 @@ static gboolean steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
     const gchar *str;
 
     if (!steam_json_val(json, "friends", json_array, &jv))
-        goto error;
+        return TRUE;
 
     fl = NULL;
 
@@ -253,13 +253,6 @@ static gboolean steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
 
     priv->rdata = fl;
     priv->rfunc = (GDestroyNotify) g_slist_free;
-
-    if (fl != NULL)
-        return TRUE;
-
-error:
-    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIENDS,
-                "Empty friends list");
     return TRUE;
 }
 
@@ -454,7 +447,7 @@ static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
     gint64        in;
 
     if (!steam_json_val(json, "players", json_array, &jv))
-        goto error;
+        return TRUE;
 
     mu = NULL;
 
@@ -478,13 +471,6 @@ static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
 
     priv->rdata = mu;
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
-
-    if (mu != NULL)
-        return TRUE;
-
-error:
-    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARIES,
-                "No friends returned");
     return TRUE;
 }
 

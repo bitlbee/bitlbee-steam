@@ -273,11 +273,8 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err)
 
     if (err != NULL) {
         imcb_error(sd->ic, "%s", err->message);
-
-        if (err->code != STEAM_API_ERROR_FRIENDS) {
-            imc_logout(sd->ic, TRUE);
-            return;
-        }
+        imc_logout(sd->ic, TRUE);
+        return;
     }
 
     for (fl = friends; fl != NULL; fl = fl->next)
