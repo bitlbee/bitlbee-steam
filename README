@@ -44,6 +44,9 @@ Usage:
     > account <acc> on
     > account <acc> set captcha <text>
 
+  Output game play statues to the account channel(s):
+    > account <acc> set game_status true
+
   Modify game play statuses (default: %):
     > account <acc> set show_playing @
 

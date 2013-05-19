@@ -48,3 +48,48 @@ void steam_friend_update(SteamFriend *frnd, const gchar *game,
     frnd->game   = g_strdup(game);
     frnd->server = g_strdup(server);
 }
+
+void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...)
+{
+    irc_channel_t *ic;
+    irc_user_t    *iu;
+    va_list        ap;
+    gchar         *str;
+    GSList        *l;
+
+    g_return_if_fail(frnd   != NULL);
+    g_return_if_fail(format != NULL);
+
+    va_start(ap, format);
+    str = g_strdup_vprintf(format, ap);
+    va_end(ap);
+
+    iu = frnd->buser->ui_data;
+
+    for (l = iu->irc->channels; l != NULL; l = l->next) {
+        ic = l->data;
+        irc_send_msg(iu, "PRIVMSG", ic->name, str, NULL);
+    }
+
+    g_free(str);
+}
+
+void steam_friend_chans_umode(SteamFriend *frnd, gint mode)
+{
+    irc_channel_t      *ic;
+    irc_user_t         *iu;
+    irc_channel_user_t *icu;
+    GSList             *l;
+
+    g_return_if_fail(frnd   != NULL);
+
+    iu = frnd->buser->ui_data;
+
+    for (l = iu->irc->channels; l != NULL; l = l->next) {
+        ic  = l->data;
+        icu = irc_channel_has_user(ic, iu);
+
+        if (icu != NULL)
+            irc_channel_user_set_mode(ic, iu, icu->flags | mode);
+    }
+}

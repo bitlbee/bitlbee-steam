@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdarg.h>
 #include <string.h>
 
 #include "steam.h"
@@ -37,15 +38,11 @@ static gint steam_user_mode(gchar *mode)
 
 static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 {
-    irc_channel_t      *ic;
-    irc_user_t         *iu;
-    irc_channel_user_t *icu;
-    SteamFriend        *frnd;
-    SteamFriendState    fstate;
-
-    const gchar *m;
-    GSList      *l;
-    gint         f;
+    SteamFriend      *frnd;
+    SteamFriendState  fstate;
+    const gchar      *m;
+    gchar            *game;
+    gint              f;
 
     g_return_if_fail(sd != NULL);
     g_return_if_fail(ss != NULL);
@@ -82,37 +79,46 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
         return;
     }
 
-    f = OPT_LOGGED_IN;
-    m = steam_state_str(ss->state);
+    f    = OPT_LOGGED_IN;
+    m    = steam_state_str(ss->state);
+    game = NULL;
 
     if (ss->state != STEAM_STATE_ONLINE)
         f |= OPT_AWAY;
 
     if (ss->game == NULL) {
-        steam_friend_update(frnd, ss->game, ss->server);
-        imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
-        return;
+        imcb_buddy_status(sd->ic, ss->steamid, f, m, NULL);
+
+        if (!sd->game_status || (frnd->game == NULL))
+            goto update;
+
+        steam_friend_chans_msg(frnd, "/me is no longer playing: %s",
+                               frnd->game);
+        goto update;
     }
 
-    if (g_strcmp0(ss->game, frnd->game) == 0) {
-        steam_friend_update(frnd, ss->game, ss->server);
-        return;
+    if (ss->server != NULL)
+        game = g_strdup_printf("%s (%s)", ss->game, ss->server);
+    else
+        game = g_strdup(ss->game);
+
+    if (sd->game_status && (g_strcmp0(ss->server, frnd->server) != 0)) {
+        steam_friend_chans_msg(frnd, "/me is now playing: %s ", game);
+        goto update;
     }
 
-    iu = bu->ui_data;
-    steam_friend_update(frnd, ss->game, ss->server);
+    if (g_strcmp0(ss->game, frnd->game) == 0)
+        goto update;
+
     imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
+    steam_friend_chans_umode(frnd, sd->show_playing);
 
-    for (l = iu->irc->channels; l != NULL; l = l->next) {
-        ic  = l->data;
-        icu = irc_channel_has_user(ic, iu);
-        f   = sd->show_playing;
+    if (sd->game_status)
+        steam_friend_chans_msg(frnd, "/me is now playing: %s", game);
 
-        if (icu != NULL)
-            f |= icu->flags;
-
-        irc_channel_user_set_mode(ic, iu, f);
-    }
+update:
+    steam_friend_update(frnd, ss->game, ss->server);
+    g_free(game);
 }
 
 static void steam_poll_p(SteamData *sd, SteamMessage *sm)
@@ -444,6 +450,25 @@ static char *steam_eval_accounton(set_t *set, char *value)
     return value;
 }
 
+static char *steam_eval_game_status(set_t *set, char *value)
+{
+    account_t *acc = set->data;
+    SteamData *sd;
+
+    g_return_val_if_fail(acc != NULL, value);
+
+    if (!is_bool(value))
+        return SET_INVALID;
+
+    if (acc->ic == NULL)
+        return value;
+
+    sd = acc->ic->proto_data;
+    sd->game_status = bool2int(value);
+
+    return value;
+}
+
 static char *steam_eval_show_playing(set_t *set, char *value)
 {
     account_t  *acc = set->data;
@@ -537,6 +562,7 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;
 
+    set_add(&acc->set, "game_status", "false", steam_eval_game_status, acc);
     set_add(&acc->set, "password", NULL, steam_eval_password, acc);
 }
 
@@ -549,10 +575,11 @@ static void steam_login(account_t *acc)
     sd  = steam_data_new(acc, str);
     set_setstr(&acc->set, "umqid", sd->api->umqid);
 
-    str = set_getstr(&acc->set, "show_playing");
-
     sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
+    sd->game_status  = set_getbool(&acc->set, "game_status");
+
+    str = set_getstr(&acc->set, "show_playing");
     sd->show_playing = steam_user_mode(str);
 
     imcb_log(sd->ic, "Connecting");
