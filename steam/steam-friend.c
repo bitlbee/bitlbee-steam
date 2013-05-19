@@ -68,7 +68,9 @@ void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...)
 
     for (l = iu->irc->channels; l != NULL; l = l->next) {
         ic = l->data;
-        irc_send_msg(iu, "PRIVMSG", ic->name, str, NULL);
+
+        if (irc_channel_has_user(ic, iu) != NULL)
+            irc_send_msg(iu, "PRIVMSG", ic->name, str, NULL);
     }
 
     g_free(str);
