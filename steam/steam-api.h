@@ -18,9 +18,8 @@
 #ifndef _STEAM_API_H
 #define _STEAM_API_H
 
-#include <bitlbee.h>
-
 #include "steam-auth.h"
+#include "steam-friend.h"
 #include "steam-http.h"
 
 #define STEAM_API_HOST            "api.steampowered.com"
@@ -80,14 +79,7 @@ enum _SteamState
     STEAM_STATE_AWAY    = 3,
     STEAM_STATE_SNOOZE  = 4,
 
-    STEAM_STATE_LAST,
-
-    /* STEAM_MESSAGE_TYPE_RELATIONSHIP */
-    STEAM_STATE_REMOVE    = 0,
-    STEAM_STATE_IGNORE    = 1,
-    STEAM_STATE_REQUEST   = 2,
-    STEAM_STATE_ADD       = 3,
-    STEAM_STATE_REQUESTED = 4
+    STEAM_STATE_LAST
 };
 
 enum _SteamMessageType
@@ -130,6 +122,7 @@ struct _SteamMessage
 {
     SteamMessageType type;
     SteamState       state;
+    SteamFriendState fstate;
 
     const gchar *steamid;
     const gchar *text;

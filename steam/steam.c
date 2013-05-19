@@ -40,7 +40,8 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     irc_channel_t      *ic;
     irc_user_t         *iu;
     irc_channel_user_t *icu;
-    SteamState          st;
+    SteamFriend        *frnd;
+    SteamFriendState    fstate;
 
     const gchar *m;
     GSList      *l;
@@ -56,29 +57,24 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
             return;
     }
 
-    /* Check rather than freeing/reallocating */
-    if (g_strcmp0(bu->nick, ss->nick) != 0)
-        imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
+    frnd   = bu->data;
+    fstate = frnd->state;
 
+    frnd->state = STEAM_FRIEND_STATE_NONE;
+    imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
     imcb_rename_buddy(sd->ic, ss->steamid, ss->fullname);
 
-    if (bu->data != NULL) {
-        memcpy(&st, bu->data, sizeof st);
-        g_free(bu->data);
-        bu->data = NULL;
+    switch (fstate) {
+    case STEAM_FRIEND_STATE_REQUEST:
+        imcb_log(sd->ic, "Friendship invite from `%s'", ss->nick);
+        return;
 
-        switch (st) {
-        case STEAM_STATE_REQUEST:
-            imcb_log(sd->ic, "Friendship invite from `%s'", ss->nick);
-            return;
+    case STEAM_FRIEND_STATE_REQUESTED:
+        imcb_log(sd->ic, "Friendship invitation sent to `%s'", ss->nick);
+        return;
 
-        case STEAM_STATE_REQUESTED:
-            imcb_log(sd->ic, "Friendship invitation sent to `%s'", ss->nick);
-            return;
-
-        default:
-            break;
-        }
+    default:
+        break;
     }
 
     if (ss->state == STEAM_STATE_OFFLINE) {
@@ -93,15 +89,19 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
         f |= OPT_AWAY;
 
     if (ss->game == NULL) {
+        steam_friend_update(frnd, ss->game, ss->server);
         imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
         return;
     }
 
-    if (g_strcmp0(ss->game, bu->status_msg) == 0)
+    if (g_strcmp0(ss->game, frnd->game) == 0) {
+        steam_friend_update(frnd, ss->game, ss->server);
         return;
+    }
 
-    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
     iu = bu->ui_data;
+    steam_friend_update(frnd, ss->game, ss->server);
+    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
 
     for (l = iu->irc->channels; l != NULL; l = l->next) {
         ic  = l->data;
@@ -117,8 +117,10 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 
 static void steam_poll_p(SteamData *sd, SteamMessage *sm)
 {
-    bee_user_t *bu;
-    gchar      *m;
+    bee_user_t  *bu;
+    SteamFriend *frnd;
+    gchar       *m;
+    guint32      f;
 
     bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
 
@@ -126,9 +128,9 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
         if (sm->type != STEAM_MESSAGE_TYPE_RELATIONSHIP)
             return;
 
-        switch (sm->state) {
-        case STEAM_STATE_REQUEST:
-        case STEAM_STATE_REQUESTED:
+        switch (sm->fstate) {
+        case STEAM_FRIEND_STATE_REQUEST:
+        case STEAM_FRIEND_STATE_REQUESTED:
             imcb_add_buddy(sd->ic, sm->steamid, NULL);
             bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
             break;
@@ -136,10 +138,9 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
         default:
             return;
         }
-
-        if (G_UNLIKELY(bu == NULL))
-            return;
     }
+
+    frnd = bu->data;
 
     switch (sm->type) {
     case STEAM_MESSAGE_TYPE_EMOTE:
@@ -160,26 +161,26 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
         break;
 
     case STEAM_MESSAGE_TYPE_RELATIONSHIP:
-        switch (sm->state) {
-        case STEAM_STATE_REMOVE:
+        frnd->state = sm->fstate;
+
+        switch (sm->fstate) {
+        case STEAM_FRIEND_STATE_REMOVE:
             imcb_log(sd->ic, "Removed `%s' from friends list", bu->nick);
             imcb_remove_buddy(sd->ic, sm->steamid, NULL);
             break;
 
-        case STEAM_STATE_IGNORE:
+        case STEAM_FRIEND_STATE_IGNORE:
             imcb_log(sd->ic, "Friendship invite from `%s' ignored", bu->nick);
             imcb_remove_buddy(sd->ic, sm->steamid, NULL);
-            return;
+            break;
 
-        case STEAM_STATE_ADD:
+        case STEAM_FRIEND_STATE_ADD:
             imcb_log(sd->ic, "Added `%s' to friends list", bu->nick);
             steam_api_summaries_s(sd->api, sm->steamid);
             break;
 
-        case STEAM_STATE_REQUEST:
-        case STEAM_STATE_REQUESTED:
-            g_free(bu->data);
-            bu->data = g_memdup(&sm->state, sizeof sm->state);
+        case STEAM_FRIEND_STATE_REQUEST:
+        case STEAM_FRIEND_STATE_REQUESTED:
             steam_api_summaries_s(sd->api, sm->steamid);
             break;
 
@@ -193,10 +194,8 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
         break;
 
     case STEAM_MESSAGE_TYPE_TYPING:
-        if (bu->flags & OPT_TYPING)
-            imcb_buddy_typing(sd->ic, sm->steamid, 0);
-        else
-            imcb_buddy_typing(sd->ic, sm->steamid, OPT_TYPING);
+        f = (bu->flags & OPT_TYPING) ? 0 : OPT_TYPING;
+        imcb_buddy_typing(sd->ic, sm->steamid, f);
         break;
 
     default:
@@ -666,9 +665,14 @@ static void steam_get_info(struct im_connection *ic, char *who)
     steam_api_summary(sd->api, who);
 }
 
+static void steam_buddy_data_add(struct bee_user *bu)
+{
+    bu->data = steam_friend_new(bu);
+}
+
 static void steam_buddy_data_free(struct bee_user *bu)
 {
-    g_free(bu->data);
+    steam_friend_free(bu->data);
 }
 
 void init_plugin()
@@ -688,6 +692,7 @@ void init_plugin()
     pp->remove_buddy    = steam_remove_buddy;
     pp->get_info        = steam_get_info;
     pp->handle_cmp      = g_ascii_strcasecmp;
+    pp->buddy_data_add  = steam_buddy_data_add;
     pp->buddy_data_free = steam_buddy_data_free;
 
     register_protocol(pp);

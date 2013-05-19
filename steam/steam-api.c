@@ -401,7 +401,8 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         if (!steam_json_str(je, "type", &str))
             continue;
 
-        sm.type = steam_message_type_from_str(str);
+        sm.type   = steam_message_type_from_str(str);
+        sm.fstate = STEAM_FRIEND_STATE_NONE;
 
         switch (sm.type) {
         case STEAM_MESSAGE_TYPE_SAYTEXT:
@@ -418,7 +419,7 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
             if (!steam_json_int(je, "persona_state", &in))
                 continue;
 
-            sm.state = in;
+            sm.fstate = in;
             break;
 
         case STEAM_MESSAGE_TYPE_TYPING:
