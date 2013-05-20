@@ -113,12 +113,11 @@ static void steam_auth_key_encrypt_pkcs1pad(mpz_t op, SteamAuth *auth,
     b    = bsz - ssz;
 
     memcpy(buf + b, str, ssz);
-    b--;
 
-    while (b > 2)
-        buf[--b] = g_rand_int_range(rand, 1, 255);
+    for (b -= 2; b > 1; b--)
+        buf[b] = g_rand_int_range(rand, 1, 255);
 
-    buf[--b] = 2;
+    buf[b] = 2;
     mpz_import(op, bsz, 1, sizeof buf[0], 0, 0, buf);
 
     g_free(buf);
@@ -130,32 +129,27 @@ static gchar *steam_auth_key_encrypt_hexdec(const gchar *str, gsize ssz,
 {
     static gchar *hex;
 
-    GString *ret;
-    gchar    chr;
-    gchar    chh;
-    gsize    i;
+    GString  *ret;
+    gboolean  hax;
+    gchar    *pos;
+    gchar     chh;
+    gchar     chr;
+    gsize     i;
 
     hex = "0123456789abcdef";
     ret = g_string_sized_new(ssz / 2);
-    i   = 0;
 
-    while (i < ssz) {
-        chr = 0;
-        chh = g_ascii_tolower(str[i++]);
+    for (i = 0, hax = FALSE; i < ssz; i++, hax = !hax) {
+        chh = g_ascii_tolower(str[i]);
+        pos = strchr(hex, chh);
+        chh = (pos != NULL) ? (pos - hex) : 0;
 
-        if (g_ascii_isxdigit(chh)) {
-            chh  = strchr(hex, chh) - hex;
-            chr |= (chh << 4) & 0xF0;
+        if (hax) {
+            chr |= chh & 0x0F;
+            g_string_append_c(ret, chr);
+        } else {
+            chr = (chh << 4) & 0xF0;
         }
-
-        chh = g_ascii_tolower(str[i++]);
-
-        if (g_ascii_isxdigit(chh)) {
-            chh  = strchr(hex, chh) - hex;
-            chr |= chh & 0xF;
-        }
-
-        g_string_append_c(ret, chr);
     }
 
     *rsz = ret->len;
