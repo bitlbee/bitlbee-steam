@@ -334,13 +334,7 @@ static void steam_logon(SteamApi *api, GError *err)
 
     g_return_if_fail(sd != NULL);
 
-    if (err == NULL) {
-        imcb_log(sd->ic, "Requesting friends list");
-        steam_api_friends(sd->api);
-        return;
-    }
-
-    if (err->code != STEAM_API_ERROR_MISMATCH) {
+    if (err != NULL) {
         imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
         return;
@@ -351,6 +345,9 @@ static void steam_logon(SteamApi *api, GError *err)
     set_setstr(&acc->set, "steamid", api->steamid);
     set_setstr(&acc->set, "umqid",   api->umqid);
     storage_save(acc->bee->ui_data, NULL, TRUE);
+
+    imcb_log(sd->ic, "Requesting friends list");
+    steam_api_friends(sd->api);
 }
 
 static void steam_poll(SteamApi *api, GSList *messages, GError *err)
