@@ -548,7 +548,7 @@ static void steam_init(account_t *acc)
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
 
     s = set_add(&acc->set, "steamid", NULL, NULL, acc);
-    s->flags = SET_NULL_OK;
+    s->flags = SET_NULL_OK | SET_HIDDEN;
 
     s = set_add(&acc->set, "umqid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN;
