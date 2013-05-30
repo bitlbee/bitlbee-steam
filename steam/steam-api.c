@@ -759,15 +759,9 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
 {
     SteamApiPriv *priv;
 
-    GSList *s;
-    GSList *e;
-    GSList *l;
-
-    gsize size;
-    gint  i;
-
-    gchar *str;
-    gchar *p;
+    GString *str;
+    GSList  *l;
+    gsize    i;
 
     g_return_if_fail(api != NULL);
 
@@ -778,22 +772,16 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
         return;
     }
 
-    s = friends;
+    str = g_string_sized_new(2048);
 
-    while (TRUE) {
-        size = 0;
+    for (l = friends, i = 1; l != NULL; l = l->next, i++) {
+        g_string_append_printf(str, "%s,", (gchar *) l->data);
 
-        for (l = s, i = 0; (l != NULL) && (i < 100); l = l->next, i++)
-            size += strlen(l->data) + 1;
+        if (((i % 100) != 0) && (l->next != NULL))
+            continue;
 
-        str = g_new0(gchar, size);
-        p   = g_stpcpy(str, s->data);
-        e   = l;
-
-        for (l = s->next; l != e; l = l->next) {
-            p = g_stpcpy(p, ",");
-            p = g_stpcpy(p, l->data);
-        }
+        /* Remove trailing comma */
+        str->str[str->len - 1] = 0;
 
         priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES);
         steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
@@ -801,17 +789,14 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
         steam_http_req_params_set(priv->req, 3,
             "format",       STEAM_API_FORMAT,
             "access_token", api->token,
-            "steamids",     str
+            "steamids",     str->str
         );
 
         steam_http_req_send(priv->req);
-        g_free(str);
-
-        if (e != NULL)
-            s = e->next;
-        else
-            break;
+        g_string_truncate(str, 2048);
     }
+
+    g_string_free(str, TRUE);
 }
 
 static void steam_api_summary_p(SteamApi *api, const gchar *steamid,
