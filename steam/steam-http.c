@@ -249,6 +249,8 @@ static void steam_http_req_done(SteamHttpReq *req)
         g_prefix_error(&req->err, "HTTP: ");
     }
 
+    req->flags &= ~STEAM_HTTP_REQ_FLAG_NOFREE;
+
     if (req->func != NULL)
         req->func(req, req->data);
 
@@ -258,6 +260,8 @@ static void steam_http_req_done(SteamHttpReq *req)
     if (!(req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)) {
         req->request = NULL;
         steam_http_req_free(req);
+    } else {
+        req->flags &= ~STEAM_HTTP_REQ_FLAG_NOFREE;
     }
 }
 
@@ -426,9 +430,6 @@ static void steam_http_req_queue(SteamHttp *http, gboolean force)
 void steam_http_req_send(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
-
-    if (req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)
-        req->flags &= ~STEAM_HTTP_REQ_FLAG_NOFREE;
 
     if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED) {
         g_queue_push_head(req->http->reqq, req);
