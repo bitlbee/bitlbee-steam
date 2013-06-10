@@ -49,8 +49,7 @@ enum _SteamHttpReqFlags
 
 struct _SteamHttp
 {
-    SteamHttpFlags  flags;
-    GDestroyNotify  ddfunc;
+    SteamHttpFlags flags;
 
     gchar  *agent;
     GQueue *reqq;
@@ -68,9 +67,8 @@ struct _SteamHttpReq
     GHashTable *headers;
     GHashTable *params;
 
-    SteamHttpFunc  func;
-    gpointer       data;
-    GDestroyNotify ddfunc;
+    SteamHttpFunc func;
+    gpointer      data;
 
     struct http_request *request;
 
@@ -86,7 +84,7 @@ struct _SteamHttpReq
 
 GQuark steam_http_error_quark(void);
 
-SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc);
+SteamHttp *steam_http_new(const gchar *agent);
 
 void steam_http_free_reqs(SteamHttp *http);
 

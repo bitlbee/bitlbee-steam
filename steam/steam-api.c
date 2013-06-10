@@ -146,9 +146,7 @@ SteamApi *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
-    api->http = steam_http_new(STEAM_API_AGENT,
-                               (GDestroyNotify) steam_api_priv_free);
-
+    api->http = steam_http_new(STEAM_API_AGENT);
     return api;
 }
 
@@ -529,8 +527,10 @@ parse:
     if (json != NULL)
         json_value_free(json);
 
-    if (!(priv->req->flags & STEAM_HTTP_REQ_FLAG_NOFREE))
+    if (!(priv->req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)) {
         priv->req = NULL;
+        steam_api_priv_free(priv);
+    }
 }
 
 static void steam_api_priv_req(SteamApiPriv *priv, gchar *host, gchar *path)

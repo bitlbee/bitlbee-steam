@@ -35,15 +35,14 @@ GQuark steam_http_error_quark(void)
     return q;
 }
 
-SteamHttp *steam_http_new(const gchar *agent, GDestroyNotify ddfunc)
+SteamHttp *steam_http_new(const gchar *agent)
 {
     SteamHttp *http;
 
     http = g_new0(SteamHttp, 1);
 
-    http->ddfunc = ddfunc;
-    http->agent  = g_strdup(agent);
-    http->reqq   = g_queue_new();
+    http->agent = g_strdup(agent);
+    http->reqq  = g_queue_new();
 
     return http;
 }
@@ -96,13 +95,12 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
 
     req = g_new0(SteamHttpReq, 1);
 
-    req->http   = http;
-    req->host   = g_strdup(host);
-    req->port   = port;
-    req->path   = g_strdup(path);
-    req->func   = func;
-    req->data   = data;
-    req->ddfunc = http->ddfunc;
+    req->http = http;
+    req->host = g_strdup(host);
+    req->port = port;
+    req->path = g_strdup(path);
+    req->func = func;
+    req->data = data;
 
     req->headers = g_hash_table_new_full(g_str_hash, steam_http_str_iequal,
                                          g_free, g_free);
@@ -125,9 +123,6 @@ void steam_http_req_free(SteamHttpReq *req)
 
     if (req->rsid > 0)
         b_event_remove(req->rsid);
-
-    if ((req->ddfunc != NULL) && (req->data != NULL))
-        req->ddfunc(req->data);
 
     if (req->err != NULL)
         g_error_free(req->err);
