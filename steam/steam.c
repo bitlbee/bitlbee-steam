@@ -257,7 +257,7 @@ static void steam_auth(SteamApi *api, GError *err)
 
     switch (err->code) {
     case STEAM_API_ERROR_AUTH_CAPTCHA:
-        imcb_log(sd->ic, "View: %s", sd->api->auth->curl);
+        imcb_log(sd->ic, "View: %s", api->auth->curl);
         imcb_log(sd->ic, "Run: account %d set captcha <text>",  i);
         break;
 
@@ -285,7 +285,7 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err)
     for (fl = friends; fl != NULL; fl = fl->next)
         imcb_add_buddy(sd->ic, fl->data, NULL);
 
-    steam_api_summaries(sd->api, friends);
+    steam_api_summaries(api, friends);
 }
 
 static void steam_key(SteamApi *api, GError *err)
@@ -308,7 +308,7 @@ static void steam_key(SteamApi *api, GError *err)
     cc  = set_getstr(&acc->set, "captcha");
 
     imcb_log(sd->ic, "Requesting authentication token");
-    steam_api_auth(sd->api, acc->user, acc->pass, ac, cc);
+    steam_api_auth(api, acc->user, acc->pass, ac, cc);
 }
 
 static void steam_logoff(SteamApi *api, GError *err)
@@ -324,7 +324,7 @@ static void steam_logoff(SteamApi *api, GError *err)
 
     sd->flags &= ~STEAM_FLAG_RESET;
     imcb_log(sd->ic, "Sending logon request");
-    steam_api_logon(sd->api);
+    steam_api_logon(api);
 }
 
 static void steam_logon(SteamApi *api, GError *err)
@@ -347,7 +347,7 @@ static void steam_logon(SteamApi *api, GError *err)
     storage_save(acc->bee->ui_data, NULL, TRUE);
 
     imcb_log(sd->ic, "Requesting friends list");
-    steam_api_friends(sd->api);
+    steam_api_friends(api);
 }
 
 static void steam_poll(SteamApi *api, GSList *messages, GError *err)
@@ -366,7 +366,7 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err)
     for (l = messages; l != NULL; l = l->next)
         steam_poll_p(sd, l->data);
 
-    steam_api_poll(sd->api);
+    steam_api_poll(api);
 }
 
 static void steam_summaries(SteamApi *api, GSList *summaries, GError *err)
@@ -384,7 +384,7 @@ static void steam_summaries(SteamApi *api, GSList *summaries, GError *err)
 
     if (!(sd->ic->flags & OPT_LOGGED_IN)) {
         imcb_connected(sd->ic);
-        steam_api_poll(sd->api);
+        steam_api_poll(api);
     }
 
     for (l = summaries; l != NULL; l = l->next)
