@@ -22,19 +22,11 @@
 
 #include "steam-api.h"
 
-typedef enum   _SteamFlag SteamFlag;
 typedef struct _SteamData SteamData;
-
-enum _SteamFlag
-{
-    STEAM_FLAG_RESET = 1 << 0
-};
 
 struct _SteamData
 {
-    SteamFlag  flags;
-    SteamApi  *api;
-
+    SteamApi *api;
     struct im_connection *ic;
 
     gboolean game_status;

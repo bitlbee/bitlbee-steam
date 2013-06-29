@@ -317,14 +317,7 @@ static void steam_logoff(SteamApi *api, GError *err)
 
     g_return_if_fail(sd != NULL);
 
-    if (!(sd->flags & STEAM_FLAG_RESET)) {
-        steam_data_free(sd);
-        return;
-    }
-
-    sd->flags &= ~STEAM_FLAG_RESET;
-    imcb_log(sd->ic, "Sending logon request");
-    steam_api_logon(api);
+    steam_data_free(sd);
 }
 
 static void steam_logon(SteamApi *api, GError *err)
@@ -582,9 +575,8 @@ static void steam_login(account_t *acc)
     imcb_log(sd->ic, "Connecting");
 
     if (sd->api->token != NULL) {
-        imcb_log(sd->ic, "Resetting UMQID");
-        sd->flags |= STEAM_FLAG_RESET;
-        steam_api_logoff(sd->api);
+        imcb_log(sd->ic, "Sending logon request");
+        steam_api_logon(sd->api);
         return;
     }
 
@@ -611,7 +603,6 @@ static void steam_logout(struct im_connection *ic)
         return;
     }
 
-    sd->flags &= ~STEAM_FLAG_RESET;
     steam_http_free_reqs(sd->api->http);
     steam_api_logoff(sd->api);
 }
