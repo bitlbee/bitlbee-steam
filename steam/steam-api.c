@@ -601,8 +601,7 @@ void steam_api_friends(SteamApi *api)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIENDS);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_FRIENDS);
 
-    steam_http_req_params_set(priv->req, 4,
-        "format",       STEAM_API_FORMAT,
+    steam_http_req_params_set(priv->req, 3,
         "access_token", api->token,
         "steamid",      api->steamid,
         "relationship", "friend"
@@ -644,8 +643,7 @@ void steam_api_logoff(SteamApi *api)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGOFF);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGOFF);
 
-    steam_http_req_params_set(priv->req, 3,
-        "format",       STEAM_API_FORMAT,
+    steam_http_req_params_set(priv->req, 2,
         "access_token", api->token,
         "umqid",        api->umqid
     );
@@ -663,8 +661,7 @@ void steam_api_logon(SteamApi *api)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGON);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(priv->req, 3,
-        "format",       STEAM_API_FORMAT,
+    steam_http_req_params_set(priv->req, 2,
         "access_token", api->token,
         "umqid",        api->umqid
     );
@@ -682,8 +679,7 @@ static void steam_api_relogon(SteamApi *api)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_RELOGON);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(priv->req, 3,
-        "format",       STEAM_API_FORMAT,
+    steam_http_req_params_set(priv->req, 2,
         "access_token", api->token,
         "umqid",        api->umqid
     );
@@ -703,8 +699,7 @@ void steam_api_message(SteamApi *api, SteamMessage *sm)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_MESSAGE);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_MESSAGE);
 
-    steam_http_req_params_set(priv->req, 5,
-        "format",       STEAM_API_FORMAT,
+    steam_http_req_params_set(priv->req, 4,
         "access_token", api->token,
         "umqid",        api->umqid,
         "steamid_dst",  sm->steamid,
@@ -742,8 +737,7 @@ void steam_api_poll(SteamApi *api)
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_POLL);
     steam_http_req_headers_set(priv->req, 1, "Connection", "Keep-Alive");
 
-    steam_http_req_params_set(priv->req, 5,
-        "format",       STEAM_API_FORMAT,
+    steam_http_req_params_set(priv->req, 4,
         "access_token", api->token,
         "umqid",        api->umqid,
         "message",      lmid,
@@ -786,8 +780,7 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
         priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES);
         steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-        steam_http_req_params_set(priv->req, 3,
-            "format",       STEAM_API_FORMAT,
+        steam_http_req_params_set(priv->req, 2,
             "access_token", api->token,
             "steamids",     str->str
         );
@@ -810,8 +803,7 @@ static void steam_api_summary_p(SteamApi *api, const gchar *steamid,
     priv = steam_api_priv_new(api, type);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-    steam_http_req_params_set(priv->req, 3,
-        "format",       STEAM_API_FORMAT,
+    steam_http_req_params_set(priv->req, 2,
         "access_token", api->token,
         "steamids",     steamid
     );

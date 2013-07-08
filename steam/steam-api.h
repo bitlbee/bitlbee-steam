@@ -28,7 +28,6 @@
                                   PACKAGE_VERSION " / 0"
 
 #define STEAM_API_CLIENT_ID       "DE45CD61" /* Public mobile client id */
-#define STEAM_API_FORMAT          "json"
 #define STEAM_API_KEEP_ALIVE      "15"       /* Max of 30 seconds */
 
 #define STEAM_API_PATH_FRIENDS    "/ISteamUserOAuth/GetFriendList/v0001"
