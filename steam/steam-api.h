@@ -77,6 +77,8 @@ enum _SteamState
     STEAM_STATE_BUSY    = 2,
     STEAM_STATE_AWAY    = 3,
     STEAM_STATE_SNOOZE  = 4,
+    STEAM_STATE_TRADE   = 5,
+    STEAM_STATE_PLAY    = 6,
 
     STEAM_STATE_LAST
 };

@@ -874,11 +874,13 @@ const gchar *steam_state_str(SteamState state)
         [STEAM_STATE_ONLINE]  = "Online",
         [STEAM_STATE_BUSY]    = "Busy",
         [STEAM_STATE_AWAY]    = "Away",
-        [STEAM_STATE_SNOOZE]  = "Snooze"
+        [STEAM_STATE_SNOOZE]  = "Snooze",
+        [STEAM_STATE_TRADE]   = "Looking to Trade",
+        [STEAM_STATE_PLAY]    = "Looking to Play"
     };
 
     if ((state < 0) || (state > STEAM_STATE_LAST))
-        return "";
+        return "Offline";
 
     return strs[state];
 }
