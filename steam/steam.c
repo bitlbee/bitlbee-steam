@@ -224,7 +224,6 @@ static void steam_auth(SteamApi *api, GError *err)
 {
     SteamData *sd = api->data;
     account_t *acc;
-    guint      i;
 
     g_return_if_fail(sd != NULL);
 
@@ -246,23 +245,16 @@ static void steam_auth(SteamApi *api, GError *err)
 
     set_setstr(&acc->set, "esid", api->auth->esid);
     set_setstr(&acc->set, "cgid", api->auth->cgid);
-
     imcb_log(sd->ic, "%s", err->message);
-    acc = sd->ic->acc->bee->accounts;
-
-    for (i = 0; acc != NULL; acc = acc->next, i++) {
-        if (sd->ic->acc == acc)
-            break;
-    }
 
     switch (err->code) {
     case STEAM_API_ERROR_AUTH_CAPTCHA:
         imcb_log(sd->ic, "View: %s", api->auth->curl);
-        imcb_log(sd->ic, "Run: account %d set captcha <text>",  i);
+        imcb_log(sd->ic, "Run: account %s set captcha <text>", acc->tag);
         break;
 
     case STEAM_API_ERROR_AUTH_GUARD:
-        imcb_log(sd->ic, "Run: account %d set authcode <code>", i);
+        imcb_log(sd->ic, "Run: account %s set authcode <code>", acc->tag);
         break;
     }
 
