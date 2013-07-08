@@ -49,9 +49,3 @@ Usage:
 
   Modify game play statuses (default: %):
     > account <acc> set show_playing @
-
-Resources:
-  - API Dump:      http://pastebin.com/qsX36TMT
-  - canoon's docs: https://github.com/canoon/steam_mobile_protocol
-  - SteamWebAPI:   https://github.com/Overv/SteamWebAPI
-  - Valve Wiki:    https://developer.valvesoftware.com/wiki/Steam_Web_API
