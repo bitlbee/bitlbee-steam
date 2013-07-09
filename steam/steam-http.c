@@ -222,8 +222,8 @@ static gboolean steam_http_req_done_error_cb(gpointer data, gint fd,
 
     g_return_val_if_fail(req != NULL, FALSE);
 
-    req->rsid = 0;
     steam_http_req_send(req);
+    req->rsid = 0;
     return FALSE;
 }
 
@@ -234,9 +234,9 @@ static void steam_http_req_done(SteamHttpReq *req)
             g_error_free(req->err);
             req->err = NULL;
 
-            req->rsid = b_timeout_add(STEAM_HTTP_ERROR_TIMEOUT,
-                                      steam_http_req_done_error_cb, req);
-
+            req->request = NULL;
+            req->rsid    = b_timeout_add(STEAM_HTTP_ERROR_TIMEOUT,
+                                         steam_http_req_done_error_cb, req);
             req->errc++;
             return;
         }
@@ -244,6 +244,7 @@ static void steam_http_req_done(SteamHttpReq *req)
         g_prefix_error(&req->err, "HTTP: ");
     }
 
+    g_queue_remove(req->http->reqq, req);
     req->flags &= ~STEAM_HTTP_REQ_FLAG_NOFREE;
 
     if (req->func != NULL)
@@ -265,8 +266,6 @@ static void steam_http_req_cb(struct http_request *request)
     SteamHttpReq  *req = request->data;
     gchar        **ls;
     guint          i;
-
-    g_queue_remove(req->http->reqq, req);
 
     /* Shortcut some req->request values into req */
     req->body      = request->reply_body;
@@ -293,11 +292,6 @@ static void steam_http_req_cb(struct http_request *request)
         g_print("\n");
     }
 #endif /* DEBUG */
-
-    if (req->rsid > 0) {
-        b_event_remove(req->rsid);
-        req->rsid = 0;
-    }
 
     if (request->status_code != 200) {
         g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
@@ -425,6 +419,11 @@ static void steam_http_req_queue(SteamHttp *http, gboolean force)
 void steam_http_req_send(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
+
+    if (req->rsid > 0) {
+        steam_http_req_sendasm(req);
+        return;
+    }
 
     if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED) {
         g_queue_push_head(req->http->reqq, req);
