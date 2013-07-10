@@ -20,8 +20,14 @@
 
 #include <bitlbee.h>
 
+typedef enum   _SteamFriendFlags SteamFriendFlags;
 typedef enum   _SteamFriendState SteamFriendState;
 typedef struct _SteamFriend      SteamFriend;
+
+enum _SteamFriendFlags
+{
+    STEAM_FRIEND_FLAG_PENDING = 1 << 0
+};
 
 enum _SteamFriendState
 {
@@ -39,6 +45,7 @@ struct _SteamFriend
 {
     bee_user_t *buser;
 
+    SteamFriendFlags flags;
     SteamFriendState state;
 
     gchar *game;
