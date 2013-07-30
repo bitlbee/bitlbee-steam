@@ -37,11 +37,11 @@ Usage:
   Getting started:
     > account add steam <username> <password>
     > account <acc> on
+
+  Authenticating with SteamGuard:
     > account <acc> set authcode <code>
 
-  Sometimes captcha interaction may be required:
-    > account add steam <username> <password>
-    > account <acc> on
+  Captcha interaction may be required:
     > account <acc> set captcha <text>
 
   Output game play statues to the account channel(s):
