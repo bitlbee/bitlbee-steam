@@ -512,17 +512,18 @@ static char *steam_eval_password(set_t *set, char *value)
 {
     account_t *acc = set->data;
 
+    value = set_eval_account(set, value);
     g_return_val_if_fail(acc != NULL, value);
-
-    if (acc->ic == NULL)
-        return value;
-
-    imcb_log(acc->ic, "Password changed. Reauthenticating...");
-    imc_logout(acc->ic, FALSE);
     set_reset(&acc->set, "token");
-    account_on(acc->bee, acc);
 
-    return SET_INVALID;
+    if (acc->ic != NULL) {
+        account_off(acc->bee, acc);
+        account_on(acc->bee, acc);
+    } else if (acc->reconnect != 0) {
+        account_on(acc->bee, acc);
+    }
+
+    return value;
 }
 
 static void steam_init(account_t *acc)
