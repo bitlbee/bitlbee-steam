@@ -304,32 +304,23 @@ static void steam_http_req_cb(struct http_request *request)
     steam_http_req_done(req);
 }
 
-static gboolean steam_table_headers(gchar *key, gchar *val, GString *gstr)
+static void steam_http_req_headers(gchar *key, gchar *val, GString *gstr)
 {
-    if (key == NULL)
-        return FALSE;
-
     if (val == NULL)
         val = "";
 
     g_string_append_printf(gstr, "%s: %s\r\n", key, val);
-    return FALSE;
 }
 
-static gboolean steam_table_params(gchar *key, gchar *val, GString *gstr)
+static void steam_http_req_params(gchar *key, gchar *val, GString *gstr)
 {
     gchar *sep;
-
-    if (key == NULL)
-        return FALSE;
 
     if (val == NULL)
         val = "";
 
     sep = (gstr->len > 0) ? "&" : "";
-
     g_string_append_printf(gstr, "%s%s=%s", sep, key, val);
-    return FALSE;
 }
 
 static void steam_http_req_sendasm(SteamHttpReq *req)
@@ -343,7 +334,7 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
     g_return_if_fail(req != NULL);
 
     gstr = g_string_sized_new(128);
-    g_hash_table_foreach(req->params, (GHFunc) steam_table_params, gstr);
+    g_hash_table_foreach(req->params, (GHFunc) steam_http_req_params, gstr);
     len = g_strdup_printf("%" G_GSIZE_FORMAT, gstr->len);
     ps  = g_string_free(gstr, FALSE);
 
@@ -355,7 +346,7 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
     }
 
     gstr = g_string_sized_new(128);
-    g_hash_table_foreach(req->headers, (GHFunc) steam_table_headers, gstr);
+    g_hash_table_foreach(req->headers, (GHFunc) steam_http_req_headers, gstr);
     hs = g_string_free(gstr, FALSE);
 
     if (req->flags & STEAM_HTTP_REQ_FLAG_POST) {
