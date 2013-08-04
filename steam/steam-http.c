@@ -21,7 +21,9 @@
 #include "steam-glib.h"
 #include "steam-http.h"
 
+#ifdef DEBUG
 global_t global;
+#endif /* DEBUG */
 
 static void steam_http_req_queue(SteamHttp *http, gboolean force);
 
@@ -263,20 +265,34 @@ static void steam_http_req_done(SteamHttpReq *req)
 
 static void steam_http_req_cb(struct http_request *request)
 {
-    SteamHttpReq  *req = request->data;
-    gchar        **ls;
-    guint          i;
+    SteamHttpReq *req = request->data;
 
     /* Shortcut some req->request values into req */
     req->body      = request->reply_body;
     req->body_size = request->body_size;
 
 #ifdef DEBUG
+    gchar **ls;
+    guint   i;
+
     if (global.conf->verbose) {
-        g_print("HTTP Reply (%s): %s\n", req->path, request->status_string);
+        g_print("HTTP Response (%s:%d%s): %s\n",
+                req->host, req->port, req->path,
+                request->status_string);
 
         if (req->errc > 0)
             g_print("Reattempted request: #%u\n", req->errc);
+
+        if (request->reply_headers != NULL) {
+            ls = g_strsplit(request->reply_headers, "\n", 0);
+
+            for (i = 0; ls[i] != NULL; i++)
+                g_print("  %s\n", ls[i]);
+
+            g_strfreev(ls);
+        } else {
+            g_print("  ** No header data returned **\n\n");
+        }
 
         if (req->body_size > 0) {
             ls = g_strsplit(req->body, "\n", 0);
@@ -286,10 +302,10 @@ static void steam_http_req_cb(struct http_request *request)
 
             g_strfreev(ls);
         } else {
-            g_print("  ** No HTTP data returned **\n");
+            g_print("  ** No body data returned **\n");
         }
 
-        g_print("\n");
+        g_print("\n\n");
     }
 #endif /* DEBUG */
 
@@ -357,13 +373,46 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
                                req->path, ps, hs);
     }
 
-    g_free(len);
-    g_free(ps);
-    g_free(hs);
-
     req->request = http_dorequest(req->host, req->port,
                                   (req->flags & STEAM_HTTP_REQ_FLAG_SSL),
                                   sreq, steam_http_req_cb, req);
+
+#ifdef DEBUG
+    gchar **ls;
+    guint   i;
+
+    if (global.conf->verbose) {
+        g_print("HTTP Request (%s:%d%s)\n", req->host, req->port, req->path);
+
+        if (hs != NULL) {
+            ls = g_strsplit(hs, "\n", 0);
+
+            for (i = 0; ls[i] != NULL; i++)
+                g_print("  %s\n", ls[i]);
+
+            g_strfreev(ls);
+        } else {
+            g_print("  ** No header data **\n\n");
+        }
+
+        if (ps != NULL) {
+            ls = g_strsplit(ps, "\n", 0);
+
+            for (i = 0; ls[i] != NULL; i++)
+                g_print("  %s\n", ls[i]);
+
+            g_strfreev(ls);
+        } else {
+            g_print("  ** No body data **\n");
+        }
+
+        g_print("\n\n");
+    }
+#endif /* DEBUG */
+
+    g_free(len);
+    g_free(ps);
+    g_free(hs);
     g_free(sreq);
 
     if (req->request != NULL)
