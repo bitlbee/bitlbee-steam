@@ -21,6 +21,10 @@
 #include "steam.h"
 #include "steam-glib.h"
 
+static void steam_logon(SteamApi *api, GError *err, gpointer data);
+static void steam_summaries(SteamApi *api, GSList *summaries, GError *err,
+                            gpointer data);
+
 static gint steam_user_mode(gchar *mode)
 {
     if (mode == NULL)
@@ -158,7 +162,7 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
         goto relationship;
 
     case STEAM_MESSAGE_TYPE_STATE:
-        steam_api_summaries_s(sd->api, sm->steamid);
+        steam_api_summary(sd->api, sm->steamid, steam_summaries, sd);
         return;
 
     case STEAM_MESSAGE_TYPE_TYPING:
@@ -210,7 +214,7 @@ relationship:
         frnd->flags |= f;
         frnd->state  = sm->fstate;
 
-        steam_api_summaries_s(sd->api, sm->steamid);
+        steam_api_summary(sd->api, sm->steamid, steam_summaries, sd);
         return;
 
     default:
@@ -218,20 +222,9 @@ relationship:
     }
 }
 
-static void steam_check(SteamApi *api, GError *err)
+static void steam_auth(SteamApi *api, GError *err, gpointer data)
 {
-    SteamData *sd = api->data;
-
-    if (err == NULL)
-        return;
-
-    imcb_error(sd->ic, "%s", err->message);
-    imc_logout(sd->ic, TRUE);
-}
-
-static void steam_auth(SteamApi *api, GError *err)
-{
-    SteamData *sd = api->data;
+    SteamData *sd = data;
     account_t *acc;
 
     g_return_if_fail(sd != NULL);
@@ -248,7 +241,7 @@ static void steam_auth(SteamApi *api, GError *err)
 
         imcb_log(sd->ic, "Authentication finished");
         imcb_log(sd->ic, "Sending login request");
-        steam_api_logon(api);
+        steam_api_logon(api, steam_logon, sd);
         return;
     }
 
@@ -270,9 +263,10 @@ static void steam_auth(SteamApi *api, GError *err)
     imc_logout(sd->ic, FALSE);
 }
 
-static void steam_friends(SteamApi *api, GSList *friends, GError *err)
+static void steam_friends(SteamApi *api, GSList *friends, GError *err,
+                          gpointer data)
 {
-    SteamData *sd = api->data;
+    SteamData *sd = data;
     GSList    *fl;
 
     g_return_if_fail(sd != NULL);
@@ -286,12 +280,12 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err)
     for (fl = friends; fl != NULL; fl = fl->next)
         imcb_add_buddy(sd->ic, fl->data, NULL);
 
-    steam_api_summaries(api, friends);
+    steam_api_summaries(api, friends, steam_summaries, sd);
 }
 
-static void steam_key(SteamApi *api, GError *err)
+static void steam_key(SteamApi *api, GError *err, gpointer data)
 {
-    SteamData *sd = api->data;
+    SteamData *sd = data;
     account_t *acc;
     gchar     *ac;
     gchar     *cc;
@@ -309,21 +303,21 @@ static void steam_key(SteamApi *api, GError *err)
     cc  = set_getstr(&acc->set, "captcha");
 
     imcb_log(sd->ic, "Requesting authentication token");
-    steam_api_auth(api, acc->user, acc->pass, ac, cc);
+    steam_api_auth(api, acc->user, acc->pass, ac, cc, steam_auth, sd);
 }
 
-static void steam_logoff(SteamApi *api, GError *err)
+static void steam_logoff(SteamApi *api, GError *err, gpointer data)
 {
-    SteamData *sd = api->data;
+    SteamData *sd = data;
 
     g_return_if_fail(sd != NULL);
 
     steam_data_free(sd);
 }
 
-static void steam_logon(SteamApi *api, GError *err)
+static void steam_logon(SteamApi *api, GError *err, gpointer data)
 {
-    SteamData *sd = api->data;
+    SteamData *sd = data;
     account_t *acc;
 
     g_return_if_fail(sd != NULL);
@@ -341,31 +335,69 @@ static void steam_logon(SteamApi *api, GError *err)
     storage_save(acc->bee->ui_data, NULL, TRUE);
 
     imcb_log(sd->ic, "Requesting friends list");
-    steam_api_friends(api);
+    steam_api_friends(api, steam_friends, sd);
 }
 
-static void steam_poll(SteamApi *api, GSList *messages, GError *err)
+static void steam_relogon(SteamApi *api, GError *err, gpointer data)
 {
-    SteamData *sd = api->data;
+    SteamData *sd = data;
+
+    g_return_if_fail(sd != NULL);
+
+    if (err == NULL)
+        return;
+
+    imcb_error(sd->ic, "%s", err->message);
+    imc_logout(sd->ic, TRUE);
+}
+
+static void steam_message(SteamApi *api, GError *err, gpointer data)
+{
+    SteamData *sd = data;
+
+    g_return_if_fail(sd != NULL);
+
+    if (err == NULL)
+        return;
+
+    if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
+        steam_api_relogon(api, steam_relogon, sd);
+        return;
+    }
+
+    imcb_error(sd->ic, "%s", err->message);
+    imc_logout(sd->ic, TRUE);
+}
+
+static void steam_poll(SteamApi *api, GSList *messages, GError *err,
+                       gpointer data)
+{
+    SteamData *sd = data;
     GSList    *l;
 
     g_return_if_fail(sd != NULL);
 
-    if (err != NULL) {
-        imcb_error(sd->ic, "%s", err->message);
-        imc_logout(sd->ic, TRUE);
+    if (err == NULL) {
+        for (l = messages; l != NULL; l = l->next)
+            steam_poll_p(sd, l->data);
+
+        steam_api_poll(api, steam_poll, sd);
         return;
     }
 
-    for (l = messages; l != NULL; l = l->next)
-        steam_poll_p(sd, l->data);
+    if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
+        steam_api_relogon(api, steam_relogon, sd);
+        return;
+    }
 
-    steam_api_poll(api);
+    imcb_error(sd->ic, "%s", err->message);
+    imc_logout(sd->ic, TRUE);
 }
 
-static void steam_summaries(SteamApi *api, GSList *summaries, GError *err)
+static void steam_summaries(SteamApi *api, GSList *summaries, GError *err,
+                            gpointer data)
 {
-    SteamData *sd = api->data;
+    SteamData *sd = data;
     GSList    *l;
 
     g_return_if_fail(sd != NULL);
@@ -378,16 +410,17 @@ static void steam_summaries(SteamApi *api, GSList *summaries, GError *err)
 
     if (!(sd->ic->flags & OPT_LOGGED_IN)) {
         imcb_connected(sd->ic);
-        steam_api_poll(api);
+        steam_api_poll(api, steam_poll, sd);
     }
 
     for (l = summaries; l != NULL; l = l->next)
         steam_buddy_status(sd, l->data, NULL);
 }
 
-static void steam_summary(SteamApi *api, GSList *summaries, GError *err)
+static void steam_summary(SteamApi *api, GSList *summaries, GError *err,
+                          gpointer data)
 {
-    SteamData    *sd = api->data;
+    SteamData    *sd = data;
     SteamSummary *ss;
 
     g_return_if_fail(sd != NULL);
@@ -578,7 +611,7 @@ static void steam_login(account_t *acc)
 
     if (sd->api->token != NULL) {
         imcb_log(sd->ic, "Sending logon request");
-        steam_api_logon(sd->api);
+        steam_api_logon(sd->api, steam_logon, sd);
         return;
     }
 
@@ -591,7 +624,7 @@ static void steam_login(account_t *acc)
     steam_auth_email(sd->api->auth, str);
 
     imcb_log(sd->ic, "Requesting authentication key");
-    steam_api_key(sd->api, acc->user);
+    steam_api_key(sd->api, acc->user, steam_key, sd);
 }
 
 static void steam_logout(struct im_connection *ic)
@@ -606,7 +639,7 @@ static void steam_logout(struct im_connection *ic)
     }
 
     steam_http_free_reqs(sd->api->http);
-    steam_api_logoff(sd->api);
+    steam_api_logoff(sd->api, steam_logoff, sd);
 }
 
 static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
@@ -643,7 +676,7 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
     }
     */
 
-    steam_api_message(sd->api, &sm);
+    steam_api_message(sd->api, &sm, steam_message, sd);
     return 0;
 }
 
@@ -658,7 +691,7 @@ static int steam_send_typing(struct im_connection *ic, char *who, int flags)
     sm.type    = STEAM_MESSAGE_TYPE_TYPING;
     sm.steamid = who;
 
-    steam_api_message(sd->api, &sm);
+    steam_api_message(sd->api, &sm, steam_message, sd);
     return 0;
 }
 
@@ -679,7 +712,7 @@ static void steam_get_info(struct im_connection *ic, char *who)
 
     g_return_if_fail(sd != NULL);
 
-    steam_api_summary(sd->api, who);
+    steam_api_summary(sd->api, who, steam_summary, sd);
 }
 
 static void steam_buddy_data_add(struct bee_user *bu)
@@ -718,28 +751,14 @@ void init_plugin()
 SteamData *steam_data_new(account_t *acc, const gchar *umqid)
 {
     SteamData *sd;
-    SteamApi  *api;
 
     g_return_val_if_fail(acc != NULL, NULL);
 
-    sd  = g_new0(SteamData, 1);
-    api = steam_api_new(umqid);
+    sd = g_new0(SteamData, 1);
 
-    api->fauth      = steam_auth;
-    api->ffriends   = steam_friends;
-    api->fkey       = steam_key;
-    api->flogoff    = steam_logoff;
-    api->flogon     = steam_logon;
-    api->frelogon   = steam_check;
-    api->fmessage   = steam_check;
-    api->fpoll      = steam_poll;
-    api->fsummaries = steam_summaries;
-    api->fsummary   = steam_summary;
-    api->data       = sd;
-
+    sd->api = steam_api_new(umqid);
     sd->ic  = imcb_new(acc);
     acc->ic = sd->ic;
-    sd->api = api;
 
     sd->ic->proto_data = sd;
     return sd;

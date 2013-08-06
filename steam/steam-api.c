@@ -25,7 +25,7 @@
 typedef enum   _SteamApiType SteamApiType;
 typedef struct _SteamApiPriv SteamApiPriv;
 
-typedef gboolean (*SteamParseFunc) (SteamApiPriv *priv, json_value *json);
+typedef void (*SteamParseFunc) (SteamApiPriv *priv, json_value *json);
 
 enum _SteamApiType
 {
@@ -49,13 +49,15 @@ struct _SteamApiPriv
     SteamApiType  type;
     GError       *err;
 
+    gpointer func;
+    gpointer data;
+
     gpointer       rdata;
     GDestroyNotify rfunc;
 
     SteamHttpReq *req;
 };
 
-static void steam_api_relogon(SteamApi *api);
 static const gchar *steam_api_type_str(SteamApiType type);
 static SteamMessageType steam_message_type_from_str(const gchar *type);
 
@@ -69,43 +71,8 @@ GQuark steam_api_error_quark(void)
     return q;
 }
 
-static void steam_api_func(SteamApiPriv *priv)
-{
-    SteamApi *api = priv->api;
-    gpointer  func;
-
-    switch (priv->type) {
-    case STEAM_API_TYPE_AUTH:    func = api->fauth;    break;
-    case STEAM_API_TYPE_KEY:     func = api->fkey;     break;
-    case STEAM_API_TYPE_LOGOFF:  func = api->flogoff;  break;
-    case STEAM_API_TYPE_LOGON:   func = api->flogon;   break;
-    case STEAM_API_TYPE_RELOGON: func = api->frelogon; break;
-    case STEAM_API_TYPE_MESSAGE: func = api->fmessage; break;
-
-    default:
-        func = NULL;
-    }
-
-    if (func != NULL) {
-        ((SteamApiFunc) func)(priv->api, priv->err);
-        return;
-    }
-
-    switch (priv->type) {
-    case STEAM_API_TYPE_FRIENDS:   func = api->ffriends;   break;
-    case STEAM_API_TYPE_POLL:      func = api->fpoll;      break;
-    case STEAM_API_TYPE_SUMMARIES: func = api->fsummaries; break;
-    case STEAM_API_TYPE_SUMMARY:   func = api->fsummary;   break;
-
-    default:
-        return;
-    }
-
-    if (func != NULL)
-        ((SteamListFunc) func)(priv->api, priv->rdata, priv->err);
-}
-
-static SteamApiPriv *steam_api_priv_new(SteamApi *api, SteamApiType type)
+static SteamApiPriv *steam_api_priv_new(SteamApi *api, SteamApiType type,
+                                        gpointer func, gpointer data)
 {
     SteamApiPriv *priv;
 
@@ -113,6 +80,8 @@ static SteamApiPriv *steam_api_priv_new(SteamApi *api, SteamApiType type)
 
     priv->api  = api;
     priv->type = type;
+    priv->func = func;
+    priv->data = data;
 
     return priv;
 }
@@ -128,6 +97,36 @@ static void steam_api_priv_free(SteamApiPriv *priv)
         g_error_free(priv->err);
 
     g_free(priv);
+}
+
+static void steam_api_priv_func(SteamApiPriv *priv)
+{
+    g_return_if_fail(priv != NULL);
+
+    if (priv->func == NULL)
+        return;
+
+    switch (priv->type) {
+    case STEAM_API_TYPE_AUTH:
+    case STEAM_API_TYPE_KEY:
+    case STEAM_API_TYPE_LOGOFF:
+    case STEAM_API_TYPE_LOGON:
+    case STEAM_API_TYPE_RELOGON:
+    case STEAM_API_TYPE_MESSAGE:
+        ((SteamApiFunc) priv->func)(priv->api, priv->err, priv->data);
+        return;
+
+    case STEAM_API_TYPE_FRIENDS:
+    case STEAM_API_TYPE_POLL:
+    case STEAM_API_TYPE_SUMMARIES:
+    case STEAM_API_TYPE_SUMMARY:
+        ((SteamListFunc) priv->func)(priv->api, priv->rdata, priv->err,
+                                     priv->data);
+        return;
+
+    default:
+        return;
+    }
 }
 
 SteamApi *steam_api_new(const gchar *umqid)
@@ -163,12 +162,23 @@ void steam_api_free(SteamApi *api)
     g_free(api);
 }
 
+static void steam_api_priv_relogon(SteamApiPriv *priv)
+{
+    g_return_if_fail(priv != NULL);
+
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON_EXPIRED,
+                "Logon session expired");
+
+    steam_http_queue_pause(priv->api->http, TRUE);
+    steam_http_req_resend(priv->req);
+}
+
 static void steam_slist_free_full(GSList *list)
 {
     g_slist_free_full(list, g_free);
 }
 
-static gboolean steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
 {
     SteamApiError  err;
     const gchar   *str;
@@ -193,13 +203,13 @@ static gboolean steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
             str = "Failed to authenticate";
 
         g_set_error(&priv->err, STEAM_API_ERROR, err, "%s", str);
-        return TRUE;
+        return;
     }
 
     if (!steam_json_str(json, "oauth", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to obtain OAuth data");
-        return TRUE;
+        return;
     }
 
     memset(&js, 0, sizeof js);
@@ -208,7 +218,7 @@ static gboolean steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
     if (json == NULL) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to parse OAuth: %s", jerr);
-        return TRUE;
+        return;
     }
 
     if (!steam_json_str(json, "oauth_token", &str)) {
@@ -218,22 +228,19 @@ static gboolean steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
 
     g_free(priv->api->token);
     priv->api->token = g_strdup(str);
-
     json_value_free(json);
-    return TRUE;
 }
 
-static gboolean steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
 {
-    json_value *jv;
-    json_value *je;
-    GSList     *fl;
-    guint       i;
-
+    json_value  *jv;
+    json_value  *je;
+    GSList      *fl;
+    guint        i;
     const gchar *str;
 
     if (!steam_json_val(json, "friends", json_array, &jv))
-        return TRUE;
+        return;
 
     fl = NULL;
 
@@ -251,10 +258,9 @@ static gboolean steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
 
     priv->rdata = fl;
     priv->rfunc = (GDestroyNotify) g_slist_free;
-    return TRUE;
 }
 
-static gboolean steam_api_key_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_key_cb(SteamApiPriv *priv, json_value *json)
 {
     SteamAuth   *auth;
     const gchar *str;
@@ -276,22 +282,21 @@ static gboolean steam_api_key_cb(SteamApiPriv *priv, json_value *json)
         auth->time = g_strdup(str);
 
     priv->api->auth = auth;
-    return TRUE;
+    return;
 
 error:
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_KEY,
                 "Failed to retrieve authentication key");
-    return TRUE;
 }
 
-static gboolean steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
     if (!steam_json_scmp(json, "error", "OK", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON,
                     "%s", str);
-        return TRUE;
+        return;
     }
 
     steam_json_int(json, "message", &priv->api->lmid);
@@ -305,55 +310,49 @@ static gboolean steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
         g_free(priv->api->umqid);
         priv->api->umqid = g_strdup(str);
     }
-
-    return TRUE;
 }
 
-static gboolean steam_api_relogon_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_relogon_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar  *str;
 
     steam_http_queue_pause(priv->api->http, FALSE);
 
     if (steam_json_scmp(json, "error", "OK", &str))
-        return TRUE;
+        return;
 
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
                 "%s", str);
-    return TRUE;
 }
 
-static gboolean steam_api_logoff_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_logoff_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
     if (steam_json_scmp(json, "error", "OK", &str))
-        return TRUE;
+        return;
 
     g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
                 "%s", str);
-    return TRUE;
 }
 
-static gboolean steam_api_message_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_message_cb(SteamApiPriv *priv, json_value *json)
 {
     const gchar *str;
 
     if (steam_json_scmp(json, "error", "OK", &str))
-        return TRUE;
+        return;
 
     if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
-        steam_api_relogon(priv->api);
-        steam_http_req_resend(priv->req);
-        return FALSE;
+        steam_api_priv_relogon(priv);
+        return;
     }
 
-    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_MESSAGE,
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
                 "%s", str);
-    return TRUE;
 }
 
-static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
 {
     json_value   *jv;
     json_value   *je;
@@ -372,18 +371,17 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
         (g_ascii_strcasecmp(str, "OK")      != 0)) {
 
         if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
-            steam_api_relogon(priv->api);
-            steam_http_req_resend(priv->req);
-            return FALSE;
+            steam_api_priv_relogon(priv);
+            return;
         }
 
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
                     "%s", str);
-        return TRUE;
+        return;
     }
 
     if (!steam_json_val(json, "messages", json_array, &jv))
-        return TRUE;
+        return;
 
     mu = NULL;
 
@@ -433,10 +431,9 @@ static gboolean steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
 
     priv->rdata = g_slist_reverse(mu);
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
-    return TRUE;
 }
 
-static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
+static void steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
 {
     json_value   *jv;
     json_value   *je;
@@ -446,7 +443,7 @@ static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
     gint64        in;
 
     if (!steam_json_val(json, "players", json_array, &jv))
-        return TRUE;
+        return;
 
     mu = NULL;
 
@@ -470,7 +467,6 @@ static gboolean steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
 
     priv->rdata = mu;
     priv->rfunc = (GDestroyNotify) steam_slist_free_full;
-    return TRUE;
 }
 
 static void steam_api_cb(SteamHttpReq *req, gpointer data)
@@ -478,7 +474,6 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     SteamApiPriv  *priv = data;
     json_value    *json;
     json_settings  js;
-    gboolean       callf;
     gchar          err[128];
 
     static const SteamParseFunc saf[STEAM_API_TYPE_LAST] = {
@@ -497,8 +492,7 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     if ((priv->type < 0) || (priv->type > STEAM_API_TYPE_LAST))
         return;
 
-    json  = NULL;
-    callf = TRUE;
+    json = NULL;
 
     if (req->err != NULL) {
         g_propagate_error(&priv->err, req->err);
@@ -516,13 +510,12 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
 
 parse:
     if ((priv->err == NULL) && (json != NULL))
-        callf = saf[priv->type](priv, json);
+        saf[priv->type](priv, json);
 
     if (priv->err != NULL)
         g_prefix_error(&priv->err, "%s: ", steam_api_type_str(priv->type));
 
-    if (callf)
-        steam_api_func(priv);
+    steam_api_priv_func(priv);
 
     if (json != NULL)
         json_value_free(json);
@@ -545,7 +538,8 @@ static void steam_api_priv_req(SteamApiPriv *priv, gchar *host, gchar *path)
 }
 
 void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
-                    const gchar *authcode, const gchar *captcha)
+                    const gchar *authcode, const gchar *captcha,
+                    SteamApiFunc func, gpointer data)
 {
     SteamApiPriv *priv;
     GTimeVal      tv;
@@ -556,13 +550,13 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
     g_return_if_fail(api->auth != NULL);
 
     pswd = steam_auth_key_encrypt(api->auth, pass);
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_AUTH);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_AUTH, func, data);
 
     if (pswd == NULL) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to encrypt password");
 
-        steam_api_func(priv);
+        steam_api_priv_func(priv);
         steam_api_priv_free(priv);
         return;
     }
@@ -592,13 +586,13 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
     g_free(ms);
 }
 
-void steam_api_friends(SteamApi *api)
+void steam_api_friends(SteamApi *api, SteamListFunc func, gpointer data)
 {
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIENDS);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIENDS, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_FRIENDS);
 
     steam_http_req_params_set(priv->req, 3,
@@ -610,7 +604,8 @@ void steam_api_friends(SteamApi *api)
     steam_http_req_send(priv->req);
 }
 
-void steam_api_key(SteamApi *api, const gchar *user)
+void steam_api_key(SteamApi *api, const gchar *user, SteamApiFunc func,
+                   gpointer data)
 {
     SteamApiPriv *priv;
     GTimeVal      tv;
@@ -621,7 +616,7 @@ void steam_api_key(SteamApi *api, const gchar *user)
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_KEY);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_KEY, func, data);
     steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_KEY);
 
     steam_http_req_params_set(priv->req, 2,
@@ -634,13 +629,13 @@ void steam_api_key(SteamApi *api, const gchar *user)
     g_free(ms);
 }
 
-void steam_api_logoff(SteamApi *api)
+void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data)
 {
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGOFF);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGOFF, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGOFF);
 
     steam_http_req_params_set(priv->req, 2,
@@ -652,13 +647,13 @@ void steam_api_logoff(SteamApi *api)
     steam_http_req_send(priv->req);
 }
 
-void steam_api_logon(SteamApi *api)
+void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
 {
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGON);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGON, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
     steam_http_req_params_set(priv->req, 2,
@@ -670,13 +665,13 @@ void steam_api_logon(SteamApi *api)
     steam_http_req_send(priv->req);
 }
 
-static void steam_api_relogon(SteamApi *api)
+void steam_api_relogon(SteamApi *api, SteamApiFunc func, gpointer data)
 {
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_RELOGON);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_RELOGON, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
     steam_http_req_params_set(priv->req, 2,
@@ -685,18 +680,18 @@ static void steam_api_relogon(SteamApi *api)
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_queue_pause(api->http, TRUE);
     steam_http_req_send(priv->req);
 }
 
-void steam_api_message(SteamApi *api, SteamMessage *sm)
+void steam_api_message(SteamApi *api, SteamMessage *sm, SteamApiFunc func,
+                       gpointer data)
 {
     SteamApiPriv *priv;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(sm  != NULL);
 
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_MESSAGE);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_MESSAGE, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_MESSAGE);
 
     steam_http_req_params_set(priv->req, 4,
@@ -724,7 +719,7 @@ void steam_api_message(SteamApi *api, SteamMessage *sm)
     steam_http_req_send(priv->req);
 }
 
-void steam_api_poll(SteamApi *api)
+void steam_api_poll(SteamApi *api, SteamListFunc func, gpointer data)
 {
     SteamApiPriv *priv;
     gchar        *lmid;
@@ -732,7 +727,7 @@ void steam_api_poll(SteamApi *api)
     g_return_if_fail(api != NULL);
 
     lmid = g_strdup_printf("%" G_GINT64_FORMAT, api->lmid);
-    priv = steam_api_priv_new(api, STEAM_API_TYPE_POLL);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_POLL, func, data);
 
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_POLL);
     steam_http_req_headers_set(priv->req, 1, "Connection", "Keep-Alive");
@@ -749,7 +744,8 @@ void steam_api_poll(SteamApi *api)
     g_free(lmid);
 }
 
-void steam_api_summaries(SteamApi *api, GSList *friends)
+void steam_api_summaries(SteamApi *api, GSList *friends, SteamListFunc func,
+                         gpointer data)
 {
     SteamApiPriv *priv;
 
@@ -760,8 +756,8 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
     g_return_if_fail(api != NULL);
 
     if (friends == NULL) {
-        priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES);
-        steam_api_func(priv);
+        priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES, func, data);
+        steam_api_priv_func(priv);
         steam_api_priv_free(priv);
         return;
     }
@@ -777,7 +773,7 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
         /* Remove trailing comma */
         str->str[str->len - 1] = 0;
 
-        priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES);
+        priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES, func, data);
         steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
         steam_http_req_params_set(priv->req, 2,
@@ -792,15 +788,15 @@ void steam_api_summaries(SteamApi *api, GSList *friends)
     g_string_free(str, TRUE);
 }
 
-static void steam_api_summary_p(SteamApi *api, const gchar *steamid,
-                                SteamApiType type)
+void steam_api_summary(SteamApi *api, const gchar *steamid, SteamListFunc func,
+                       gpointer data)
 {
     SteamApiPriv *priv;
 
     g_return_if_fail(api     != NULL);
     g_return_if_fail(steamid != NULL);
 
-    priv = steam_api_priv_new(api, type);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
     steam_http_req_params_set(priv->req, 2,
@@ -809,16 +805,6 @@ static void steam_api_summary_p(SteamApi *api, const gchar *steamid,
     );
 
     steam_http_req_send(priv->req);
-}
-
-void steam_api_summaries_s(SteamApi *api, const gchar *steamid)
-{
-    steam_api_summary_p(api, steamid, STEAM_API_TYPE_SUMMARIES);
-}
-
-void steam_api_summary(SteamApi *api, const gchar *steamid)
-{
-    steam_api_summary_p(api, steamid, STEAM_API_TYPE_SUMMARY);
 }
 
 static const gchar *steam_api_type_str(SteamApiType type)
