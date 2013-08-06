@@ -182,8 +182,6 @@ static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
 {
     SteamApiError  err;
     const gchar   *str;
-    json_settings  js;
-    gchar          jerr[128];
 
     if (steam_json_str(json, "captcha_gid", &str))
         steam_auth_captcha(priv->api->auth, str);
@@ -212,14 +210,10 @@ static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
         return;
     }
 
-    memset(&js, 0, sizeof js);
-    json = json_parse_ex(&js, str, jerr);
+    json = steam_json_new(str, &priv->err);
 
-    if (json == NULL) {
-        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
-                    "Failed to parse OAuth: %s", jerr);
+    if (json == NULL)
         return;
-    }
 
     if (!steam_json_str(json, "oauth_token", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
@@ -471,10 +465,8 @@ static void steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
 
 static void steam_api_cb(SteamHttpReq *req, gpointer data)
 {
-    SteamApiPriv  *priv = data;
-    json_value    *json;
-    json_settings  js;
-    gchar          err[128];
+    SteamApiPriv *priv = data;
+    json_value   *json;
 
     static const SteamParseFunc saf[STEAM_API_TYPE_LAST] = {
         [STEAM_API_TYPE_AUTH]      = steam_api_auth_cb,
@@ -492,21 +484,14 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     if ((priv->type < 0) || (priv->type > STEAM_API_TYPE_LAST))
         return;
 
-    json = NULL;
-
     if (req->err != NULL) {
         g_propagate_error(&priv->err, req->err);
         req->err = NULL;
+        json = NULL;
         goto parse;
     }
 
-    memset(&js, 0, sizeof js);
-    json = json_parse_ex(&js, req->body, err);
-
-    if (json == NULL) {
-        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_PARSER,
-                    "Parser: %s", err);
-    }
+    json = steam_json_new(req->body, &priv->err);
 
 parse:
     if ((priv->err == NULL) && (json != NULL))

@@ -21,6 +21,19 @@
 #include <glib.h>
 #include <json_util.h>
 
+typedef enum _SteamJsonError SteamJsonError;
+
+enum _SteamJsonError
+{
+    STEAM_JSON_ERROR_PARSER
+};
+
+#define STEAM_JSON_ERROR steam_json_error_quark()
+
+GQuark steam_json_error_quark(void);
+
+json_value *steam_json_new(const gchar *data, GError **err);
+
 gboolean steam_json_val(json_value *json, const gchar *name, json_type type,
                         json_value **val);
 

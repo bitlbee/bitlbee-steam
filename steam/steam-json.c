@@ -15,7 +15,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+
 #include "steam-json.h"
+
+GQuark steam_json_error_quark(void)
+{
+    static GQuark q;
+
+    if (G_UNLIKELY(q == 0))
+        q = g_quark_from_static_string("steam-json-error-quark");
+
+    return q;
+}
+
+json_value *steam_json_new(const gchar *data, GError **err)
+{
+    json_value    *json;
+    json_settings  js;
+    gchar          estr[128];
+
+    memset(&js, 0, sizeof js);
+    json = json_parse_ex(&js, data, estr);
+
+    if ((json != NULL) || (err == NULL))
+        return json;
+
+    g_set_error(err, STEAM_JSON_ERROR, STEAM_JSON_ERROR_PARSER,
+                "Parser: %s", estr);
+    return NULL;
+}
 
 gboolean steam_json_val(json_value *json, const gchar *name, json_type type,
                         json_value **val)
