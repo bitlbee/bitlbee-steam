@@ -34,8 +34,7 @@ SteamAuth *steam_auth_new(void)
 
 void steam_auth_free(SteamAuth *auth)
 {
-    if (auth == NULL)
-        return;
+    g_return_if_fail(auth != NULL);
 
     mpz_clear(auth->exp);
     mpz_clear(auth->mod);
@@ -51,16 +50,15 @@ void steam_auth_captcha(SteamAuth *auth, const gchar *cgid)
 {
     g_return_if_fail(auth != NULL);
 
-    if (cgid == NULL)
-        return;
-
     g_free(auth->cgid);
     g_free(auth->curl);
 
     auth->cgid = g_strdup(cgid);
 
-    if (cgid == NULL)
+    if (cgid == NULL) {
+        auth->curl = NULL;
         return;
+    }
 
     auth->curl = g_strdup_printf("https://%s%s?gid=%s", STEAM_COM_HOST,
                                  STEAM_COM_PATH_CAPTCHA, cgid);
@@ -69,9 +67,6 @@ void steam_auth_captcha(SteamAuth *auth, const gchar *cgid)
 void steam_auth_email(SteamAuth *auth, const gchar *esid)
 {
     g_return_if_fail(auth != NULL);
-
-    if (esid == NULL)
-        return;
 
     g_free(auth->esid);
     auth->esid = g_strdup(esid);

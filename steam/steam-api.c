@@ -71,6 +71,41 @@ GQuark steam_api_error_quark(void)
     return q;
 }
 
+SteamApi *steam_api_new(const gchar *umqid)
+{
+    SteamApi *api;
+    GRand    *rand;
+
+    api = g_new0(SteamApi, 1);
+
+    if (umqid == NULL) {
+        rand       = g_rand_new();
+        api->umqid = g_strdup_printf("%" G_GUINT32_FORMAT, g_rand_int(rand));
+
+        g_rand_free(rand);
+    } else {
+        api->umqid = g_strdup(umqid);
+    }
+
+    api->http = steam_http_new(STEAM_API_AGENT);
+    return api;
+}
+
+void steam_api_free(SteamApi *api)
+{
+    g_return_if_fail(api != NULL);
+
+    if (api->auth != NULL)
+        steam_auth_free(api->auth);
+
+    steam_http_free(api->http);
+
+    g_free(api->token);
+    g_free(api->umqid);
+    g_free(api->steamid);
+    g_free(api);
+}
+
 static SteamApiPriv *steam_api_priv_new(SteamApi *api, SteamApiType type,
                                         gpointer func, gpointer data)
 {
@@ -127,39 +162,6 @@ static void steam_api_priv_func(SteamApiPriv *priv)
     default:
         return;
     }
-}
-
-SteamApi *steam_api_new(const gchar *umqid)
-{
-    SteamApi *api;
-    GRand    *rand;
-
-    api = g_new0(SteamApi, 1);
-
-    if (umqid == NULL) {
-        rand       = g_rand_new();
-        api->umqid = g_strdup_printf("%" G_GUINT32_FORMAT, g_rand_int(rand));
-
-        g_rand_free(rand);
-    } else {
-        api->umqid = g_strdup(umqid);
-    }
-
-    api->http = steam_http_new(STEAM_API_AGENT);
-    return api;
-}
-
-void steam_api_free(SteamApi *api)
-{
-    g_return_if_fail(api != NULL);
-
-    steam_http_free(api->http);
-    steam_auth_free(api->auth);
-
-    g_free(api->token);
-    g_free(api->umqid);
-    g_free(api->steamid);
-    g_free(api);
 }
 
 static void steam_api_priv_relogon(SteamApiPriv *priv)
@@ -778,8 +780,7 @@ void steam_api_summary(SteamApi *api, const gchar *steamid, SteamListFunc func,
 {
     SteamApiPriv *priv;
 
-    g_return_if_fail(api     != NULL);
-    g_return_if_fail(steamid != NULL);
+    g_return_if_fail(api != NULL);
 
     priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARIES, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);

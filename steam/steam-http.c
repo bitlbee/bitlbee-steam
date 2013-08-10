@@ -146,8 +146,6 @@ static void steam_http_req_ins(GHashTable *table, gsize size, gboolean escape,
     gchar *val;
     gsize  i;
 
-    g_return_if_fail(table != NULL);
-
     if (G_UNLIKELY(size < 1))
         return;
 
@@ -221,8 +219,6 @@ static gboolean steam_http_req_done_error_cb(gpointer data, gint fd,
                                              b_input_condition cond)
 {
     SteamHttpReq *req = data;
-
-    g_return_val_if_fail(req != NULL, FALSE);
 
     steam_http_req_send(req);
     req->rsid = 0;
@@ -347,8 +343,6 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
     gchar   *ps;
     gchar   *len;
 
-    g_return_if_fail(req != NULL);
-
     gstr = g_string_sized_new(128);
     g_hash_table_foreach(req->params, (GHFunc) steam_http_req_params, gstr);
     len = g_strdup_printf("%" G_GSIZE_FORMAT, gstr->len);
@@ -427,8 +421,6 @@ static void steam_http_req_queue(SteamHttp *http, gboolean force)
     SteamHttpReq *req;
     SteamHttpReq *treq;
     GList        *l;
-
-    g_return_if_fail(http != NULL);
 
     if ((http->flags & STEAM_HTTP_FLAG_PAUSED) ||
         (!force && (http->flags & STEAM_HTTP_FLAG_QUEUED)))
