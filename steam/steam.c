@@ -25,7 +25,40 @@ static void steam_logon(SteamApi *api, GError *err, gpointer data);
 static void steam_summaries(SteamApi *api, GSList *summaries, GError *err,
                             gpointer data);
 
-static gint steam_user_mode(gchar *mode)
+SteamData *steam_data_new(account_t *acc)
+{
+    SteamData *sd;
+    gchar     *str;
+
+    g_return_val_if_fail(acc != NULL, NULL);
+
+    sd = g_new0(SteamData, 1);
+
+    sd->ic = imcb_new(acc);
+    sd->ic->proto_data = sd;
+
+    str = set_getstr(&acc->set, "umqid");
+    sd->api = steam_api_new(str);
+
+    sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
+    sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
+    sd->game_status  = set_getbool(&acc->set, "game_status");
+
+    str = set_getstr(&acc->set, "show_playing");
+    sd->show_playing = steam_user_mode(str);
+
+    return sd;
+}
+
+void steam_data_free(SteamData *sd)
+{
+    g_return_if_fail(sd != NULL);
+
+    steam_api_free(sd->api);
+    g_free(sd);
+}
+
+gint steam_user_mode(gchar *mode)
 {
     if (mode == NULL)
         return IRC_CHANNEL_USER_NONE;
@@ -598,17 +631,7 @@ static void steam_login(account_t *acc)
     SteamData *sd;
     gchar     *str;
 
-    str = set_getstr(&acc->set, "umqid");
-    sd  = steam_data_new(acc, str);
-    set_setstr(&acc->set, "umqid", sd->api->umqid);
-
-    sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
-    sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
-    sd->game_status  = set_getbool(&acc->set, "game_status");
-
-    str = set_getstr(&acc->set, "show_playing");
-    sd->show_playing = steam_user_mode(str);
-
+    sd = steam_data_new(acc);
     imcb_log(sd->ic, "Connecting");
 
     if (sd->api->token != NULL) {
@@ -748,28 +771,4 @@ void init_plugin()
     pp->buddy_data_free = steam_buddy_data_free;
 
     register_protocol(pp);
-}
-
-SteamData *steam_data_new(account_t *acc, const gchar *umqid)
-{
-    SteamData *sd;
-
-    g_return_val_if_fail(acc != NULL, NULL);
-
-    sd = g_new0(SteamData, 1);
-
-    sd->api = steam_api_new(umqid);
-    sd->ic  = imcb_new(acc);
-    acc->ic = sd->ic;
-
-    sd->ic->proto_data = sd;
-    return sd;
-}
-
-void steam_data_free(SteamData *sd)
-{
-    g_return_if_fail(sd != NULL);
-
-    steam_api_free(sd->api);
-    g_free(sd);
 }

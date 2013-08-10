@@ -34,8 +34,10 @@ struct _SteamData
 };
 
 
-SteamData *steam_data_new(account_t *acc, const gchar *umqid);
+SteamData *steam_data_new(account_t *acc);
 
 void steam_data_free(SteamData *sd);
+
+gint steam_user_mode(gchar *mode);
 
 #endif /* _STEAM_H */
