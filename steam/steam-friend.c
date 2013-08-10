@@ -37,18 +37,6 @@ void steam_friend_free(SteamFriend *frnd)
     g_free(frnd);
 }
 
-void steam_friend_update(SteamFriend *frnd, const gchar *game,
-                         const gchar *server)
-{
-    g_return_if_fail(frnd != NULL);
-
-    g_free(frnd->game);
-    g_free(frnd->server);
-
-    frnd->game   = g_strdup(game);
-    frnd->server = g_strdup(server);
-}
-
 void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...)
 {
     irc_channel_t *ic;

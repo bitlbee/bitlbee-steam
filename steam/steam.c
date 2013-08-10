@@ -47,6 +47,8 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     const gchar      *m;
     gchar            *game;
     gint              f;
+    gboolean          cgm;
+    gboolean          csv;
 
     g_return_if_fail(sd != NULL);
     g_return_if_fail(ss != NULL);
@@ -91,22 +93,20 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
         return;
     }
 
-    f    = OPT_LOGGED_IN;
-    m    = steam_state_str(ss->state);
-    game = NULL;
+    f = OPT_LOGGED_IN;
+    m = steam_state_str(ss->state);
 
     if (ss->state != STEAM_STATE_ONLINE)
         f |= OPT_AWAY;
 
-    if (ss->game == NULL) {
-        imcb_buddy_status(sd->ic, ss->steamid, f, m, NULL);
+    cgm = g_strcmp0(ss->game,   frnd->game)   != 0;
+    csv = g_strcmp0(ss->server, frnd->server) != 0;
 
-        if (!sd->game_status || (frnd->game == NULL))
-            goto update;
+    if (!cgm && !csv) {
+        if (frnd->game == NULL)
+            imcb_buddy_status(sd->ic, ss->steamid, f, m, bu->status_msg);
 
-        steam_friend_chans_msg(frnd, "/me is no longer playing: %s",
-                               frnd->game);
-        goto update;
+        return;
     }
 
     if (ss->server != NULL)
@@ -114,22 +114,24 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     else
         game = g_strdup(ss->game);
 
-    if (sd->game_status && (g_strcmp0(ss->server, frnd->server) != 0)) {
-        steam_friend_chans_msg(frnd, "/me is now playing: %s ", game);
-        goto update;
+    if (cgm) {
+        imcb_buddy_status(sd->ic, ss->steamid, f, m, game);
+
+        if (ss->game != NULL)
+            steam_friend_chans_umode(frnd, sd->show_playing);
+
+        g_free(frnd->game);
+        frnd->game = g_strdup(ss->game);
     }
 
-    if (g_strcmp0(ss->game, frnd->game) == 0)
-        goto update;
+    if (csv) {
+        g_free(frnd->server);
+        frnd->server = g_strdup(ss->server);
+    }
 
-    imcb_buddy_status(sd->ic, ss->steamid, f, m, ss->game);
-    steam_friend_chans_umode(frnd, sd->show_playing);
-
-    if (sd->game_status)
+    if (sd->game_status && (game != NULL))
         steam_friend_chans_msg(frnd, "/me is now playing: %s", game);
 
-update:
-    steam_friend_update(frnd, ss->game, ss->server);
     g_free(game);
 }
 

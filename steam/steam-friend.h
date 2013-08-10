@@ -57,9 +57,6 @@ SteamFriend *steam_friend_new(bee_user_t *bu);
 
 void steam_friend_free(SteamFriend *frnd);
 
-void steam_friend_update(SteamFriend *frnd, const gchar *game,
-                         const gchar *server);
-
 void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...);
 
 void steam_friend_chans_umode(SteamFriend *frnd, gint mode);
