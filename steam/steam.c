@@ -193,7 +193,7 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
     case STEAM_MESSAGE_TYPE_TYPING:
         bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
 
-        if (bu == NULL)
+        if (G_UNLIKELY(bu == NULL))
             return;
 
         f = (bu->flags & OPT_TYPING) ? 0 : OPT_TYPING;
@@ -209,7 +209,7 @@ relationship:
 
     switch (sm->fstate) {
     case STEAM_FRIEND_STATE_REMOVE:
-        if (bu == NULL)
+        if (G_UNLIKELY(bu == NULL))
             return;
 
         imcb_log(sd->ic, "Removed `%s' from friends list", bu->nick);
@@ -217,7 +217,7 @@ relationship:
         return;
 
     case STEAM_FRIEND_STATE_IGNORE:
-        if (bu == NULL)
+        if (G_UNLIKELY(bu == NULL))
             return;
 
         imcb_log(sd->ic, "Friendship invite from `%s' ignored", bu->nick);
@@ -229,7 +229,7 @@ relationship:
     case STEAM_FRIEND_STATE_REQUESTED:
         f = 0;
 
-        if (bu == NULL) {
+        if (G_LIKELY(bu == NULL)) {
             imcb_add_buddy(sd->ic, sm->steamid, NULL);
             bu  = imcb_buddy_by_handle(sd->ic, sm->steamid);
             f  |= STEAM_FRIEND_FLAG_PENDING;
