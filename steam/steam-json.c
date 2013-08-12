@@ -46,8 +46,8 @@ json_value *steam_json_new(const gchar *data, GError **err)
     return NULL;
 }
 
-gboolean steam_json_val(json_value *json, const gchar *name, json_type type,
-                        json_value **val)
+gboolean steam_json_val(const json_value *json, const gchar *name,
+                        json_type type, json_value **val)
 {
     g_return_val_if_fail(json != NULL, FALSE);
     g_return_val_if_fail(name != NULL, FALSE);
@@ -58,7 +58,7 @@ gboolean steam_json_val(json_value *json, const gchar *name, json_type type,
     return ((*val != NULL) && ((*val)->type == type));
 }
 
-gboolean steam_json_bool(json_value *json, const gchar *name)
+gboolean steam_json_bool(const json_value *json, const gchar *name)
 {
     json_value *jv;
 
@@ -68,7 +68,7 @@ gboolean steam_json_bool(json_value *json, const gchar *name)
     return jv->u.boolean;
 }
 
-gboolean steam_json_int(json_value *json, const gchar *name, gint64 *i)
+gboolean steam_json_int(const json_value *json, const gchar *name, gint64 *i)
 {
     json_value *jv;
 
@@ -83,7 +83,8 @@ gboolean steam_json_int(json_value *json, const gchar *name, gint64 *i)
     return TRUE;
 }
 
-gboolean steam_json_str(json_value *json, const gchar *name, const gchar **str)
+gboolean steam_json_str(const json_value *json, const gchar *name,
+                        const gchar **str)
 {
     json_value *jv;
 
@@ -99,7 +100,7 @@ gboolean steam_json_str(json_value *json, const gchar *name, const gchar **str)
     return TRUE;
 }
 
-gboolean steam_json_scmp(json_value *json, const gchar *name,
+gboolean steam_json_scmp(const json_value *json, const gchar *name,
                          const gchar *match, const gchar **str)
 {
     if (!steam_json_str(json, name, str))
