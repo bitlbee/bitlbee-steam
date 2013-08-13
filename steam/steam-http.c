@@ -123,13 +123,12 @@ void steam_http_req_free(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
-    if (req->rsid > 0)
-        b_event_remove(req->rsid);
+    b_event_remove(req->wid);
+    b_event_remove(req->rsid);
+    http_close(req->request);
 
     if (req->err != NULL)
         g_error_free(req->err);
-
-    http_close(req->request);
 
     g_hash_table_destroy(req->headers);
     g_hash_table_destroy(req->params);
@@ -196,27 +195,27 @@ void steam_http_req_resend(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
-    if (req->rsid > 0) {
-        b_event_remove(req->rsid);
-        req->rsid = 0;
-    }
-
     if (req->err != NULL) {
         g_error_free(req->err);
         req->err = NULL;
     }
 
+    b_event_remove(req->wid);
+    b_event_remove(req->rsid);
+
     req->flags     |= STEAM_HTTP_REQ_FLAG_NOFREE;
     req->request    = NULL;
     req->body       = NULL;
     req->body_size  = 0;
-    req->errc       = 0;
+    req->wid        = 0;
+    req->rsid       = 0;
+    req->rsc        = 0;
 
     steam_http_req_send(req);
 }
 
-static gboolean steam_http_req_done_error_cb(gpointer data, gint fd,
-                                             b_input_condition cond)
+static gboolean steam_http_req_done_error(gpointer data, gint fd,
+                                          b_input_condition cond)
 {
     SteamHttpReq *req = data;
 
@@ -228,14 +227,14 @@ static gboolean steam_http_req_done_error_cb(gpointer data, gint fd,
 static void steam_http_req_done(SteamHttpReq *req)
 {
     if (req->err != NULL) {
-        if (req->errc < STEAM_HTTP_ERROR_MAX) {
+        if (req->rsc < STEAM_HTTP_RESEND_MAX) {
             g_error_free(req->err);
             req->err = NULL;
 
             req->request = NULL;
-            req->rsid    = b_timeout_add(STEAM_HTTP_ERROR_TIMEOUT,
-                                         steam_http_req_done_error_cb, req);
-            req->errc++;
+            req->rsid    = b_timeout_add(STEAM_HTTP_TIMEOUT_RESEND,
+                                         steam_http_req_done_error, req);
+            req->rsc++;
             return;
         }
 
@@ -276,8 +275,8 @@ static void steam_http_req_cb(struct http_request *request)
                 req->host, req->port, req->path,
                 request->status_string);
 
-        if (req->errc > 0)
-            g_print("Reattempted request: #%u\n", req->errc);
+        if (req->rsc > 0)
+            g_print("Reattempted request: #%u\n", req->rsc);
 
         if (request->reply_headers != NULL) {
             ls = g_strsplit(request->reply_headers, "\n", 0);
@@ -313,7 +312,23 @@ static void steam_http_req_cb(struct http_request *request)
                     "Empty reply");
     }
 
+    b_event_remove(req->wid);
     steam_http_req_done(req);
+}
+
+static gboolean steam_http_req_watch(gpointer data, gint fd,
+                                     b_input_condition cond)
+{
+    SteamHttpReq *req = data;
+
+    http_close(req->request);
+
+    req->wid     = 0;
+    req->request = NULL;
+
+    g_set_error(&req->err, STEAM_HTTP_ERROR, 0, "Read timeout");
+    steam_http_req_done(req);
+    return FALSE;
 }
 
 static void steam_http_req_headers(gchar *key, gchar *val, GString *gstr)
@@ -367,16 +382,15 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
                                req->path, ps, hs);
     }
 
-    req->request = http_dorequest(req->host, req->port,
-                                  (req->flags & STEAM_HTTP_REQ_FLAG_SSL),
-                                  sreq, steam_http_req_cb, req);
-
 #ifdef DEBUG
     gchar **ls;
     guint   i;
 
     if (global.conf->verbose) {
         g_print("HTTP Request (%s:%d%s)\n", req->host, req->port, req->path);
+
+        if (req->rsc > 0)
+            g_print("Reattempted request: #%u\n", req->rsc);
 
         if (hs != NULL) {
             ls = g_strsplit(hs, "\n", 0);
@@ -404,13 +418,20 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
     }
 #endif /* DEBUG */
 
+    req->request = http_dorequest(req->host, req->port,
+                                  (req->flags & STEAM_HTTP_REQ_FLAG_SSL),
+                                  sreq, steam_http_req_cb, req);
+
     g_free(len);
     g_free(ps);
     g_free(hs);
     g_free(sreq);
 
-    if (req->request != NULL)
+    if (req->request != NULL) {
+        req->wid = b_timeout_add(STEAM_HTTP_TIMEOUT_ERROR,
+                                 steam_http_req_watch, req);
         return;
+    }
 
     g_set_error(&req->err, STEAM_HTTP_ERROR, 0, "Failed to init request");
     steam_http_req_done(req);
