@@ -116,6 +116,8 @@ struct _SteamMessage
     gchar *steamid;
     gchar *text;
     gchar *nick;
+
+    gint64 tstamp;
 };
 
 struct _SteamSummary

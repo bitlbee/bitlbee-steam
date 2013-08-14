@@ -435,10 +435,13 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
             continue;
 
         sm = steam_message_new(str);
+
         steam_json_str(je, "type", &str);
+        steam_json_int(je, "utc_timestamp", &in);
 
         sm->type   = steam_message_type_from_str(str);
         sm->fstate = STEAM_FRIEND_STATE_NONE;
+        sm->tstamp = in;
 
         switch (sm->type) {
         case STEAM_MESSAGE_TYPE_SAYTEXT:

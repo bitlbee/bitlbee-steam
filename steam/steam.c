@@ -173,7 +173,7 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
         else
             m = g_strdup(sm->text);
 
-        imcb_buddy_msg(sd->ic, sm->steamid, m, 0, 0);
+        imcb_buddy_msg(sd->ic, sm->steamid, m, 0, sm->tstamp);
         imcb_buddy_typing(sd->ic, sm->steamid, 0);
 
         g_free(m);
