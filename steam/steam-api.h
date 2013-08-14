@@ -113,21 +113,21 @@ struct _SteamMessage
     SteamState       state;
     SteamFriendState fstate;
 
-    const gchar *steamid;
-    const gchar *text;
-    const gchar *nick;
+    gchar *steamid;
+    gchar *text;
+    gchar *nick;
 };
 
 struct _SteamSummary
 {
     SteamState state;
 
-    const gchar *steamid;
-    const gchar *nick;
-    const gchar *fullname;
-    const gchar *profile;
-    const gchar *game;
-    const gchar *server;
+    gchar *steamid;
+    gchar *nick;
+    gchar *fullname;
+    gchar *profile;
+    gchar *game;
+    gchar *server;
 };
 
 #define STEAM_API_ERROR steam_api_error_quark()
@@ -137,6 +137,14 @@ GQuark steam_api_error_quark(void);
 SteamApi *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamApi *api);
+
+SteamMessage *steam_message_new(const gchar *steamid);
+
+void steam_message_free(SteamMessage *sm);
+
+SteamSummary *steam_summary_new(const gchar *steamid);
+
+void steam_summary_free(SteamSummary *ss);
 
 void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
                     const gchar *authcode, const gchar *captcha,
