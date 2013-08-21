@@ -27,6 +27,29 @@ global_t global;
 
 static void steam_http_req_queue(SteamHttp *http, gboolean force);
 
+static void steam_http_tree_ins(GTree *tree, gsize size, va_list ap)
+{
+    gchar *key;
+    gchar *val;
+    gsize  i;
+
+    if (G_UNLIKELY(size < 1))
+        return;
+
+    for (i = 0; i < size; i++) {
+        key = va_arg(ap, gchar*);
+        val = va_arg(ap, gchar*);
+
+        if (key == NULL)
+            continue;
+
+        key = g_strdup(key);
+        val = g_strdup(val);
+
+        g_tree_replace(tree, key, val);
+    }
+}
+
 GQuark steam_http_error_quark(void)
 {
     static GQuark q;
@@ -43,9 +66,10 @@ SteamHttp *steam_http_new(const gchar *agent)
 
     http = g_new0(SteamHttp, 1);
 
-    http->agent = g_strdup(agent);
-    http->reqq  = g_queue_new();
-
+    http->agent   = g_strdup(agent);
+    http->reqq    = g_queue_new();
+    http->cookies = g_tree_new_full((GCompareDataFunc) g_ascii_strcasecmp,
+                                    NULL, g_free, g_free);
     return http;
 }
 
@@ -67,6 +91,7 @@ void steam_http_free(SteamHttp *http)
 
     steam_http_free_reqs(http);
     g_queue_free(http->reqq);
+    g_tree_destroy(http->cookies);
 
     g_free(http->agent);
     g_free(http);
@@ -82,6 +107,127 @@ void steam_http_queue_pause(SteamHttp *http, gboolean pause)
     } else {
         http->flags |= STEAM_HTTP_FLAG_PAUSED;
     }
+}
+
+void steam_http_cookies_set(SteamHttp *http, gsize size, ...)
+{
+    va_list ap;
+
+    g_return_if_fail(http != NULL);
+
+    va_start(ap, size);
+    steam_http_tree_ins(http->cookies, size, ap);
+    va_end(ap);
+}
+
+void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req)
+{
+    gchar **hdrs;
+    gchar **kv;
+    gchar  *str;
+    gsize   i;
+    gsize   j;
+
+    g_return_if_fail(http != NULL);
+    g_return_if_fail(req  != NULL);
+
+    if (req->request == NULL)
+        return;
+
+    hdrs = g_strsplit(req->request->reply_headers, "\r\n", 0);
+
+    for (i = 0; hdrs[i] != NULL; i++) {
+        if (g_ascii_strncasecmp(hdrs[i], "Set-Cookie", 10) != 0)
+            continue;
+
+        str = strchr(hdrs[i], ';');
+
+        if (str != NULL);
+            str[0] = 0;
+
+        str = strchr(hdrs[i], ':');
+
+        if (str == NULL)
+            continue;
+
+        str = g_strstrip(++str);
+        kv  = g_strsplit(str, "=", 2);
+
+        for (j = 0; kv[j] != NULL; j++) {
+            str = steam_http_uri_unescape(kv[j]);
+            g_free(kv[j]);
+            kv[j] = str;
+        }
+
+        if (g_strv_length(kv) > 1)
+            steam_http_cookies_set(http, 1, kv[0], kv[1]);
+
+        g_strfreev(kv);
+    }
+
+    g_strfreev(hdrs);
+}
+
+void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
+{
+    gchar **ckis;
+    gchar **kv;
+    gchar  *str;
+    gsize   i;
+    gsize   j;
+
+    g_return_if_fail(http != NULL);
+    g_return_if_fail(data != NULL);
+
+    ckis = g_strsplit(data, ";", 0);
+
+    for (i = 0; ckis[i] != NULL; i++) {
+        str = g_strstrip(ckis[i]);
+        kv  = g_strsplit(str, "=", 2);
+
+        for (j = 0; kv[j] != NULL; j++) {
+            str = steam_http_uri_unescape(kv[j]);
+            g_free(kv[j]);
+            kv[j] = str;
+        }
+
+        if (g_strv_length(kv) > 1)
+            steam_http_cookies_set(http, 1, kv[0], kv[1]);
+
+        g_strfreev(kv);
+    }
+
+    g_strfreev(ckis);
+}
+
+static gboolean steam_http_tree_cookies(gchar *key, gchar *val, GString *gstr)
+{
+    gchar *sep;
+
+    if (val == NULL)
+        val = "";
+
+    key = steam_http_uri_escape(key);
+    val = steam_http_uri_escape(val);
+
+    sep = (gstr->len > 0) ? "; " : "";
+    g_string_append_printf(gstr, "%s%s=%s", sep, key, val);
+
+    g_free(key);
+    g_free(val);
+    return FALSE;
+}
+
+gchar *steam_http_cookies_str(SteamHttp *http)
+{
+    GString *gstr;
+
+    g_return_val_if_fail(http != NULL, NULL);
+
+    gstr = g_string_sized_new(128);
+    g_tree_foreach(http->cookies, (GTraverseFunc) steam_http_tree_cookies,
+                   gstr);
+    return g_string_free(gstr, FALSE);
 }
 
 SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
@@ -133,29 +279,6 @@ void steam_http_req_free(SteamHttpReq *req)
     g_free(req);
 }
 
-static void steam_http_req_ins(GTree *tree, gsize size, va_list ap)
-{
-    gchar *key;
-    gchar *val;
-    gsize  i;
-
-    if (G_UNLIKELY(size < 1))
-        return;
-
-    for (i = 0; i < size; i++) {
-        key = va_arg(ap, gchar*);
-        val = va_arg(ap, gchar*);
-
-        if (key == NULL)
-            continue;
-
-        key = g_strdup(key);
-        val = g_strdup(val);
-
-        g_tree_replace(tree, key, val);
-    }
-}
-
 void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...)
 {
     va_list ap;
@@ -163,7 +286,7 @@ void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...)
     g_return_if_fail(req != NULL);
 
     va_start(ap, size);
-    steam_http_req_ins(req->headers, size, ap);
+    steam_http_tree_ins(req->headers, size, ap);
     va_end(ap);
 }
 
@@ -174,7 +297,7 @@ void steam_http_req_params_set(SteamHttpReq *req, gsize size, ...)
     g_return_if_fail(req != NULL);
 
     va_start(ap, size);
-    steam_http_req_ins(req->params, size, ap);
+    steam_http_tree_ins(req->params, size, ap);
     va_end(ap);
 }
 
@@ -358,6 +481,12 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
     len = g_strdup_printf("%" G_GSIZE_FORMAT, gstr->len);
     ps  = g_string_free(gstr, FALSE);
 
+    if (g_tree_nnodes(req->http->cookies) > 0) {
+        str = steam_http_cookies_str(req->http);
+        steam_http_req_headers_set(req, 1, "Cookie", str);
+        g_free(str);
+    }
+
     if (req->flags & STEAM_HTTP_REQ_FLAG_POST) {
         steam_http_req_headers_set(req, 2,
             "Content-Type",   "application/x-www-form-urlencoded",
@@ -488,16 +617,31 @@ void steam_http_req_send(SteamHttpReq *req)
 gchar *steam_http_uri_escape(const gchar *unescaped)
 {
     gchar *ret;
-    gchar *e;
+    gchar *str;
 
-    if (unescaped == NULL)
-        return NULL;
+    g_return_val_if_fail(unescaped != NULL, NULL);
 
-    e = g_strndup(unescaped, (strlen(unescaped) * 3) + 1);
-    http_encode(e);
+    str = g_strndup(unescaped, (strlen(unescaped) * 3) + 1);
+    http_encode(str);
 
-    ret = g_strdup(e);
-    g_free(e);
+    ret = g_strdup(str);
+    g_free(str);
+
+    return ret;
+}
+
+gchar *steam_http_uri_unescape(const gchar *escaped)
+{
+    gchar *ret;
+    gchar *str;
+
+    g_return_val_if_fail(escaped != NULL, NULL);
+
+    str = g_strdup(escaped);
+    http_decode(str);
+
+    ret = g_strdup(str);
+    g_free(str);
 
     return ret;
 }

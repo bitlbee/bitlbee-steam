@@ -54,6 +54,7 @@ struct _SteamHttp
 
     gchar  *agent;
     GQueue *reqq;
+    GTree  *cookies;
 };
 
 struct _SteamHttpReq
@@ -94,6 +95,14 @@ void steam_http_free(SteamHttp *http);
 
 void steam_http_queue_pause(SteamHttp *http, gboolean puase);
 
+void steam_http_cookies_set(SteamHttp *http, gsize size, ...);
+
+void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req);
+
+void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data);
+
+gchar *steam_http_cookies_str(SteamHttp *http);
+
 SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
                                  gint port, const gchar *path,
                                  SteamHttpFunc func, gpointer data);
@@ -109,5 +118,7 @@ void steam_http_req_resend(SteamHttpReq *req);
 void steam_http_req_send(SteamHttpReq *req);
 
 gchar *steam_http_uri_escape(const gchar *unescaped);
+
+gchar *steam_http_uri_unescape(const gchar *escaped);
 
 #endif /* _STEAM_HTTP_H */
