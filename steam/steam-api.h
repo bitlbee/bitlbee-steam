@@ -42,15 +42,18 @@
 #define STEAM_COM_PATH_KEY        "/mobilelogin/getrsakey/"
 
 typedef enum   _SteamApiError    SteamApiError;
-typedef enum   _SteamState       SteamState;
+typedef enum   _SteamFriendState SteamFriendState;
 typedef enum   _SteamMessageType SteamMessageType;
+typedef enum   _SteamState       SteamState;
 typedef struct _SteamApi         SteamApi;
 typedef struct _SteamMessage     SteamMessage;
 typedef struct _SteamSummary     SteamSummary;
 
-typedef void (*SteamApiFunc)  (SteamApi *api, GError *err,gpointer data);
-typedef void (*SteamListFunc) (SteamApi *api, GSList *list, GError *err,
-                               gpointer data);
+typedef void (*SteamApiFunc)     (SteamApi *api, GError *err,gpointer data);
+typedef void (*SteamListFunc)    (SteamApi *api, GSList *list, GError *err,
+                                  gpointer data);
+typedef void (*SteamSummaryFunc) (SteamApi *api, SteamSummary *ss, GError *err,
+                                  gpointer data);
 
 enum _SteamApiError
 {
@@ -71,17 +74,16 @@ enum _SteamApiError
     STEAM_API_ERROR_PARSER
 };
 
-enum _SteamState
+enum _SteamFriendState
 {
-    STEAM_STATE_OFFLINE = 0,
-    STEAM_STATE_ONLINE  = 1,
-    STEAM_STATE_BUSY    = 2,
-    STEAM_STATE_AWAY    = 3,
-    STEAM_STATE_SNOOZE  = 4,
-    STEAM_STATE_TRADE   = 5,
-    STEAM_STATE_PLAY    = 6,
+    STEAM_FRIEND_STATE_REMOVE    = 0,
+    STEAM_FRIEND_STATE_IGNORE    = 1,
+    STEAM_FRIEND_STATE_REQUEST   = 2,
+    STEAM_FRIEND_STATE_ADD       = 3,
+    STEAM_FRIEND_STATE_REQUESTED = 4,
 
-    STEAM_STATE_LAST
+    STEAM_FRIEND_STATE_NONE,
+    STEAM_FRIEND_STATE_LAST
 };
 
 enum _SteamMessageType
@@ -94,6 +96,19 @@ enum _SteamMessageType
     STEAM_MESSAGE_TYPE_TYPING,
 
     STEAM_MESSAGE_TYPE_LAST
+};
+
+enum _SteamState
+{
+    STEAM_STATE_OFFLINE = 0,
+    STEAM_STATE_ONLINE  = 1,
+    STEAM_STATE_BUSY    = 2,
+    STEAM_STATE_AWAY    = 3,
+    STEAM_STATE_SNOOZE  = 4,
+    STEAM_STATE_TRADE   = 5,
+    STEAM_STATE_PLAY    = 6,
+
+    STEAM_STATE_LAST
 };
 
 struct _SteamApi
@@ -109,20 +124,17 @@ struct _SteamApi
 
 struct _SteamMessage
 {
-    SteamMessageType type;
-    SteamState       state;
-    SteamFriendState fstate;
+    SteamMessageType  type;
+    SteamSummary     *ss;
 
-    gchar *steamid;
-    gchar *text;
-    gchar *nick;
-
-    gint64 tstamp;
+    gchar  *text;
+    gint64  tstamp;
 };
 
 struct _SteamSummary
 {
-    SteamState state;
+    SteamState       state;
+    SteamFriendState fstate;
 
     gchar *steamid;
     gchar *nick;
@@ -163,16 +175,13 @@ void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data);
 
 void steam_api_relogon(SteamApi *api, SteamApiFunc func, gpointer data);
 
-void steam_api_message(SteamApi *api, SteamMessage *sm, SteamApiFunc func,
-                       gpointer data);
+void steam_api_message(SteamApi *api, const SteamMessage *sm,
+                       SteamApiFunc func, gpointer data);
 
 void steam_api_poll(SteamApi *api, SteamListFunc func, gpointer data);
 
-void steam_api_summaries(SteamApi *api, GSList *friends, SteamListFunc func,
-                         gpointer data);
-
-void steam_api_summary(SteamApi *api, const gchar *steamid, SteamListFunc func,
-                       gpointer data);
+void steam_api_summary(SteamApi *api, const gchar *steamid,
+                       SteamSummaryFunc func, gpointer data);
 
 const gchar *steam_message_type_str(SteamMessageType type);
 

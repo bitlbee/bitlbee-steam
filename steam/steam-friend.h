@@ -20,33 +20,11 @@
 
 #include <bitlbee.h>
 
-typedef enum   _SteamFriendFlags SteamFriendFlags;
-typedef enum   _SteamFriendState SteamFriendState;
-typedef struct _SteamFriend      SteamFriend;
-
-enum _SteamFriendFlags
-{
-    STEAM_FRIEND_FLAG_PENDING = 1 << 0
-};
-
-enum _SteamFriendState
-{
-    STEAM_FRIEND_STATE_REMOVE    = 0,
-    STEAM_FRIEND_STATE_IGNORE    = 1,
-    STEAM_FRIEND_STATE_REQUEST   = 2,
-    STEAM_FRIEND_STATE_ADD       = 3,
-    STEAM_FRIEND_STATE_REQUESTED = 4,
-
-    STEAM_FRIEND_STATE_NONE,
-    STEAM_FRIEND_STATE_LAST
-};
+typedef struct _SteamFriend SteamFriend;
 
 struct _SteamFriend
 {
     bee_user_t *buser;
-
-    SteamFriendFlags flags;
-    SteamFriendState state;
 
     gchar *game;
     gchar *server;

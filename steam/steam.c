@@ -22,8 +22,8 @@
 #include "steam-glib.h"
 
 static void steam_logon(SteamApi *api, GError *err, gpointer data);
-static void steam_summaries(SteamApi *api, GSList *summaries, GError *err,
-                            gpointer data);
+static void steam_poll(SteamApi *api, GSList *messages, GError *err,
+                       gpointer data);
 
 SteamData *steam_data_new(account_t *acc)
 {
@@ -75,41 +75,12 @@ gint steam_user_mode(gchar *mode)
 
 static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 {
-    SteamFriend      *frnd;
-    SteamFriendState  fstate;
-    const gchar      *m;
-    gchar            *game;
-    gint              f;
-    gboolean          cgm;
-    gboolean          csv;
-
-    frnd   = bu->data;
-    fstate = frnd->state;
-
-    frnd->state = STEAM_FRIEND_STATE_NONE;
-    imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
-    imcb_rename_buddy(sd->ic, ss->steamid, ss->fullname);
-
-    if (frnd->flags & STEAM_FRIEND_FLAG_PENDING) {
-        frnd->flags &= ~STEAM_FRIEND_FLAG_PENDING;
-
-        switch (fstate) {
-        case STEAM_FRIEND_STATE_REQUEST:
-            imcb_log(sd->ic, "Friendship invite from `%s'", ss->nick);
-            return;
-
-        case STEAM_FRIEND_STATE_ADD:
-            imcb_log(sd->ic, "Added `%s' to friends list", ss->nick);
-            break;
-
-        case STEAM_FRIEND_STATE_REQUESTED:
-            imcb_log(sd->ic, "Friendship invitation sent to `%s'", ss->nick);
-            return;
-
-        default:
-            break;
-        }
-    }
+    SteamFriend *frnd;
+    const gchar *m;
+    gchar       *game;
+    gint         f;
+    gboolean     cgm;
+    gboolean     csv;
 
     if (ss->state == STEAM_STATE_OFFLINE) {
         imcb_buddy_status(sd->ic, ss->steamid, 0, NULL, NULL);
@@ -122,8 +93,9 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
     if (ss->state != STEAM_STATE_ONLINE)
         f |= OPT_AWAY;
 
-    cgm = g_strcmp0(ss->game,   frnd->game)   != 0;
-    csv = g_strcmp0(ss->server, frnd->server) != 0;
+    frnd = bu->data;
+    cgm  = g_strcmp0(ss->game,   frnd->game)   != 0;
+    csv  = g_strcmp0(ss->server, frnd->server) != 0;
 
     if (!cgm && !csv) {
         if (frnd->game == NULL)
@@ -160,10 +132,9 @@ static void steam_buddy_status(SteamData *sd, SteamSummary *ss, bee_user_t *bu)
 
 static void steam_poll_p(SteamData *sd, SteamMessage *sm)
 {
-    bee_user_t  *bu;
-    SteamFriend *frnd;
-    gchar       *m;
-    guint32      f;
+    bee_user_t *bu;
+    gchar      *m;
+    guint32     f;
 
     switch (sm->type) {
     case STEAM_MESSAGE_TYPE_EMOTE:
@@ -173,73 +144,68 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
         else
             m = g_strdup(sm->text);
 
-        imcb_buddy_msg(sd->ic, sm->steamid, m, 0, sm->tstamp);
-        imcb_buddy_typing(sd->ic, sm->steamid, 0);
+        imcb_buddy_msg(sd->ic, sm->ss->steamid, m, 0, sm->tstamp);
+        imcb_buddy_typing(sd->ic, sm->ss->steamid, 0);
 
         g_free(m);
         return;
 
     case STEAM_MESSAGE_TYPE_LEFT_CONV:
-        imcb_buddy_typing(sd->ic, sm->steamid, 0);
+        imcb_buddy_typing(sd->ic, sm->ss->steamid, 0);
         return;
 
     case STEAM_MESSAGE_TYPE_RELATIONSHIP:
         goto relationship;
 
-    case STEAM_MESSAGE_TYPE_STATE:
-        steam_api_summary(sd->api, sm->steamid, steam_summaries, sd);
-        return;
-
     case STEAM_MESSAGE_TYPE_TYPING:
-        bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
+        bu = imcb_buddy_by_handle(sd->ic, sm->ss->steamid);
 
         if (G_UNLIKELY(bu == NULL))
             return;
 
         f = (bu->flags & OPT_TYPING) ? 0 : OPT_TYPING;
-        imcb_buddy_typing(sd->ic, sm->steamid, f);
+        imcb_buddy_typing(sd->ic, sm->ss->steamid, f);
         return;
 
     default:
+        bu = imcb_buddy_by_handle(sd->ic, sm->ss->steamid);
+
+        if (G_UNLIKELY(bu == NULL))
+            return;
+
+        steam_buddy_status(sd, sm->ss, bu);
         return;
     }
 
 relationship:
-    bu = imcb_buddy_by_handle(sd->ic, sm->steamid);
-
-    switch (sm->fstate) {
+    switch (sm->ss->fstate) {
     case STEAM_FRIEND_STATE_REMOVE:
-        if (G_UNLIKELY(bu == NULL))
-            return;
-
-        imcb_log(sd->ic, "Removed `%s' from friends list", bu->nick);
-        imcb_remove_buddy(sd->ic, sm->steamid, NULL);
+        imcb_log(sd->ic, "Removed `%s' from friends list", sm->ss->nick);
+        imcb_remove_buddy(sd->ic, sm->ss->steamid, NULL);
         return;
 
     case STEAM_FRIEND_STATE_IGNORE:
-        if (G_UNLIKELY(bu == NULL))
-            return;
-
-        imcb_log(sd->ic, "Friendship invite from `%s' ignored", bu->nick);
-        imcb_remove_buddy(sd->ic, sm->steamid, NULL);
+        imcb_log(sd->ic, "Friendship invite from `%s' ignored", sm->ss->nick);
+        imcb_remove_buddy(sd->ic, sm->ss->steamid, NULL);
         return;
 
     case STEAM_FRIEND_STATE_REQUEST:
+        imcb_log(sd->ic, "Friendship invite from `%s'", sm->ss->nick);
+        return;
+
     case STEAM_FRIEND_STATE_ADD:
+        imcb_log(sd->ic, "Added `%s' to friends list", sm->ss->nick);
+
+        imcb_add_buddy(sd->ic, sm->ss->steamid, NULL);
+        imcb_buddy_nick_hint(sd->ic, sm->ss->steamid, sm->ss->nick);
+        imcb_rename_buddy(sd->ic, sm->ss->steamid, sm->ss->fullname);
+
+        bu = imcb_buddy_by_handle(sd->ic, sm->ss->steamid);
+        steam_buddy_status(sd, sm->ss, bu);
+        return;
+
     case STEAM_FRIEND_STATE_REQUESTED:
-        f = 0;
-
-        if (G_LIKELY(bu == NULL)) {
-            imcb_add_buddy(sd->ic, sm->steamid, NULL);
-            bu  = imcb_buddy_by_handle(sd->ic, sm->steamid);
-            f  |= STEAM_FRIEND_FLAG_PENDING;
-        }
-
-        frnd = bu->data;
-        frnd->flags |= f;
-        frnd->state  = sm->fstate;
-
-        steam_api_summary(sd->api, sm->steamid, steam_summaries, sd);
+        imcb_log(sd->ic, "Friendship invitation sent to `%s'", sm->ss->nick);
         return;
 
     default:
@@ -289,8 +255,10 @@ static void steam_auth(SteamApi *api, GError *err, gpointer data)
 static void steam_friends(SteamApi *api, GSList *friends, GError *err,
                           gpointer data)
 {
-    SteamData *sd = data;
-    GSList    *fl;
+    SteamData    *sd = data;
+    SteamSummary *ss;
+    GSList       *l;
+    bee_user_t   *bu;
 
     if (err != NULL) {
         imcb_error(sd->ic, "%s", err->message);
@@ -298,10 +266,22 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err,
         return;
     }
 
-    for (fl = friends; fl != NULL; fl = fl->next)
-        imcb_add_buddy(sd->ic, fl->data, NULL);
+    imcb_connected(sd->ic);
 
-    steam_api_summaries(api, friends, steam_summaries, sd);
+    for (l = friends; l != NULL; l = l->next) {
+        ss = l->data;
+
+        imcb_add_buddy(sd->ic, ss->steamid, NULL);
+        imcb_buddy_nick_hint(sd->ic, ss->steamid, ss->nick);
+        imcb_rename_buddy(sd->ic, ss->steamid, ss->fullname);
+
+        bu = bee_user_by_handle(sd->ic->bee, sd->ic, ss->steamid);
+
+        if (G_LIKELY(bu != NULL))
+            steam_buddy_status(sd, ss, bu);
+    }
+
+    steam_api_poll(api, steam_poll, sd);
 }
 
 static void steam_key(SteamApi *api, GError *err, gpointer data)
@@ -403,47 +383,16 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
     imc_logout(sd->ic, TRUE);
 }
 
-static void steam_summaries(SteamApi *api, GSList *summaries, GError *err,
-                            gpointer data)
-{
-    SteamData    *sd = data;
-    SteamSummary *ss;
-    bee_user_t   *bu;
-    GSList       *l;
-
-    if (err != NULL) {
-        imcb_error(sd->ic, "%s", err->message);
-        imc_logout(sd->ic, TRUE);
-        return;
-    }
-
-    if (!(sd->ic->flags & OPT_LOGGED_IN)) {
-        imcb_connected(sd->ic);
-        steam_api_poll(api, steam_poll, sd);
-    }
-
-    for (l = summaries; l != NULL; l = l->next) {
-        ss = l->data;
-        bu = bee_user_by_handle(sd->ic->bee, sd->ic, ss->steamid);
-
-        if (G_LIKELY(bu != NULL))
-            steam_buddy_status(sd, ss, bu);
-    }
-}
-
-static void steam_summary(SteamApi *api, GSList *summaries, GError *err,
+static void steam_summary(SteamApi *api, SteamSummary *ss, GError *err,
                           gpointer data)
 {
     SteamData    *sd = data;
-    SteamSummary *ss;
 
     if (err != NULL) {
         imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
         return;
     }
-
-    ss = summaries->data;
 
     if (ss->nick != NULL)
         imcb_log(sd->ic, "Name:      %s", ss->nick);
@@ -633,13 +582,11 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
     SteamData    *sd = ic->proto_data;
-    SteamMessage  sm;
+    SteamMessage *sm;
 
-    memset(&sm, 0, sizeof sm);
-
-    sm.type    = STEAM_MESSAGE_TYPE_SAYTEXT;
-    sm.steamid = to;
-    sm.text    = message;
+    sm = steam_message_new(to);
+    sm->type = STEAM_MESSAGE_TYPE_SAYTEXT;
+    sm->text = g_strdup(message);
 
     /* As of January 23, 2013, Valve has disabled support for /me. It
      * was disabled as it "allowed some users to modify the color of
@@ -653,28 +600,29 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
         if (strlen(message) < 5)
             return 0;
 
-        sm.type = STEAM_MESSAGE_TYPE_EMOTE;
-        sm.text = message + 4;
+        sm->type = STEAM_MESSAGE_TYPE_EMOTE;
+        sm->text = g_strdup(message + 4);
     } else {
-        sm.type = STEAM_MESSAGE_TYPE_SAYTEXT;
-        sm.text = message;
+        sm->type = STEAM_MESSAGE_TYPE_SAYTEXT;
+        sm->text = g_strdup(message);
     }
     */
 
-    steam_api_message(sd->api, &sm, steam_message, sd);
+    steam_api_message(sd->api, sm, steam_message, sd);
+    steam_message_free(sm);
     return 0;
 }
 
 static int steam_send_typing(struct im_connection *ic, char *who, int flags)
 {
     SteamData    *sd = ic->proto_data;
-    SteamMessage  sm;
+    SteamMessage *sm;
 
-    memset(&sm, 0, sizeof sm);
-    sm.type    = STEAM_MESSAGE_TYPE_TYPING;
-    sm.steamid = who;
+    sm = steam_message_new(who);
+    sm->type = STEAM_MESSAGE_TYPE_TYPING;
 
-    steam_api_message(sd->api, &sm, steam_message, sd);
+    steam_api_message(sd->api, sm, steam_message, sd);
+    steam_message_free(sm);
     return 0;
 }
 
