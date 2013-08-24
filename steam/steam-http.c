@@ -414,12 +414,17 @@ static void steam_http_req_cb(struct http_request *request)
     }
 #endif /* DEBUG */
 
-    if (request->status_code != 200) {
+    switch (request->status_code) {
+    case 200:
+    case 301:
+    case 302:
+    case 303:
+    case 307:
+        break;
+
+    default:
         g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
                     "%s", request->status_string);
-    } else if (req->body_size < 1) {
-        g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
-                    "Empty reply");
     }
 
     b_event_remove(req->wid);
@@ -551,14 +556,17 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
     g_free(hs);
     g_free(str);
 
-    if (req->request != NULL) {
-        req->wid = b_timeout_add(STEAM_HTTP_TIMEOUT_ERROR,
-                                 steam_http_req_watch, req);
+    if (req->request == NULL) {
+        g_set_error(&req->err, STEAM_HTTP_ERROR, 0, "Failed to init request");
+        steam_http_req_done(req);
         return;
     }
 
-    g_set_error(&req->err, STEAM_HTTP_ERROR, 0, "Failed to init request");
-    steam_http_req_done(req);
+    req->wid = b_timeout_add(STEAM_HTTP_TIMEOUT_ERROR, steam_http_req_watch,
+                             req);
+
+    /* Prevent automatic redirection */
+    req->request->redir_ttl = 0;
 }
 
 static void steam_http_req_queue(SteamHttp *http, gboolean force)

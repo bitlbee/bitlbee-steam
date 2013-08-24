@@ -108,3 +108,81 @@ gboolean steam_json_scmp(const json_value *json, const gchar *name,
 
     return ((match != NULL) && (g_ascii_strcasecmp(match, *str) == 0));
 }
+
+static void steam_json_tree_prop(GTree *tree, gchar *key,
+                                 const json_value *json)
+{
+    json_value *jv;
+    gchar      *val;
+    gchar      *cval;
+    gsize       i;
+
+    switch (json->type) {
+    case json_object:
+        for (i = 0; i < json->u.object.length; i++) {
+            key = json->u.object.values[i].name;
+            jv  = json->u.object.values[i].value;
+            steam_json_tree_prop(tree, key, jv);
+        }
+        return;
+
+    case json_array:
+        for (i = 0; i < json->u.array.length; i++) {
+            jv = json->u.array.values[i];
+            steam_json_tree_prop(tree, key, jv);
+        }
+        return;
+
+    case json_integer:
+        val = g_strdup_printf("%lld", json->u.integer);
+        break;
+
+    case json_double:
+        val = g_strdup_printf("%f", json->u.dbl);
+        break;
+
+    case json_string:
+        val = g_strdup(json->u.string.ptr);
+        break;
+
+    case json_boolean:
+        val = g_strdup(json->u.boolean ? "true" : "false");
+        break;
+
+    case json_null:
+        val = g_strdup("null");
+        break;
+
+    default:
+        return;
+    }
+
+    if (key == NULL)
+        return;
+
+    cval = g_tree_lookup(tree, key);
+
+    if (cval != NULL) {
+        cval = g_strdup_printf("%s,%s", cval, val);
+        g_free(val);
+        val = cval;
+    }
+
+    key = g_strdup(key);
+    g_tree_replace(tree, key, val);
+}
+
+GTree *steam_json_tree(const json_value *json)
+{
+    GTree *tree;
+
+    g_return_val_if_fail(json != NULL, NULL);
+
+    tree = g_tree_new_full((GCompareDataFunc) g_ascii_strcasecmp,
+                           NULL, g_free, g_free);
+
+    if (json->type == json_object)
+        steam_json_tree_prop(tree, NULL, json);
+
+    return tree;
+}

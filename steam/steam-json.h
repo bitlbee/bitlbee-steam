@@ -47,4 +47,6 @@ gboolean steam_json_str(const json_value *json, const gchar *name,
 gboolean steam_json_scmp(const json_value *json, const gchar *name,
                          const gchar *match, const gchar **str);
 
+GTree *steam_json_tree(const json_value *json);
+
 #endif /* _STEAM_JSON_H */

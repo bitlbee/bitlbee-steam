@@ -31,12 +31,19 @@ typedef void (*SteamParseFunc) (SteamApiPriv *priv, json_value *json);
 enum _SteamApiFlags
 {
     STEAM_API_FLAG_NOCALL = 1 << 0,
-    STEAM_API_FLAG_NOFREE = 1 << 1
+    STEAM_API_FLAG_NOFREE = 1 << 1,
+    STEAM_API_FLAG_NOJSON = 1 << 2
 };
 
 enum _SteamApiType
 {
     STEAM_API_TYPE_AUTH = 0,
+    STEAM_API_TYPE_AUTH_RDIR,
+    STEAM_API_TYPE_FRIEND_ACCEPT,
+    STEAM_API_TYPE_FRIEND_ADD,
+    STEAM_API_TYPE_FRIEND_IGNORE,
+    STEAM_API_TYPE_FRIEND_REMOVE,
+    STEAM_API_TYPE_FRIEND_SEARCH,
     STEAM_API_TYPE_FRIENDS,
     STEAM_API_TYPE_KEY,
     STEAM_API_TYPE_LOGOFF,
@@ -66,6 +73,7 @@ struct _SteamApiPriv
     SteamHttpReq *req;
 };
 
+static void steam_api_auth_rdir(SteamApiPriv *priv, GTree *params);
 static void steam_api_summaries(SteamApiPriv *priv);
 static const gchar *steam_api_type_str(SteamApiType type);
 static SteamMessageType steam_message_type_from_str(const gchar *type);
@@ -109,10 +117,27 @@ void steam_api_free(SteamApi *api)
 
     steam_http_free(api->http);
 
+    g_free(api->sessid);
     g_free(api->token);
     g_free(api->umqid);
     g_free(api->steamid);
     g_free(api);
+}
+
+void steam_api_refresh(SteamApi *api)
+{
+    gchar *str;
+
+    g_return_if_fail(api != NULL);
+
+    str = g_strdup_printf("%s||oauth:%s", api->steamid, api->token);
+
+    steam_http_cookies_set(api->http, 2,
+        "steamLogin", str,
+        "sessionid",  api->sessid
+    );
+
+    g_free(str);
 }
 
 SteamMessage *steam_message_new(const gchar *steamid)
@@ -153,7 +178,6 @@ void steam_summary_free(SteamSummary *ss)
 
     g_free(ss->server);
     g_free(ss->game);
-    g_free(ss->profile);
     g_free(ss->fullname);
     g_free(ss->nick);
     g_free(ss->steamid);
@@ -173,9 +197,6 @@ static void steam_summary_json(SteamSummary *ss, json_value *json)
 
     steam_json_str(json, "personaname", &str);
     ss->nick = g_strdup(str);
-
-    steam_json_str(json, "profileurl", &str);
-    ss->profile = g_strdup(str);
 
     steam_json_str(json, "realname", &str);
     ss->fullname = g_strdup(str);
@@ -222,6 +243,7 @@ static void steam_api_priv_func(SteamApiPriv *priv)
 
     switch (priv->type) {
     case STEAM_API_TYPE_AUTH:
+    case STEAM_API_TYPE_AUTH_RDIR:
     case STEAM_API_TYPE_KEY:
     case STEAM_API_TYPE_LOGOFF:
     case STEAM_API_TYPE_LOGON:
@@ -230,6 +252,15 @@ static void steam_api_priv_func(SteamApiPriv *priv)
         ((SteamApiFunc) priv->func)(priv->api, priv->err, priv->data);
         return;
 
+    case STEAM_API_TYPE_FRIEND_ACCEPT:
+    case STEAM_API_TYPE_FRIEND_ADD:
+    case STEAM_API_TYPE_FRIEND_IGNORE:
+    case STEAM_API_TYPE_FRIEND_REMOVE:
+        ((SteamIDFunc) priv->func)(priv->api, priv->rdata, priv->err,
+                                   priv->data);
+        return;
+
+    case STEAM_API_TYPE_FRIEND_SEARCH:
     case STEAM_API_TYPE_FRIENDS:
     case STEAM_API_TYPE_POLL:
         ((SteamListFunc) priv->func)(priv->api, priv->rdata, priv->err,
@@ -261,6 +292,7 @@ static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
 {
     SteamApiError  err;
     const gchar   *str;
+    GTree         *prms;
 
     if (steam_json_str(json, "captcha_gid", &str))
         steam_auth_captcha(priv->api->auth, str);
@@ -297,11 +329,115 @@ static void steam_api_auth_cb(SteamApiPriv *priv, json_value *json)
     if (!steam_json_str(json, "oauth_token", &str)) {
         g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to obtain OAuth token");
+        goto finish;
     }
 
     g_free(priv->api->token);
     priv->api->token = g_strdup(str);
+
+    prms = steam_json_tree(json);
+    priv->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
+    steam_api_auth_rdir(priv, prms);
+    g_tree_destroy(prms);
+
+finish:
     json_value_free(json);
+}
+
+static void steam_api_auth_rdir_cb(SteamApiPriv *priv, json_value *json)
+{
+    const gchar *str;
+
+    steam_http_cookies_parse_req(priv->api->http, priv->req);
+    str = g_tree_lookup(priv->api->http->cookies, "sessionid");
+
+    if (str == NULL) {
+        g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
+                    "Failed to obtain OAuth session ID");
+        return;
+    }
+
+    g_free(priv->api->sessid);
+    priv->api->sessid = g_strdup(str);
+}
+
+static void steam_api_friend_accept_cb(SteamApiPriv *priv, json_value *json)
+{
+    const gchar *str;
+
+    if (!steam_json_scmp(json, "error_text", "", &str))
+        return;
+
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_ACCEPT,
+                str);
+}
+
+static void steam_api_friend_add_cb(SteamApiPriv *priv, json_value *json)
+{
+    json_value *jv;
+
+    if (!steam_json_val(json, "failed_invites_result", json_array, &jv))
+        return;
+
+    if (jv->u.array.length < 1)
+        return;
+
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_ADD,
+                "Failed to add friend");
+}
+
+static void steam_api_friend_ignore_cb(SteamApiPriv *priv, json_value *json)
+{
+
+}
+
+static void steam_api_friend_remove_cb(SteamApiPriv *priv, json_value *json)
+{
+    if ((priv->req->body_size > 0) && bool2int(priv->req->body))
+        return;
+
+    g_set_error(&priv->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_REMOVE,
+                "Failed to remove friend");
+}
+
+static void steam_api_friend_search_free(GSList *results)
+{
+    g_slist_free_full(results, (GDestroyNotify) steam_summary_free);
+}
+
+static void steam_api_friend_search_cb(SteamApiPriv *priv, json_value *json)
+{
+    json_value   *jv;
+    json_value   *je;
+    GSList       *results;
+    SteamSummary *ss;
+    const gchar  *str;
+    guint         i;
+
+    if (!steam_json_val(json, "results", json_array, &jv))
+        return;
+
+    results = NULL;
+
+    for (i = 0; i < jv->u.array.length; i++) {
+        je = jv->u.array.values[i];
+
+        if (!steam_json_scmp(je, "type", "user", &str))
+            continue;
+
+        if (!steam_json_str(je, "steamid", &str))
+            continue;
+
+        ss = steam_summary_new(str);
+
+        steam_json_str(je, "matchingtext", &str);
+        ss->nick = g_strdup(str);
+
+        results = g_slist_prepend(results, ss);
+    }
+
+    priv->rdata = g_slist_reverse(results);
+    priv->rfunc = (GDestroyNotify) steam_api_friend_search_free;
 }
 
 static void steam_api_friends_free(GSList *friends)
@@ -311,12 +447,13 @@ static void steam_api_friends_free(GSList *friends)
 
 static void steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
 {
-    json_value   *jv;
-    json_value   *je;
-    GSList       *friends;
-    SteamSummary *ss;
-    const gchar  *str;
-    guint         i;
+    json_value        *jv;
+    json_value        *je;
+    GSList            *friends;
+    SteamSummary      *ss;
+    SteamRelationship  rlat;
+    const gchar       *str;
+    guint              i;
 
     if (!steam_json_val(json, "friends", json_array, &jv))
         return;
@@ -326,13 +463,24 @@ static void steam_api_friends_cb(SteamApiPriv *priv, json_value *json)
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (!steam_json_scmp(je, "relationship", "friend", &str))
+        steam_json_str(je, "relationship", &str);
+
+        if (str == NULL)
+            continue;
+
+        if (g_ascii_strcasecmp(str, "friend") == 0)
+            rlat = STEAM_RELATIONSHIP_FRIEND;
+        else if (g_ascii_strcasecmp(str, "ignoredfriend") == 0)
+            rlat = STEAM_RELATIONSHIP_IGNORE;
+        else
             continue;
 
         if (!steam_json_str(je, "steamid", &str))
             continue;
 
-        ss         = steam_summary_new(str);
+        ss = steam_summary_new(str);
+        ss->relation = rlat;
+
         friends    = g_slist_prepend(friends, ss);
         priv->sums = g_list_prepend(priv->sums, ss);
     }
@@ -588,37 +736,42 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     json_value   *json;
 
     static const SteamParseFunc saf[STEAM_API_TYPE_LAST] = {
-        [STEAM_API_TYPE_AUTH]    = steam_api_auth_cb,
-        [STEAM_API_TYPE_FRIENDS] = steam_api_friends_cb,
-        [STEAM_API_TYPE_KEY]     = steam_api_key_cb,
-        [STEAM_API_TYPE_LOGOFF]  = steam_api_logoff_cb,
-        [STEAM_API_TYPE_LOGON]   = steam_api_logon_cb,
-        [STEAM_API_TYPE_RELOGON] = steam_api_relogon_cb,
-        [STEAM_API_TYPE_MESSAGE] = steam_api_message_cb,
-        [STEAM_API_TYPE_POLL]    = steam_api_poll_cb,
-        [STEAM_API_TYPE_SUMMARY] = steam_api_summary_cb
+        [STEAM_API_TYPE_AUTH]          = steam_api_auth_cb,
+        [STEAM_API_TYPE_AUTH_RDIR]     = steam_api_auth_rdir_cb,
+        [STEAM_API_TYPE_FRIEND_ACCEPT] = steam_api_friend_accept_cb,
+        [STEAM_API_TYPE_FRIEND_ADD]    = steam_api_friend_add_cb,
+        [STEAM_API_TYPE_FRIEND_IGNORE] = steam_api_friend_ignore_cb,
+        [STEAM_API_TYPE_FRIEND_REMOVE] = steam_api_friend_remove_cb,
+        [STEAM_API_TYPE_FRIEND_SEARCH] = steam_api_friend_search_cb,
+        [STEAM_API_TYPE_FRIENDS]       = steam_api_friends_cb,
+        [STEAM_API_TYPE_KEY]           = steam_api_key_cb,
+        [STEAM_API_TYPE_LOGOFF]        = steam_api_logoff_cb,
+        [STEAM_API_TYPE_LOGON]         = steam_api_logon_cb,
+        [STEAM_API_TYPE_RELOGON]       = steam_api_relogon_cb,
+        [STEAM_API_TYPE_MESSAGE]       = steam_api_message_cb,
+        [STEAM_API_TYPE_POLL]          = steam_api_poll_cb,
+        [STEAM_API_TYPE_SUMMARY]       = steam_api_summary_cb
     };
 
     if ((priv->type < 0) || (priv->type > STEAM_API_TYPE_LAST))
         return;
 
+    json = NULL;
+
     if (req->err != NULL) {
         g_propagate_error(&priv->err, req->err);
         req->err = NULL;
-        json = NULL;
-        goto parse;
+    } else if (!(priv->flags & STEAM_API_FLAG_NOJSON)) {
+        json = steam_json_new(req->body, &priv->err);
     }
 
-    json = steam_json_new(req->body, &priv->err);
-
-parse:
-    if ((priv->err == NULL) && (json != NULL)) {
+    if (priv->err == NULL) {
         if (priv->sums == NULL) {
             saf[priv->type](priv, json);
 
             if (priv->sums != NULL)
                 steam_api_summaries(priv);
-        } else {
+        } else if (json != NULL) {
             steam_api_summaries_cb(priv, json);
         }
     }
@@ -703,6 +856,164 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
     g_free(ms);
 }
 
+static gboolean steam_api_params(gchar *key, gchar *val, SteamHttpReq *req)
+{
+    steam_http_req_params_set(req, 1, key, val);
+    return FALSE;
+}
+
+static void steam_api_auth_rdir(SteamApiPriv *priv, GTree *params)
+{
+    steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_AUTH_RDIR);
+    g_tree_foreach(params, (GTraverseFunc) steam_api_params, priv->req);
+
+    priv->type        = STEAM_API_TYPE_AUTH_RDIR;
+    priv->flags      |= STEAM_API_FLAG_NOJSON;
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
+}
+
+void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
+                             const gchar *action, SteamIDFunc func,
+                             gpointer data)
+{
+    SteamApiPriv *priv;
+    gchar        *url;
+
+    g_return_if_fail(api != NULL);
+
+    url  = g_strdup_printf("%s%s/home_process", STEAM_COM_PATH_PROFILE,
+                           api->steamid);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_ACCEPT, func, data);
+    steam_api_priv_req(priv, STEAM_COM_HOST, url);
+
+    steam_http_req_params_set(priv->req, 7,
+        "sessionID", api->sessid,
+        "id",        steamid,
+        "perform",   action,
+        "action",    "approvePending",
+        "itype",     "friend",
+        "json",      "1",
+        "xml",       "0"
+    );
+
+    priv->rdata = g_strdup(steamid);
+    priv->rfunc = g_free;
+
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
+    g_free(url);
+}
+
+void steam_api_friend_add(SteamApi *api, const gchar *steamid,
+                          SteamIDFunc func, gpointer data)
+{
+    SteamApiPriv *priv;
+
+    g_return_if_fail(api != NULL);
+
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_ADD, func, data);
+    steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_ADD);
+
+    steam_http_req_params_set(priv->req, 2,
+        "sessionID", api->sessid,
+        "steamid",   steamid
+    );
+
+    priv->rdata = g_strdup(steamid);
+    priv->rfunc = g_free;
+
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
+}
+
+void steam_api_friend_ignore(SteamApi *api, const gchar *steamid,
+                             gboolean ignore, SteamIDFunc func,
+                             gpointer data)
+{
+    SteamApiPriv *priv;
+    const gchar  *act;
+    gchar        *frnd;
+    gchar        *url;
+
+    g_return_if_fail(api != NULL);
+
+    act  = ignore ? "ignore" : "unignore";
+    frnd = g_strdup_printf("friends[%s]", steamid);
+    url  = g_strdup_printf("%s%s/friends/", STEAM_COM_PATH_PROFILE,
+                           api->steamid);
+
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_IGNORE, func, data);
+    steam_api_priv_req(priv, STEAM_COM_HOST, url);
+
+    steam_http_req_params_set(priv->req, 3,
+        "sessionID", api->sessid,
+        "action",    act,
+        frnd,        "1"
+    );
+
+    priv->rdata = g_strdup(steamid);
+    priv->rfunc = g_free;
+
+    priv->flags      |= STEAM_API_FLAG_NOJSON;
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
+
+    g_free(url);
+    g_free(frnd);
+}
+
+void steam_api_friend_remove(SteamApi *api, const gchar *steamid,
+                             SteamIDFunc func, gpointer data)
+{
+    SteamApiPriv *priv;
+
+    g_return_if_fail(api != NULL);
+
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_REMOVE, func, data);
+    steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_REMOVE);
+
+    steam_http_req_params_set(priv->req, 2,
+        "sessionID", api->sessid,
+        "steamid",   steamid
+    );
+
+    priv->rdata = g_strdup(steamid);
+    priv->rfunc = g_free;
+
+    priv->flags      |= STEAM_API_FLAG_NOJSON;
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
+}
+
+void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
+                             SteamListFunc func, gpointer data)
+{
+    SteamApiPriv *priv;
+    gchar        *scnt;
+    gchar        *str;
+
+    g_return_if_fail(api != NULL);
+
+    str  = g_strdup_printf("\"%s\"", search);
+    scnt = g_strdup_printf("%u", count);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_SEARCH, func, data);
+    steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_FRIEND_SEARCH);
+
+    steam_http_req_params_set(priv->req, 6,
+        "access_token", api->token,
+        "keywords",     str,
+        "count",        scnt,
+        "offset",       "0",
+        "fields",       "all",
+        "targets",      "users"
+    );
+
+    steam_http_req_send(priv->req);
+    g_free(scnt);
+    g_free(str);
+}
+
 void steam_api_friends(SteamApi *api, SteamListFunc func, gpointer data)
 {
     SteamApiPriv *priv;
@@ -715,7 +1026,7 @@ void steam_api_friends(SteamApi *api, SteamListFunc func, gpointer data)
     steam_http_req_params_set(priv->req, 3,
         "access_token", api->token,
         "steamid",      api->steamid,
-        "relationship", "friend"
+        "relationship", "friend,ignoredfriend"
     );
 
     steam_http_req_send(priv->req);
@@ -922,18 +1233,30 @@ void steam_api_summary(SteamApi *api, const gchar *steamid,
     steam_http_req_send(priv->req);
 }
 
+gchar *steam_api_profile_url(const gchar *steamid)
+{
+    return g_strdup_printf("https://%s%s%s/", STEAM_COM_HOST,
+                           STEAM_COM_PATH_PROFILE, steamid);
+}
+
 static const gchar *steam_api_type_str(SteamApiType type)
 {
     static const gchar *strs[STEAM_API_TYPE_LAST] = {
-        [STEAM_API_TYPE_AUTH]    = "Authentication",
-        [STEAM_API_TYPE_FRIENDS] = "Friends",
-        [STEAM_API_TYPE_KEY]     = "Key",
-        [STEAM_API_TYPE_LOGON]   = "Logon",
-        [STEAM_API_TYPE_RELOGON] = "Relogon",
-        [STEAM_API_TYPE_LOGOFF]  = "Logoff",
-        [STEAM_API_TYPE_MESSAGE] = "Message",
-        [STEAM_API_TYPE_POLL]    = "Polling",
-        [STEAM_API_TYPE_SUMMARY] = "Summary"
+        [STEAM_API_TYPE_AUTH]          = "Authentication",
+        [STEAM_API_TYPE_AUTH_RDIR]     = "Authentication (redirect)",
+        [STEAM_API_TYPE_FRIEND_ACCEPT] = "Friend Acceptance",
+        [STEAM_API_TYPE_FRIEND_ADD]    = "Friend Addition",
+        [STEAM_API_TYPE_FRIEND_IGNORE] = "Friend Ignore",
+        [STEAM_API_TYPE_FRIEND_REMOVE] = "Friend Removal",
+        [STEAM_API_TYPE_FRIEND_SEARCH] = "Friend Search",
+        [STEAM_API_TYPE_FRIENDS]       = "Friends",
+        [STEAM_API_TYPE_KEY]           = "Key",
+        [STEAM_API_TYPE_LOGON]         = "Logon",
+        [STEAM_API_TYPE_RELOGON]       = "Relogon",
+        [STEAM_API_TYPE_LOGOFF]        = "Logoff",
+        [STEAM_API_TYPE_MESSAGE]       = "Message",
+        [STEAM_API_TYPE_POLL]          = "Polling",
+        [STEAM_API_TYPE_SUMMARY]       = "Summary"
     };
 
     if ((type < 0) || (type > STEAM_API_TYPE_LAST))
