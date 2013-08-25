@@ -142,14 +142,17 @@ static void steam_poll_p(SteamData *sd, SteamMessage *sm)
     switch (sm->type) {
     case STEAM_MESSAGE_TYPE_EMOTE:
     case STEAM_MESSAGE_TYPE_SAYTEXT:
+        bu = imcb_buddy_by_handle(sd->ic, sm->ss->steamid);
+
+        if ((bu != NULL) && (bu->flags & OPT_TYPING))
+            imcb_buddy_typing(sd->ic, sm->ss->steamid, 0);
+
         if (sm->type == STEAM_MESSAGE_TYPE_EMOTE)
             str = g_strconcat("/me ", sm->text, NULL);
         else
             str = g_strdup(sm->text);
 
         imcb_buddy_msg(sd->ic, sm->ss->steamid, str, 0, sm->tstamp);
-        imcb_buddy_typing(sd->ic, sm->ss->steamid, 0);
-
         g_free(str);
         return;
 
