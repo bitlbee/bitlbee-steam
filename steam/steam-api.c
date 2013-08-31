@@ -682,6 +682,9 @@ static void steam_api_summaries_cb(SteamApiPriv *priv, json_value *json)
     if (!steam_json_val(json, "players", json_array, &jv))
         return;
 
+    if (jv->u.array.length < 1)
+        return;
+
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
