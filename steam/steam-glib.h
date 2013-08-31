@@ -20,6 +20,14 @@
 
 #include <glib.h>
 
+#ifndef g_hash_table_add
+void g_hash_table_add(GHashTable *hash_table, gpointer key);
+#endif
+
+#ifndef g_hash_table_contains
+gboolean g_hash_table_contains(GHashTable *hash_table, gconstpointer key);
+#endif
+
 #ifndef g_prefix_error
 void g_prefix_error(GError **err, const gchar *format, ...);
 #endif

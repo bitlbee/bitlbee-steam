@@ -20,6 +20,22 @@
 
 #include "steam-glib.h"
 
+#ifndef g_hash_table_add
+/* Compatibility with glib < 2.32 */
+void g_hash_table_add(GHashTable *hash_table, gpointer key)
+{
+    g_hash_table_replace(hash_table, key, key);
+}
+#endif
+
+#ifndef g_hash_table_contains
+/* Compatibility with glib < 2.32 */
+gboolean g_hash_table_contains(GHashTable *hash_table, gconstpointer key)
+{
+    return (g_hash_table_lookup(hash_table, key) != NULL);
+}
+#endif
+
 #ifndef g_prefix_error
 /* Compatibility with glib < 2.16 */
 void g_prefix_error(GError **err, const gchar *format, ...)
