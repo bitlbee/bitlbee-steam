@@ -45,6 +45,7 @@ SteamData *steam_data_new(account_t *acc)
     sd->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sd->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sd->api->sessid  = g_strdup(set_getstr(&acc->set, "sessid"));
+    sd->lstamp       = set_getint(&acc->set, "tstamp");
     sd->game_status  = set_getbool(&acc->set, "game_status");
 
     str = set_getstr(&acc->set, "show_playing");
@@ -248,6 +249,26 @@ static void steam_auth(SteamApi *api, GError *err, gpointer data)
     imc_logout(sd->ic, FALSE);
 }
 
+static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
+                          gpointer data)
+{
+    SteamData    *sd = data;
+    SteamMessage *sm;
+    GSList       *l;
+
+    if (err != NULL) {
+        imcb_error(sd->ic, "%s", err->message);
+        return;
+    }
+
+    for (l = messages; l != NULL; l = l->next) {
+        sm = l->data;
+
+        if (sm->tstamp > sd->lstamp)
+            steam_poll_p(sd, sm);
+    }
+}
+
 static void steam_friend_action(SteamApi *api, gchar *steamid, GError *err,
                                 gpointer data)
 {
@@ -346,6 +367,8 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err,
             sd->ic->deny = g_slist_prepend(sd->ic->deny, g_strdup(bu->handle));
             break;
         }
+
+        steam_api_chatlog(api, ss->steamid, steam_chatlog, sd);
     }
 
     steam_api_poll(api, steam_poll, sd);
@@ -391,6 +414,10 @@ static void steam_logon(SteamApi *api, GError *err, gpointer data)
     }
 
     acc = sd->ic->acc;
+    sd->tstamp = api->tstamp;
+
+    if (sd->lstamp < 1)
+        sd->lstamp = api->tstamp;
 
     set_setstr(&acc->set, "steamid", api->steamid);
     set_setstr(&acc->set, "umqid",   api->umqid);
@@ -430,24 +457,30 @@ static void steam_message(SteamApi *api, GError *err, gpointer data)
 static void steam_poll(SteamApi *api, GSList *messages, GError *err,
                        gpointer data)
 {
-    SteamData *sd = data;
-    GSList    *l;
+    SteamData    *sd = data;
+    SteamMessage *sm;
+    GSList       *l;
 
-    if (err == NULL) {
-        for (l = messages; l != NULL; l = l->next)
-            steam_poll_p(sd, l->data);
+    if (err != NULL) {
+        if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
+            steam_api_relogon(api, steam_relogon, sd);
+            return;
+        }
 
-        steam_api_poll(api, steam_poll, sd);
-        return;
+        imcb_error(sd->ic, "%s", err->message);
+        imc_logout(sd->ic, TRUE);
     }
 
-    if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
-        steam_api_relogon(api, steam_relogon, sd);
-        return;
+    for (l = messages; l != NULL; l = l->next)
+        steam_poll_p(sd, l->data);
+
+    if (messages != NULL) {
+        l  = g_slist_last(messages);
+        sm = l->data;
+        sd->tstamp = sm->tstamp;
     }
 
-    imcb_error(sd->ic, "%s", err->message);
-    imc_logout(sd->ic, TRUE);
+    steam_api_poll(api, steam_poll, sd);
 }
 
 static void steam_summary(SteamApi *api, SteamSummary *ss, GError *err,
@@ -615,6 +648,9 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "sessid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_PASSWORD;
 
+    s = set_add(&acc->set, "tstamp", NULL, set_eval_int, acc);
+    s->flags = SET_NULL_OK | SET_HIDDEN;
+
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;
 
@@ -652,13 +688,14 @@ static void steam_logout(struct im_connection *ic)
 {
     SteamData *sd = ic->proto_data;
 
-    if (!(ic->flags & OPT_LOGGED_IN)) {
-        steam_data_free(sd);
-        return;
-    }
-
     steam_http_free_reqs(sd->api->http);
-    steam_api_logoff(sd->api, steam_logoff, sd);
+    set_setint(&ic->acc->set, "tstamp", sd->tstamp);
+    storage_save(ic->acc->bee->ui_data, NULL, TRUE);
+
+    if (ic->flags & OPT_LOGGED_IN)
+        steam_api_logoff(sd->api, steam_logoff, sd);
+    else
+        steam_data_free(sd);
 }
 
 static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,

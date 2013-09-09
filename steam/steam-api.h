@@ -22,11 +22,12 @@
 #include "steam-friend.h"
 #include "steam-http.h"
 
-#define STEAM_API_HOST        "api.steampowered.com"
-#define STEAM_COM_HOST        "steamcommunity.com"
-#define STEAM_API_AGENT       "Steam App / " PACKAGE " / " PACKAGE_VERSION
-#define STEAM_API_CLIENT_ID   "DE45CD61" /* Public mobile client id */
-#define STEAM_API_KEEP_ALIVE  "15"       /* Max of 30 seconds */
+#define STEAM_API_HOST          "api.steampowered.com"
+#define STEAM_COM_HOST          "steamcommunity.com"
+#define STEAM_API_AGENT         "Steam App / " PACKAGE " / " PACKAGE_VERSION
+#define STEAM_API_CLIENT_ID     "DE45CD61" /* Public mobile client id */
+#define STEAM_API_KEEP_ALIVE    "15"       /* Max of 30 seconds */
+#define STEAM_API_STEAMID_START 76561197960265728
 
 #define STEAM_API_PATH_FRIEND_SEARCH "/ISteamUserOAuth/Search/v0001"
 #define STEAM_API_PATH_FRIENDS       "/ISteamUserOAuth/GetFriendList/v0001"
@@ -39,6 +40,7 @@
 #define STEAM_COM_PATH_AUTH          "/mobilelogin/dologin/"
 #define STEAM_COM_PATH_AUTH_RDIR     "/mobileloginsucceeded/"
 #define STEAM_COM_PATH_CAPTCHA       "/public/captcha.php"
+#define STEAM_COM_PATH_CHATLOG       "/chat/chatlog/"
 #define STEAM_COM_PATH_FRIEND_ADD    "/actions/AddFriendAjax/"
 #define STEAM_COM_PATH_FRIEND_BLOCK  "/actions/BlockUserAjax/"
 #define STEAM_COM_PATH_FRIEND_REMOVE "/actions/RemoveFriendAjax/"
@@ -135,7 +137,10 @@ struct _SteamApi
     gchar  *umqid;
     gchar  *token;
     gchar  *sessid;
-    gint64  lmid;
+
+    gint64 accid;
+    gint64 lmid;
+    gint64 tstamp;
 
     SteamHttp *http;
     SteamAuth *auth;
@@ -171,6 +176,10 @@ SteamApi *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamApi *api);
 
+gint64 steam_api_accountid(const gchar *steamid);
+
+gchar *steam_api_steamid(gint64 accid);
+
 void steam_api_refresh(SteamApi *api);
 
 SteamMessage *steam_message_new(const gchar *steamid);
@@ -184,6 +193,9 @@ void steam_summary_free(SteamSummary *ss);
 void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
                     const gchar *authcode, const gchar *captcha,
                     SteamApiFunc func, gpointer data);
+
+void steam_api_chatlog(SteamApi *api, const gchar *steamid, SteamListFunc func,
+                       gpointer data);
 
 void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
                              const gchar *action, SteamIDFunc func,

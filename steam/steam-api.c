@@ -39,6 +39,7 @@ enum _SteamApiType
 {
     STEAM_API_TYPE_AUTH = 0,
     STEAM_API_TYPE_AUTH_RDIR,
+    STEAM_API_TYPE_CHATLOG,
     STEAM_API_TYPE_FRIEND_ACCEPT,
     STEAM_API_TYPE_FRIEND_ADD,
     STEAM_API_TYPE_FRIEND_IGNORE,
@@ -124,12 +125,35 @@ void steam_api_free(SteamApi *api)
     g_free(api);
 }
 
+gint64 steam_api_accountid(const gchar *steamid)
+{
+    gint64 in;
+
+    g_return_val_if_fail(steamid != NULL, 0);
+
+    in  = g_ascii_strtoll(steamid, NULL, 10);
+    in -= STEAM_API_STEAMID_START;
+
+    return in;
+}
+
+gchar *steam_api_steamid(gint64 accid)
+{
+    gchar *str;
+
+    accid += STEAM_API_STEAMID_START;
+    str    = g_strdup_printf("%" G_GINT64_FORMAT, accid);
+
+    return str;
+}
+
 void steam_api_refresh(SteamApi *api)
 {
     gchar *str;
 
     g_return_if_fail(api != NULL);
 
+    api->accid = steam_api_accountid(api->steamid);
     str = g_strdup_printf("%s||oauth:%s", api->steamid, api->token);
 
     steam_http_cookies_set(api->http, 2,
@@ -260,6 +284,7 @@ static void steam_api_priv_func(SteamApiPriv *priv)
                                    priv->data);
         return;
 
+    case STEAM_API_TYPE_CHATLOG:
     case STEAM_API_TYPE_FRIEND_SEARCH:
     case STEAM_API_TYPE_FRIENDS:
     case STEAM_API_TYPE_POLL:
@@ -360,6 +385,49 @@ static void steam_api_auth_rdir_cb(SteamApiPriv *priv, json_value *json)
     g_free(priv->api->sessid);
     priv->api->sessid = g_strdup(str);
 }
+
+static void steam_api_chatlog_free(GSList *messages)
+{
+    g_slist_free_full(messages, (GDestroyNotify) steam_message_free);
+}
+
+static void steam_api_chatlog_cb(SteamApiPriv *priv, json_value *json)
+{
+    json_value   *jv;
+    GSList       *messages;
+    SteamMessage *sm;
+    const gchar  *str;
+    gint64        in;
+    gsize         i;
+
+    messages = NULL;
+
+    for (i = 0; i < json->u.array.length; i++) {
+        jv = json->u.array.values[i];
+
+        if (!steam_json_int(jv, "m_unAccountID", &in))
+            continue;
+
+        if (in == priv->api->accid)
+            continue;
+
+        sm = steam_message_new(NULL);
+        sm->type        = STEAM_MESSAGE_TYPE_SAYTEXT;
+        sm->ss->steamid = steam_api_steamid(in);
+
+        steam_json_str(jv, "m_strMessage",  &str);
+        sm->text = g_strdup(str);
+
+        steam_json_int(jv, "m_tsTimestamp", &in);
+        sm->tstamp = in;
+
+        messages = g_slist_prepend(messages, sm);
+    }
+
+    priv->rdata = g_slist_reverse(messages);
+    priv->rfunc = (GDestroyNotify) steam_api_chatlog_free;
+}
+
 
 static void steam_api_friend_accept_cb(SteamApiPriv *priv, json_value *json)
 {
@@ -531,6 +599,9 @@ static void steam_api_logon_cb(SteamApiPriv *priv, json_value *json)
 
     steam_json_int(json, "message", &in);
     priv->api->lmid = in;
+
+    steam_json_int(json, "utc_timestamp", &in);
+    priv->api->tstamp = in;
 
     if (!steam_json_scmp(json, "steamid", priv->api->steamid, &str)) {
         g_free(priv->api->steamid);
@@ -741,6 +812,7 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     static const SteamParseFunc saf[STEAM_API_TYPE_LAST] = {
         [STEAM_API_TYPE_AUTH]          = steam_api_auth_cb,
         [STEAM_API_TYPE_AUTH_RDIR]     = steam_api_auth_rdir_cb,
+        [STEAM_API_TYPE_CHATLOG]       = steam_api_chatlog_cb,
         [STEAM_API_TYPE_FRIEND_ACCEPT] = steam_api_friend_accept_cb,
         [STEAM_API_TYPE_FRIEND_ADD]    = steam_api_friend_add_cb,
         [STEAM_API_TYPE_FRIEND_IGNORE] = steam_api_friend_ignore_cb,
@@ -872,6 +944,30 @@ static void steam_api_auth_rdir(SteamApiPriv *priv, GTree *params)
 
     priv->type        = STEAM_API_TYPE_AUTH_RDIR;
     priv->flags      |= STEAM_API_FLAG_NOJSON;
+    priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(priv->req);
+}
+
+void steam_api_chatlog(SteamApi *api, const gchar *steamid, SteamListFunc func,
+                       gpointer data)
+{
+    SteamApiPriv *priv;
+    gchar        *path;
+    gint64        in;
+
+    g_return_if_fail(api != NULL);
+
+    in   = steam_api_accountid(steamid);
+    path = g_strdup_printf("%s%" G_GINT64_FORMAT, STEAM_COM_PATH_CHATLOG, in);
+    priv = steam_api_priv_new(api, STEAM_API_TYPE_CHATLOG, func, data);
+
+    steam_api_priv_req(priv, STEAM_COM_HOST, path);
+    g_free(path);
+
+    steam_http_req_params_set(priv->req, 1,
+        "sessionid", api->sessid
+    );
+
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(priv->req);
 }
@@ -1247,6 +1343,7 @@ static const gchar *steam_api_type_str(SteamApiType type)
     static const gchar *strs[STEAM_API_TYPE_LAST] = {
         [STEAM_API_TYPE_AUTH]          = "Authentication",
         [STEAM_API_TYPE_AUTH_RDIR]     = "Authentication (redirect)",
+        [STEAM_API_TYPE_CHATLOG]       = "ChatLog",
         [STEAM_API_TYPE_FRIEND_ACCEPT] = "Friend Acceptance",
         [STEAM_API_TYPE_FRIEND_ADD]    = "Friend Addition",
         [STEAM_API_TYPE_FRIEND_IGNORE] = "Friend Ignore",
