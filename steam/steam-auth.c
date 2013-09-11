@@ -162,9 +162,16 @@ gchar *steam_auth_key_encrypt(SteamAuth *auth, const gchar *str)
     g_return_val_if_fail(auth != NULL, NULL);
     g_return_val_if_fail(str  != NULL, NULL);
 
-    mpz_inits(op, opr, NULL);
+    mpz_init(op);
+    mpz_init(opr);
+
     steam_auth_key_encrypt_pkcs1pad(op, auth, str);
+
+#ifdef mpz_powm_sec
     mpz_powm_sec(opr, op, auth->exp, auth->mod);
+#else
+    mpz_powm(opr, op, auth->exp, auth->mod);
+#endif
 
     bsz = mpz_sizeinbase(opr, 16) + 2;
     buf = g_new0(gchar, bsz);
@@ -176,7 +183,9 @@ gchar *steam_auth_key_encrypt(SteamAuth *auth, const gchar *str)
     buf = ret;
     ret = g_base64_encode((guchar *) buf, bsz);
 
-    mpz_clears(op, opr, NULL);
+    mpz_clear(opr);
+    mpz_clear(op);
     g_free(buf);
+
     return ret;
 }
