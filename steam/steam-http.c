@@ -27,26 +27,21 @@ global_t global;
 
 static void steam_http_req_queue(SteamHttp *http, gboolean force);
 
-static void steam_http_tree_ins(GTree *tree, gsize size, va_list ap)
+static void steam_http_tree_ins(GTree *tree, SteamHttpPair *pair, va_list ap)
 {
-    gchar *key;
-    gchar *val;
-    gsize  i;
+    SteamHttpPair *p;
+    gchar         *key;
+    gchar         *val;
 
-    if (G_UNLIKELY(size < 1))
-        return;
-
-    for (i = 0; i < size; i++) {
-        key = va_arg(ap, gchar*);
-        val = va_arg(ap, gchar*);
-
-        if (key == NULL)
+    for (p = pair; p != NULL; ) {
+        if (p->key == NULL)
             continue;
 
-        key = g_strdup(key);
-        val = g_strdup(val);
+        key = g_strdup(p->key);
+        val = g_strdup(p->val);
 
         g_tree_replace(tree, key, val);
+        p = va_arg(ap, SteamHttpPair*);
     }
 }
 
@@ -109,14 +104,14 @@ void steam_http_queue_pause(SteamHttp *http, gboolean pause)
     }
 }
 
-void steam_http_cookies_set(SteamHttp *http, gsize size, ...)
+void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
 {
     va_list ap;
 
     g_return_if_fail(http != NULL);
 
-    va_start(ap, size);
-    steam_http_tree_ins(http->cookies, size, ap);
+    va_start(ap, pair);
+    steam_http_tree_ins(http->cookies, pair, ap);
     va_end(ap);
 }
 
@@ -160,7 +155,7 @@ void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req)
         }
 
         if (g_strv_length(kv) > 1)
-            steam_http_cookies_set(http, 1, kv[0], kv[1]);
+            steam_http_cookies_set(http, STEAM_HTTP_PAIR(kv[0], kv[1]), NULL);
 
         g_strfreev(kv);
     }
@@ -192,7 +187,7 @@ void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
         }
 
         if (g_strv_length(kv) > 1)
-            steam_http_cookies_set(http, 1, kv[0], kv[1]);
+            steam_http_cookies_set(http, STEAM_HTTP_PAIR(kv[0], kv[1]), NULL);
 
         g_strfreev(kv);
     }
@@ -250,11 +245,12 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     req->params  = g_tree_new_full((GCompareDataFunc) g_ascii_strcasecmp,
                                    NULL, g_free, g_free);
 
-    steam_http_req_headers_set(req, 4,
-        "User-Agent", http->agent,
-        "Host",       host,
-        "Accept",     "*/*",
-        "Connection", "Close"
+    steam_http_req_headers_set(req,
+        STEAM_HTTP_PAIR("User-Agent", http->agent),
+        STEAM_HTTP_PAIR("Host",       host),
+        STEAM_HTTP_PAIR("Accept",     "*/*"),
+        STEAM_HTTP_PAIR("Connection", "Close"),
+        NULL
     );
 
     return req;
@@ -279,25 +275,25 @@ void steam_http_req_free(SteamHttpReq *req)
     g_free(req);
 }
 
-void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...)
+void steam_http_req_headers_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
 {
     va_list ap;
 
     g_return_if_fail(req != NULL);
 
-    va_start(ap, size);
-    steam_http_tree_ins(req->headers, size, ap);
+    va_start(ap, pair);
+    steam_http_tree_ins(req->headers, pair, ap);
     va_end(ap);
 }
 
-void steam_http_req_params_set(SteamHttpReq *req, gsize size, ...)
+void steam_http_req_params_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
 {
     va_list ap;
 
     g_return_if_fail(req != NULL);
 
-    va_start(ap, size);
-    steam_http_tree_ins(req->params, size, ap);
+    va_start(ap, pair);
+    steam_http_tree_ins(req->params, pair, ap);
     va_end(ap);
 }
 
@@ -488,14 +484,16 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
 
     if (g_tree_nnodes(req->http->cookies) > 0) {
         str = steam_http_cookies_str(req->http);
-        steam_http_req_headers_set(req, 1, "Cookie", str);
+        steam_http_req_headers_set(req, STEAM_HTTP_PAIR("Cookie", str), NULL);
         g_free(str);
     }
 
     if (req->flags & STEAM_HTTP_REQ_FLAG_POST) {
-        steam_http_req_headers_set(req, 2,
-            "Content-Type",   "application/x-www-form-urlencoded",
-            "Content-Length", len
+        steam_http_req_headers_set(req,
+            STEAM_HTTP_PAIR("Content-Type",   "application/"
+                                              "x-www-form-urlencoded"),
+            STEAM_HTTP_PAIR("Content-Length", len),
+            NULL
         );
     }
 

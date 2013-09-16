@@ -25,9 +25,12 @@
 #define STEAM_HTTP_TIMEOUT_ERROR  120000
 #define STEAM_HTTP_TIMEOUT_RESEND 2000
 
+#define STEAM_HTTP_PAIR(k, v) ((SteamHttpPair *) &((SteamHttpPair) {k, v}))
+
 typedef enum   _SteamHttpFlags    SteamHttpFlags;
 typedef enum   _SteamHttpReqFlags SteamHttpReqFlags;
 typedef struct _SteamHttp         SteamHttp;
+typedef struct _SteamHttpPair     SteamHttpPair;
 typedef struct _SteamHttpReq      SteamHttpReq;
 
 typedef void (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
@@ -55,6 +58,12 @@ struct _SteamHttp
     gchar  *agent;
     GQueue *reqq;
     GTree  *cookies;
+};
+
+struct _SteamHttpPair
+{
+    const gchar *key;
+    const gchar *val;
 };
 
 struct _SteamHttpReq
@@ -95,7 +104,8 @@ void steam_http_free(SteamHttp *http);
 
 void steam_http_queue_pause(SteamHttp *http, gboolean puase);
 
-void steam_http_cookies_set(SteamHttp *http, gsize size, ...);
+void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
+    G_GNUC_NULL_TERMINATED;
 
 void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req);
 
@@ -109,9 +119,11 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
 
 void steam_http_req_free(SteamHttpReq *req);
 
-void steam_http_req_headers_set(SteamHttpReq *req, gsize size, ...);
+void steam_http_req_headers_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
+    G_GNUC_NULL_TERMINATED;
 
-void steam_http_req_params_set(SteamHttpReq *req, gsize size, ...);
+void steam_http_req_params_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
+    G_GNUC_NULL_TERMINATED;
 
 void steam_http_req_resend(SteamHttpReq *req);
 

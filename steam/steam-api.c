@@ -156,9 +156,10 @@ void steam_api_refresh(SteamApi *api)
     api->accid = steam_api_accountid(api->steamid);
     str = g_strdup_printf("%s||oauth:%s", api->steamid, api->token);
 
-    steam_http_cookies_set(api->http, 2,
-        "steamLogin", str,
-        "sessionid",  api->sessid
+    steam_http_cookies_set(api->http,
+        STEAM_HTTP_PAIR("steamLogin", str),
+        STEAM_HTTP_PAIR("sessionid",  api->sessid),
+        NULL
     );
 
     g_free(str);
@@ -910,18 +911,20 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
     steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_AUTH);
 
-    steam_http_req_params_set(priv->req, 11,
-        "username",        user,
-        "password",        pswd,
-        "emailauth",       authcode,
-        "emailsteamid",    api->auth->esid,
-        "captchagid",      api->auth->cgid,
-        "captcha_text",    captcha,
-        "rsatimestamp",    api->auth->time,
-        "oauth_client_id", STEAM_API_CLIENT_ID,
-        "donotcache",      ms,
-        "remember_login",  "true",
-        "oauth_scope", "read_profile write_profile read_client write_client"
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("username",        user),
+        STEAM_HTTP_PAIR("password",        pswd),
+        STEAM_HTTP_PAIR("emailauth",       authcode),
+        STEAM_HTTP_PAIR("emailsteamid",    api->auth->esid),
+        STEAM_HTTP_PAIR("captchagid",      api->auth->cgid),
+        STEAM_HTTP_PAIR("captcha_text",    captcha),
+        STEAM_HTTP_PAIR("rsatimestamp",    api->auth->time),
+        STEAM_HTTP_PAIR("oauth_client_id", STEAM_API_CLIENT_ID),
+        STEAM_HTTP_PAIR("donotcache",      ms),
+        STEAM_HTTP_PAIR("remember_login",  "true"),
+        STEAM_HTTP_PAIR("oauth_scope",     "read_profile write_profile "
+                                           "read_client write_client"),
+        NULL
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -933,7 +936,7 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
 
 static gboolean steam_api_params(gchar *key, gchar *val, SteamHttpReq *req)
 {
-    steam_http_req_params_set(req, 1, key, val);
+    steam_http_req_params_set(req, STEAM_HTTP_PAIR(key, val), NULL);
     return FALSE;
 }
 
@@ -964,8 +967,9 @@ void steam_api_chatlog(SteamApi *api, const gchar *steamid, SteamListFunc func,
     steam_api_priv_req(priv, STEAM_COM_HOST, path);
     g_free(path);
 
-    steam_http_req_params_set(priv->req, 1,
-        "sessionid", api->sessid
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("sessionid", api->sessid),
+        NULL
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -986,14 +990,15 @@ void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_ACCEPT, func, data);
     steam_api_priv_req(priv, STEAM_COM_HOST, url);
 
-    steam_http_req_params_set(priv->req, 7,
-        "sessionID", api->sessid,
-        "id",        steamid,
-        "perform",   action,
-        "action",    "approvePending",
-        "itype",     "friend",
-        "json",      "1",
-        "xml",       "0"
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("sessionID", api->sessid),
+        STEAM_HTTP_PAIR("id",        steamid),
+        STEAM_HTTP_PAIR("perform",   action),
+        STEAM_HTTP_PAIR("action",    "approvePending"),
+        STEAM_HTTP_PAIR("itype",     "friend"),
+        STEAM_HTTP_PAIR("json",      "1"),
+        STEAM_HTTP_PAIR("xml",       "0"),
+        NULL
     );
 
     priv->rdata = g_strdup(steamid);
@@ -1014,9 +1019,10 @@ void steam_api_friend_add(SteamApi *api, const gchar *steamid,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_ADD, func, data);
     steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_ADD);
 
-    steam_http_req_params_set(priv->req, 2,
-        "sessionID", api->sessid,
-        "steamid",   steamid
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("sessionID", api->sessid),
+        STEAM_HTTP_PAIR("steamid",   steamid),
+        NULL
     );
 
     priv->rdata = g_strdup(steamid);
@@ -1045,10 +1051,11 @@ void steam_api_friend_ignore(SteamApi *api, const gchar *steamid,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_IGNORE, func, data);
     steam_api_priv_req(priv, STEAM_COM_HOST, url);
 
-    steam_http_req_params_set(priv->req, 3,
-        "sessionID", api->sessid,
-        "action",    act,
-        frnd,        "1"
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("sessionID", api->sessid),
+        STEAM_HTTP_PAIR("action",    act),
+        STEAM_HTTP_PAIR(frnd,        "1"),
+        NULL
     );
 
     priv->rdata = g_strdup(steamid);
@@ -1072,9 +1079,10 @@ void steam_api_friend_remove(SteamApi *api, const gchar *steamid,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_REMOVE, func, data);
     steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_REMOVE);
 
-    steam_http_req_params_set(priv->req, 2,
-        "sessionID", api->sessid,
-        "steamid",   steamid
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("sessionID", api->sessid),
+        STEAM_HTTP_PAIR("steamid",   steamid),
+        NULL
     );
 
     priv->rdata = g_strdup(steamid);
@@ -1099,13 +1107,14 @@ void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIEND_SEARCH, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_FRIEND_SEARCH);
 
-    steam_http_req_params_set(priv->req, 6,
-        "access_token", api->token,
-        "keywords",     str,
-        "count",        scnt,
-        "offset",       "0",
-        "fields",       "all",
-        "targets",      "users"
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("keywords",     str),
+        STEAM_HTTP_PAIR("count",        scnt),
+        STEAM_HTTP_PAIR("offset",       "0"),
+        STEAM_HTTP_PAIR("fields",       "all"),
+        STEAM_HTTP_PAIR("targets",      "users"),
+        NULL
     );
 
     steam_http_req_send(priv->req);
@@ -1122,10 +1131,11 @@ void steam_api_friends(SteamApi *api, SteamListFunc func, gpointer data)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_FRIENDS, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_FRIENDS);
 
-    steam_http_req_params_set(priv->req, 3,
-        "access_token", api->token,
-        "steamid",      api->steamid,
-        "relationship", "friend,ignoredfriend"
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("steamid",      api->steamid),
+        STEAM_HTTP_PAIR("relationship", "friend,ignoredfriend"),
+        NULL
     );
 
     steam_http_req_send(priv->req);
@@ -1146,9 +1156,10 @@ void steam_api_key(SteamApi *api, const gchar *user, SteamApiFunc func,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_KEY, func, data);
     steam_api_priv_req(priv, STEAM_COM_HOST, STEAM_COM_PATH_KEY);
 
-    steam_http_req_params_set(priv->req, 2,
-        "username",   user,
-        "donotcache", ms
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("username",   user),
+        STEAM_HTTP_PAIR("donotcache", ms),
+        NULL
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -1165,9 +1176,10 @@ void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGOFF, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGOFF);
 
-    steam_http_req_params_set(priv->req, 2,
-        "access_token", api->token,
-        "umqid",        api->umqid
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("umqid",        api->umqid),
+        NULL
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -1183,9 +1195,10 @@ void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_LOGON, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(priv->req, 2,
-        "access_token", api->token,
-        "umqid",        api->umqid
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("umqid",        api->umqid),
+        NULL
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -1201,9 +1214,10 @@ void steam_api_relogon(SteamApi *api, SteamApiFunc func, gpointer data)
     priv = steam_api_priv_new(api, STEAM_API_TYPE_RELOGON, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(priv->req, 2,
-        "access_token", api->token,
-        "umqid",        api->umqid
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("umqid",        api->umqid),
+        NULL
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -1221,17 +1235,21 @@ void steam_api_message(SteamApi *api, const SteamMessage *sm,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_MESSAGE, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_MESSAGE);
 
-    steam_http_req_params_set(priv->req, 4,
-        "access_token", api->token,
-        "umqid",        api->umqid,
-        "steamid_dst",  sm->ss->steamid,
-        "type",         steam_message_type_str(sm->type)
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("umqid",        api->umqid),
+        STEAM_HTTP_PAIR("steamid_dst",  sm->ss->steamid),
+        STEAM_HTTP_PAIR("type",         steam_message_type_str(sm->type)),
+        NULL
     );
 
     switch (sm->type) {
     case STEAM_MESSAGE_TYPE_SAYTEXT:
     case STEAM_MESSAGE_TYPE_EMOTE:
-        steam_http_req_params_set(priv->req, 1, "text", sm->text);
+        steam_http_req_params_set(priv->req,
+            STEAM_HTTP_PAIR("text", sm->text),
+            NULL
+        );
         break;
 
     case STEAM_MESSAGE_TYPE_TYPING:
@@ -1255,15 +1273,19 @@ void steam_api_poll(SteamApi *api, SteamListFunc func, gpointer data)
 
     lmid = g_strdup_printf("%" G_GINT64_FORMAT, api->lmid);
     priv = steam_api_priv_new(api, STEAM_API_TYPE_POLL, func, data);
-
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_POLL);
-    steam_http_req_headers_set(priv->req, 1, "Connection", "Keep-Alive");
 
-    steam_http_req_params_set(priv->req, 4,
-        "access_token", api->token,
-        "umqid",        api->umqid,
-        "message",      lmid,
-        "sectimeout",   STEAM_API_KEEP_ALIVE
+    steam_http_req_headers_set(priv->req,
+        STEAM_HTTP_PAIR("Connection", "Keep-Alive"),
+        NULL
+    );
+
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("umqid",        api->umqid),
+        STEAM_HTTP_PAIR("message",      lmid),
+        STEAM_HTTP_PAIR("sectimeout",   STEAM_API_KEEP_ALIVE),
+        NULL
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -1304,9 +1326,10 @@ static void steam_api_summaries(SteamApiPriv *priv)
     gstr->str[gstr->len - 1] = 0;
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-    steam_http_req_params_set(priv->req, 2,
-        "access_token", priv->api->token,
-        "steamids",     gstr->str
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", priv->api->token),
+        STEAM_HTTP_PAIR("steamids",     gstr->str),
+        NULL
     );
 
     steam_http_req_send(priv->req);
@@ -1324,9 +1347,10 @@ void steam_api_summary(SteamApi *api, const gchar *steamid,
     priv = steam_api_priv_new(api, STEAM_API_TYPE_SUMMARY, func, data);
     steam_api_priv_req(priv, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-    steam_http_req_params_set(priv->req, 2,
-        "access_token", api->token,
-        "steamids",     steamid
+    steam_http_req_params_set(priv->req,
+        STEAM_HTTP_PAIR("access_token", api->token),
+        STEAM_HTTP_PAIR("steamids",     steamid),
+        NULL
     );
 
     steam_http_req_send(priv->req);
