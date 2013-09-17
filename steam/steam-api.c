@@ -1198,6 +1198,7 @@ void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
     steam_http_req_params_set(priv->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
+        STEAM_HTTP_PAIR("ui_mode",      "web"),
         NULL
     );
 
