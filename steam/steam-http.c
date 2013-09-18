@@ -260,7 +260,6 @@ void steam_http_req_free(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
-    b_event_remove(req->wid);
     b_event_remove(req->rsid);
     http_close(req->request);
 
@@ -306,14 +305,12 @@ void steam_http_req_resend(SteamHttpReq *req)
         req->err = NULL;
     }
 
-    b_event_remove(req->wid);
     b_event_remove(req->rsid);
 
     req->flags     |= STEAM_HTTP_REQ_FLAG_NOFREE;
     req->request    = NULL;
     req->body       = NULL;
     req->body_size  = 0;
-    req->wid        = 0;
     req->rsid       = 0;
     req->rsc        = 0;
 
@@ -338,7 +335,7 @@ static void steam_http_req_done(SteamHttpReq *req)
             req->err = NULL;
 
             req->request = NULL;
-            req->rsid    = b_timeout_add(STEAM_HTTP_TIMEOUT_RESEND,
+            req->rsid    = b_timeout_add(STEAM_HTTP_RESEND_TIMEOUT,
                                          steam_http_req_done_error, req);
             req->rsc++;
             return;
@@ -423,23 +420,7 @@ static void steam_http_req_cb(struct http_request *request)
                     "%s", request->status_string);
     }
 
-    b_event_remove(req->wid);
     steam_http_req_done(req);
-}
-
-static gboolean steam_http_req_watch(gpointer data, gint fd,
-                                     b_input_condition cond)
-{
-    SteamHttpReq *req = data;
-
-    http_close(req->request);
-
-    req->wid     = 0;
-    req->request = NULL;
-
-    g_set_error(&req->err, STEAM_HTTP_ERROR, 0, "Read timeout");
-    steam_http_req_done(req);
-    return FALSE;
 }
 
 static gboolean steam_http_tree_headers(gchar *key, gchar *val, GString *gstr)
@@ -559,9 +540,6 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
         steam_http_req_done(req);
         return;
     }
-
-    req->wid = b_timeout_add(STEAM_HTTP_TIMEOUT_ERROR, steam_http_req_watch,
-                             req);
 
     /* Prevent automatic redirection */
     req->request->redir_ttl = 0;

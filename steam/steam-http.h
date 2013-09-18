@@ -22,8 +22,7 @@
 #include <http_client.h>
 
 #define STEAM_HTTP_RESEND_MAX     3
-#define STEAM_HTTP_TIMEOUT_ERROR  120000
-#define STEAM_HTTP_TIMEOUT_RESEND 2000
+#define STEAM_HTTP_RESEND_TIMEOUT 2000
 
 #define STEAM_HTTP_PAIR(k, v) ((SteamHttpPair *) &((SteamHttpPair) {k, v}))
 
@@ -87,7 +86,6 @@ struct _SteamHttpReq
     gchar  *body;
     gint    body_size;
 
-    gint   wid;
     gint   rsid;
     guint8 rsc;
 };
