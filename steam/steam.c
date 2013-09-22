@@ -439,6 +439,19 @@ static void steam_relogon(SteamApi *api, GError *err, gpointer data)
     imc_logout(sd->ic, TRUE);
 }
 
+static void steam_relogon_poll(SteamApi *api, GError *err, gpointer data)
+{
+    SteamData *sd = data;
+
+    if (err == NULL) {
+        steam_api_poll(api, steam_poll, sd);
+        return;
+    }
+
+    imcb_error(sd->ic, "%s", err->message);
+    imc_logout(sd->ic, TRUE);
+}
+
 static void steam_message(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sd = data;
@@ -463,7 +476,7 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
 
     if (err != NULL) {
         if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
-            steam_api_relogon(api, steam_relogon, sd);
+            steam_api_relogon(api, steam_relogon_poll, sd);
             return;
         }
 

@@ -675,7 +675,8 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
 
     if (steam_json_str(json, "error", &str)  &&
         (g_ascii_strcasecmp(str, "Timeout") != 0) &&
-        (g_ascii_strcasecmp(str, "OK")      != 0)) {
+        (g_ascii_strcasecmp(str, "OK")      != 0))
+    {
 
         if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
             steam_api_priv_relogon(priv);
@@ -1222,6 +1223,7 @@ void steam_api_relogon(SteamApi *api, SteamApiFunc func, gpointer data)
     );
 
     priv->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_queue_pause(api->http, TRUE);
     steam_http_req_send(priv->req);
 }
 

@@ -47,7 +47,8 @@ enum _SteamHttpReqFlags
     STEAM_HTTP_REQ_FLAG_SSL    = 1 << 2,
 
     STEAM_HTTP_REQ_FLAG_NOFREE = 1 << 3,
-    STEAM_HTTP_REQ_FLAG_QUEUED = 1 << 4
+    STEAM_HTTP_REQ_FLAG_QUEUED = 1 << 4,
+    STEAM_HTTP_REQ_FLAG_RESEND = 1 << 5
 };
 
 struct _SteamHttp
