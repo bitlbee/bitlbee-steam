@@ -469,6 +469,7 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
 
         imcb_error(sd->ic, "%s", err->message);
         imc_logout(sd->ic, TRUE);
+        return;
     }
 
     for (l = messages; l != NULL; l = l->next)
