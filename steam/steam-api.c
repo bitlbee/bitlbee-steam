@@ -671,6 +671,10 @@ static void steam_api_poll_cb(SteamApiPriv *priv, json_value *json)
     guint         i;
 
     steam_json_int(json, "messagelast", &in);
+
+    if (in == priv->api->lmid)
+        return;
+
     priv->api->lmid = in;
 
     if (steam_json_str(json, "error", &str)  &&
