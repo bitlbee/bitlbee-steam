@@ -220,7 +220,6 @@ static void steam_auth(SteamApi *api, GError *err, gpointer data)
         set_setstr(&acc->set, "steamid", api->steamid);
         set_setstr(&acc->set, "token",   api->token);
         set_setstr(&acc->set, "sessid",  api->sessid);
-        storage_save(acc->bee->ui_data, NULL, TRUE);
 
         steam_auth_free(api->auth);
         api->auth = NULL;
@@ -421,7 +420,6 @@ static void steam_logon(SteamApi *api, GError *err, gpointer data)
 
     set_setstr(&acc->set, "steamid", api->steamid);
     set_setstr(&acc->set, "umqid",   api->umqid);
-    storage_save(acc->bee->ui_data, NULL, TRUE);
 
     imcb_log(sd->ic, "Requesting friends list");
     steam_api_refresh(api);
@@ -704,7 +702,6 @@ static void steam_logout(struct im_connection *ic)
 
     steam_http_free_reqs(sd->api->http);
     set_setint(&ic->acc->set, "tstamp", sd->tstamp);
-    storage_save(ic->acc->bee->ui_data, NULL, TRUE);
 
     if (ic->flags & OPT_LOGGED_IN)
         steam_api_logoff(sd->api, steam_logoff, sd);
