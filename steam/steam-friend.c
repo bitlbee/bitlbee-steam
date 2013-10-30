@@ -83,3 +83,62 @@ void steam_friend_chans_umode(SteamFriend *frnd, gint mode)
             irc_channel_user_set_mode(ic, iu, icu->flags | mode);
     }
 }
+
+SteamFriendSummary *steam_friend_summary_new(const gchar *steamid)
+{
+    SteamFriendSummary *smry;
+
+    smry = g_new0(SteamFriendSummary, 1);
+    smry->action  = STEAM_FRIEND_ACTION_NONE;
+    smry->steamid = g_strdup(steamid);
+
+    return smry;
+}
+
+void steam_friend_summary_free(SteamFriendSummary *smry)
+{
+    g_return_if_fail(smry != NULL);
+
+    g_free(smry->server);
+    g_free(smry->game);
+    g_free(smry->fullname);
+    g_free(smry->nick);
+    g_free(smry->steamid);
+    g_free(smry);
+}
+
+const gchar *steam_friend_state_str(SteamFriendState state)
+{
+    static const gchar *strs[STEAM_FRIEND_STATE_LAST] = {
+        [STEAM_FRIEND_STATE_OFFLINE] = "Offline",
+        [STEAM_FRIEND_STATE_ONLINE]  = "Online",
+        [STEAM_FRIEND_STATE_BUSY]    = "Busy",
+        [STEAM_FRIEND_STATE_AWAY]    = "Away",
+        [STEAM_FRIEND_STATE_SNOOZE]  = "Snooze",
+        [STEAM_FRIEND_STATE_TRADE]   = "Looking to Trade",
+        [STEAM_FRIEND_STATE_PLAY]    = "Looking to Play"
+    };
+
+    if ((state < 0) || (state > STEAM_FRIEND_STATE_LAST))
+        return "Offline";
+
+    return strs[state];
+}
+
+SteamFriendState steam_friend_state_from_str(const gchar *state)
+{
+    const gchar *s;
+    guint        i;
+
+    if (state == NULL)
+        return STEAM_FRIEND_STATE_OFFLINE;
+
+    for (i = 0; i < STEAM_FRIEND_STATE_LAST; i++) {
+        s = steam_friend_state_str(i);
+
+        if (g_ascii_strcasecmp(state, s) == 0)
+            return i;
+    }
+
+    return STEAM_FRIEND_STATE_OFFLINE;
+}

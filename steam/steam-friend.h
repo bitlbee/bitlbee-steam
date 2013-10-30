@@ -20,12 +20,61 @@
 
 #include <bitlbee.h>
 
-typedef struct _SteamFriend SteamFriend;
+typedef enum   _SteamFriendAction   SteamFriendAction;
+typedef enum   _SteamFriendRelation SteamFriendRelation;
+typedef enum   _SteamFriendRelation SteamFriendRelation;
+typedef enum   _SteamFriendState    SteamFriendState;
+typedef struct _SteamFriend         SteamFriend;
+typedef struct _SteamFriendSummary  SteamFriendSummary;
+
+enum _SteamFriendAction
+{
+    STEAM_FRIEND_ACTION_REMOVE    = 0,
+    STEAM_FRIEND_ACTION_IGNORE    = 1,
+    STEAM_FRIEND_ACTION_REQUEST   = 2,
+    STEAM_FRIEND_ACTION_ADD       = 3,
+    STEAM_FRIEND_ACTION_REQUESTED = 4,
+
+    STEAM_FRIEND_ACTION_NONE,
+    STEAM_FRIEND_ACTION_LAST
+};
+
+enum _SteamFriendRelation
+{
+    STEAM_FRIEND_RELATION_FRIEND = 0,
+    STEAM_FRIEND_RELATION_IGNORE
+};
+
+enum _SteamFriendState
+{
+    STEAM_FRIEND_STATE_OFFLINE = 0,
+    STEAM_FRIEND_STATE_ONLINE  = 1,
+    STEAM_FRIEND_STATE_BUSY    = 2,
+    STEAM_FRIEND_STATE_AWAY    = 3,
+    STEAM_FRIEND_STATE_SNOOZE  = 4,
+    STEAM_FRIEND_STATE_TRADE   = 5,
+    STEAM_FRIEND_STATE_PLAY    = 6,
+
+    STEAM_FRIEND_STATE_LAST
+};
 
 struct _SteamFriend
 {
     bee_user_t *buser;
 
+    gchar *game;
+    gchar *server;
+};
+
+struct _SteamFriendSummary
+{
+    SteamFriendState    state;
+    SteamFriendRelation relation;
+    SteamFriendAction   action;
+
+    gchar *steamid;
+    gchar *nick;
+    gchar *fullname;
     gchar *game;
     gchar *server;
 };
@@ -38,5 +87,13 @@ void steam_friend_free(SteamFriend *frnd);
 void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...);
 
 void steam_friend_chans_umode(SteamFriend *frnd, gint mode);
+
+SteamFriendSummary *steam_friend_summary_new(const gchar *steamid);
+
+void steam_friend_summary_free(SteamFriendSummary *smry);
+
+const gchar *steam_friend_state_str(SteamFriendState state);
+
+SteamFriendState steam_friend_state_from_str(const gchar *state);
 
 #endif /* _STEAM_FRIEND_H */
