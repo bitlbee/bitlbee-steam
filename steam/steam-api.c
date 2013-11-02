@@ -666,18 +666,10 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
     gint64           in;
     guint            i;
 
-    steam_json_int(json, "messagelast", &in);
-
-    if (in == sata->api->lmid)
-        return;
-
-    sata->api->lmid = in;
-
     if (steam_json_str(json, "error", &str)  &&
         (g_ascii_strcasecmp(str, "Timeout") != 0) &&
         (g_ascii_strcasecmp(str, "OK")      != 0))
     {
-
         if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
             steam_api_data_relogon(sata);
             return;
@@ -687,6 +679,11 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
                     "%s", str);
         return;
     }
+
+    if (!steam_json_int(json, "messagelast", &in) || (in == sata->api->lmid))
+        return;
+
+    sata->api->lmid = in;
 
     if (!steam_json_val(json, "messages", json_array, &jv))
         return;
