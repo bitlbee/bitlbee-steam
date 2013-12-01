@@ -72,7 +72,7 @@ AS_IF(
 PKG_CHECK_MODULES([GLIB],    [glib-2.0])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee])
 
-# Check for "real"  bitlbee headers
+# Check for "real" bitlbee headers
 CPPFLAGS="$GLIB_CFLAGS $BITLBEE_CFLAGS"
 AC_MSG_CHECKING([for bitlbee headers])
 AC_PREPROC_IFELSE(
@@ -92,14 +92,30 @@ AS_IF(
 
 # No "reliable" version set in bitlbee.pc, check manually
 CPPFLAGS="$GLIB_CFLAGS $BITLBEE_CFLAGS"
-AC_MSG_CHECKING([for bitlbee >= 3.2])
-AC_PREPROC_IFELSE(
+AC_MSG_CHECKING([for bitlbee >= 3.2.1])
+AC_RUN_IFELSE(
     [AC_LANG_PROGRAM([[
         #include <bitlbee.h>
         #if BITLBEE_VERSION_CODE < BITLBEE_VER(3, 2, 0)
         #error outdated bitlbee version
         #endif
-        ]], [])],
+        ]], [[
+        #if BITLBEE_VERSION_CODE == BITLBEE_VER(3, 2, 0)
+        #include <stdlib.h>
+        #include <string.h>
+
+        size_t size = strlen(BITLBEE_VERSION);
+        if (size != 5) return EXIT_FAILURE;
+
+        char *c = strrchr(BITLBEE_VERSION, '.');
+        if (c == NULL) return EXIT_FAILURE;
+
+        int m = atoi(c + 1);
+        if (m < 1) return EXIT_FAILURE;
+
+        return EXIT_SUCCESS;
+        #endif
+        ]])],
     [HAVE_BITLBEE_REQ=yes],
     [HAVE_BITLBEE_REQ=no])
 
@@ -107,7 +123,7 @@ AC_MSG_RESULT([$HAVE_BITLBEE_REQ])
 
 AS_IF(
     [test "x$HAVE_BITLBEE_REQ" == "xno"],
-    [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2) were not met.])])
+    [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2.1) were not met.])])
 
 AC_CONFIG_FILES([Makefile steam/Makefile])
 AC_SUBST([GMP_LIBS])
