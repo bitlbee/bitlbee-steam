@@ -45,7 +45,7 @@ SteamData *steam_data_new(account_t *acc)
     sata->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sata->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sata->api->sessid  = g_strdup(set_getstr(&acc->set, "sessid"));
-    sata->lstamp       = set_getint(&acc->set, "tstamp");
+    sata->tstamp       = set_getint(&acc->set, "tstamp");
     sata->game_status  = set_getbool(&acc->set, "game_status");
 
     str = set_getstr(&acc->set, "show_playing");
@@ -265,7 +265,7 @@ static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
     for (l = messages; l != NULL; l = l->next) {
         mesg = l->data;
 
-        if (mesg->tstamp > sata->lstamp)
+        if (mesg->tstamp > sata->tstamp)
             steam_poll_mesg(sata, mesg, mesg->tstamp);
     }
 }
@@ -420,10 +420,11 @@ static void steam_logon(SteamApi *api, GError *err, gpointer data)
     }
 
     acc = sata->ic->acc;
-    sata->tstamp = api->tstamp;
 
-    if (sata->lstamp < 1)
-        sata->lstamp = api->tstamp;
+    if (sata->tstamp < 1) {
+        sata->tstamp = api->tstamp;
+        set_setint(&acc->set, "tstamp", api->tstamp);
+    }
 
     set_setstr(&acc->set, "steamid", api->steamid);
     set_setstr(&acc->set, "umqid",   api->umqid);
@@ -478,6 +479,7 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
     SteamData       *sata = data;
     SteamApiMessage *mesg;
     GSList          *l;
+    gint64           tstamp;
 
     if (err != NULL) {
         if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
@@ -490,14 +492,19 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
         return;
     }
 
-    for (l = messages; l != NULL; l = l->next)
-        steam_poll_mesg(sata, l->data, 0);
+    tstamp = 0;
 
-    if (messages != NULL) {
-        l    = g_slist_last(messages);
+    for (l = messages; l != NULL; l = l->next) {
         mesg = l->data;
-        sata->tstamp = mesg->tstamp;
+
+        if (mesg->tstamp > tstamp)
+            tstamp = mesg->tstamp;
+
+        steam_poll_mesg(sata, mesg, 0);
     }
+
+    if (tstamp > 0)
+        set_setint(&sata->ic->acc->set, "tstamp", tstamp);
 
     steam_api_poll(api, steam_poll, sata);
 }
@@ -710,7 +717,6 @@ static void steam_logout(struct im_connection *ic)
     SteamData *sata = ic->proto_data;
 
     steam_http_free_reqs(sata->api->http);
-    set_setint(&ic->acc->set, "tstamp", sata->tstamp);
 
     if (ic->flags & OPT_LOGGED_IN)
         steam_api_logoff(sata->api, steam_logoff, sata);

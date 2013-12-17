@@ -29,7 +29,6 @@ struct _SteamData
     SteamApi *api;
     struct im_connection *ic;
 
-    gint64 lstamp;
     gint64 tstamp;
 
     gboolean game_status;
