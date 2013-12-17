@@ -26,7 +26,7 @@
 #define STEAM_COM_HOST          "steamcommunity.com"
 #define STEAM_API_AGENT         "Steam App / " PACKAGE " / " PACKAGE_VERSION
 #define STEAM_API_CLIENT_ID     "DE45CD61" /* Public mobile client id */
-#define STEAM_API_KEEP_ALIVE    "15"       /* Max of 30 seconds */
+#define STEAM_API_KEEP_ALIVE    "30"       /* Max of 30 seconds */
 #define STEAM_API_STEAMID_START 76561197960265728
 
 #define STEAM_API_PATH_FRIEND_SEARCH "/ISteamUserOAuth/Search/v0001"
