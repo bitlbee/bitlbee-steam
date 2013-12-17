@@ -135,7 +135,8 @@ static void steam_buddy_status(SteamData *sata, SteamFriendSummary *smry,
     g_free(game);
 }
 
-static void steam_poll_p(SteamData *sata, SteamApiMessage *mesg)
+static void steam_poll_mesg(SteamData *sata, SteamApiMessage *mesg,
+                            gint64 tstamp)
 {
     bee_user_t *bu;
     gchar      *str;
@@ -154,7 +155,7 @@ static void steam_poll_p(SteamData *sata, SteamApiMessage *mesg)
         else
             str = g_strdup(mesg->text);
 
-        imcb_buddy_msg(sata->ic, mesg->smry->steamid, str, 0, mesg->tstamp);
+        imcb_buddy_msg(sata->ic, mesg->smry->steamid, str, 0, tstamp);
         g_free(str);
         return;
 
@@ -265,7 +266,7 @@ static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
         mesg = l->data;
 
         if (mesg->tstamp > sata->lstamp)
-            steam_poll_p(sata, mesg);
+            steam_poll_mesg(sata, mesg, mesg->tstamp);
     }
 }
 
@@ -490,7 +491,7 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
     }
 
     for (l = messages; l != NULL; l = l->next)
-        steam_poll_p(sata, l->data);
+        steam_poll_mesg(sata, l->data, 0);
 
     if (messages != NULL) {
         l    = g_slist_last(messages);
