@@ -22,7 +22,6 @@
 
 typedef enum   _SteamFriendAction   SteamFriendAction;
 typedef enum   _SteamFriendRelation SteamFriendRelation;
-typedef enum   _SteamFriendRelation SteamFriendRelation;
 typedef enum   _SteamFriendState    SteamFriendState;
 typedef struct _SteamFriend         SteamFriend;
 typedef struct _SteamFriendSummary  SteamFriendSummary;
