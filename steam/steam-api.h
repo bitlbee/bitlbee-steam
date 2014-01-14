@@ -22,12 +22,12 @@
 #include "steam-friend.h"
 #include "steam-http.h"
 
-#define STEAM_API_HOST          "api.steampowered.com"
-#define STEAM_COM_HOST          "steamcommunity.com"
-#define STEAM_API_AGENT         "Steam App / " PACKAGE " / " PACKAGE_VERSION
-#define STEAM_API_CLIENT_ID     "DE45CD61" /* Public mobile client id */
-#define STEAM_API_KEEP_ALIVE    "30"       /* Max of 30 seconds */
-#define STEAM_API_STEAMID_START 76561197960265728
+#define STEAM_API_HOST     "api.steampowered.com"
+#define STEAM_COM_HOST     "steamcommunity.com"
+#define STEAM_API_AGENT    "Steam App / " PACKAGE " / " PACKAGE_VERSION
+#define STEAM_API_CLIENTID "DE45CD61"
+#define STEAM_API_STEAMID  76561197960265728
+#define STEAM_API_TIMEOUT  "30"
 
 #define STEAM_API_PATH_FRIEND_SEARCH "/ISteamUserOAuth/Search/v0001"
 #define STEAM_API_PATH_FRIENDS       "/ISteamUserOAuth/GetFriendList/v0001"
@@ -130,12 +130,11 @@ enum _SteamApiType
 
 struct _SteamApi
 {
-    gchar  *steamid;
-    gchar  *umqid;
-    gchar  *token;
-    gchar  *sessid;
+    gchar *steamid;
+    gchar *umqid;
+    gchar *token;
+    gchar *sessid;
 
-    gint64 accid;
     gint64 lmid;
     gint64 tstamp;
 
@@ -177,9 +176,13 @@ SteamApi *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamApi *api);
 
-gint64 steam_api_accountid(const gchar *steamid);
+gint64 steam_api_accountid_int(gint64 steamid);
 
-gchar *steam_api_steamid(gint64 accid);
+gint64 steam_api_accountid_str(const gchar *steamid);
+
+gint64 steam_api_steamid_int(gint64 accid);
+
+gint64 steam_api_steamid_str(const gchar *accid);
 
 gchar *steam_api_profile_url(const gchar *steamid);
 

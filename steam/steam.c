@@ -514,6 +514,7 @@ static void steam_summary(SteamApi *api, SteamFriendSummary *smry,
 {
     SteamData *sata = data;
     gchar     *str;
+    gint64     in;
 
     if (err != NULL) {
         imcb_error(sata->ic, "%s", err->message);
@@ -521,24 +522,27 @@ static void steam_summary(SteamApi *api, SteamFriendSummary *smry,
     }
 
     if (smry->nick != NULL)
-        imcb_log(sata->ic, "Name:      %s", smry->nick);
+        imcb_log(sata->ic, "Name:       %s", smry->nick);
 
     if (smry->game != NULL)
-        imcb_log(sata->ic, "Playing:   %s", smry->game);
+        imcb_log(sata->ic, "Playing:    %s", smry->game);
 
     if (smry->server != NULL)
-        imcb_log(sata->ic, "Server:    steam://connect/%s", smry->server);
+        imcb_log(sata->ic, "Server:     steam://connect/%s", smry->server);
 
     if (smry->fullname != NULL)
-        imcb_log(sata->ic, "Real Name: %s", smry->fullname);
+        imcb_log(sata->ic, "Real Name:  %s", smry->fullname);
 
-    imcb_log(sata->ic, "Steam ID:  %s", smry->steamid);
+    in = steam_api_accountid_str(smry->steamid);
+    imcb_log(sata->ic, "Account ID: %" G_GINT64_FORMAT, in);
+
+    imcb_log(sata->ic, "Steam ID:   %s", smry->steamid);
 
     str = (gchar *) steam_friend_state_str(smry->state);
-    imcb_log(sata->ic, "Status:    %s", str);
+    imcb_log(sata->ic, "Status:     %s", str);
 
     str = steam_api_profile_url(smry->steamid);
-    imcb_log(sata->ic, "Profile:   %s", str);
+    imcb_log(sata->ic, "Profile:    %s", str);
     g_free(str);
 }
 

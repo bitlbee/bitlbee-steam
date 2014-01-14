@@ -73,26 +73,34 @@ void steam_api_free(SteamApi *api)
     g_free(api);
 }
 
-gint64 steam_api_accountid(const gchar *steamid)
+gint64 steam_api_accountid_int(gint64 steamid)
+{
+    return steamid - STEAM_API_STEAMID;
+}
+
+gint64 steam_api_accountid_str(const gchar *steamid)
 {
     gint64 in;
 
     g_return_val_if_fail(steamid != NULL, 0);
 
-    in  = g_ascii_strtoll(steamid, NULL, 10);
-    in -= STEAM_API_STEAMID_START;
-
-    return in;
+    in = g_ascii_strtoll(steamid, NULL, 10);
+    return steam_api_accountid_int(in);
 }
 
-gchar *steam_api_steamid(gint64 accid)
+gint64 steam_api_steamid_int(gint64 accid)
 {
-    gchar *str;
+    return accid + STEAM_API_STEAMID;
+}
 
-    accid += STEAM_API_STEAMID_START;
-    str    = g_strdup_printf("%" G_GINT64_FORMAT, accid);
+gint64 steam_api_steamid_str(const gchar *accid)
+{
+    gint64 in;
 
-    return str;
+    g_return_val_if_fail(accid != NULL, 0);
+
+    in = g_ascii_strtoll(accid, NULL, 10);
+    return steam_api_steamid_int(in);
 }
 
 gchar *steam_api_profile_url(const gchar *steamid)
@@ -107,7 +115,6 @@ void steam_api_refresh(SteamApi *api)
 
     g_return_if_fail(api != NULL);
 
-    api->accid = steam_api_accountid(api->steamid);
     str = g_strdup_printf("%s||oauth:%s", api->steamid, api->token);
 
     steam_http_cookies_set(api->http,
@@ -394,23 +401,24 @@ static void steam_api_chatlog_cb(SteamApiData *sata, json_value *json)
     json_value      *jv;
     GSList          *messages;
     const gchar     *str;
+    gint64           accid;
     gint64           in;
     gsize            i;
 
+    accid    = steam_api_accountid_str(sata->api->steamid);
     messages = NULL;
 
     for (i = 0; i < json->u.array.length; i++) {
         jv = json->u.array.values[i];
 
-        if (!steam_json_int(jv, "m_unAccountID", &in))
+        if (!steam_json_int(jv, "m_unAccountID", &in) || (in == accid))
             continue;
 
-        if (in == sata->api->accid)
-            continue;
+        in = steam_api_steamid_int(in);
 
         mesg = steam_api_message_new(NULL);
         mesg->type          = STEAM_API_MESSAGE_TYPE_SAYTEXT;
-        mesg->smry->steamid = steam_api_steamid(in);
+        mesg->smry->steamid = g_strdup_printf("%" G_GINT64_FORMAT, in);
 
         steam_json_str(jv, "m_strMessage",  &str);
         mesg->text = g_strdup(str);
@@ -919,7 +927,7 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
         STEAM_HTTP_PAIR("captchagid",      api->auth->cgid),
         STEAM_HTTP_PAIR("captcha_text",    captcha),
         STEAM_HTTP_PAIR("rsatimestamp",    api->auth->time),
-        STEAM_HTTP_PAIR("oauth_client_id", STEAM_API_CLIENT_ID),
+        STEAM_HTTP_PAIR("oauth_client_id", STEAM_API_CLIENTID),
         STEAM_HTTP_PAIR("donotcache",      ms),
         STEAM_HTTP_PAIR("remember_login",  "true"),
         STEAM_HTTP_PAIR("oauth_scope",     "read_profile write_profile "
@@ -960,12 +968,11 @@ void steam_api_chatlog(SteamApi *api, const gchar *steamid,
 
     g_return_if_fail(api != NULL);
 
-    in   = steam_api_accountid(steamid);
+    in   = steam_api_accountid_str(steamid);
     path = g_strdup_printf("%s%" G_GINT64_FORMAT, STEAM_COM_PATH_CHATLOG, in);
     sata = steam_api_data_new(api, STEAM_API_TYPE_CHATLOG, func, data);
 
     steam_api_data_req(sata, STEAM_COM_HOST, path);
-    g_free(path);
 
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("sessionid", api->sessid),
@@ -974,6 +981,8 @@ void steam_api_chatlog(SteamApi *api, const gchar *steamid,
 
     sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(sata->req);
+
+    g_free(path);
 }
 
 void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
@@ -1288,7 +1297,7 @@ void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
         STEAM_HTTP_PAIR("message",      lmid),
-        STEAM_HTTP_PAIR("sectimeout",   STEAM_API_KEEP_ALIVE),
+        STEAM_HTTP_PAIR("sectimeout",   STEAM_API_TIMEOUT),
         NULL
     );
 
