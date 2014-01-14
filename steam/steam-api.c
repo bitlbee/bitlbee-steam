@@ -672,9 +672,10 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
     GSList          *messages;
     const gchar     *str;
     gint64           in;
+    gsize            size;
     guint            i;
 
-    if (steam_json_str(json, "error", &str)  &&
+    if (steam_json_str(json, "error", &str) &&
         (g_ascii_strcasecmp(str, "Timeout") != 0) &&
         (g_ascii_strcasecmp(str, "OK")      != 0))
     {
@@ -688,15 +689,24 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
         return;
     }
 
+    if (steam_json_val(json, "messages", json_array, &jv))
+        size = jv->u.array.length;
+    else
+        size = 0;
+
+    if (!steam_json_int(json, "sectimeout", &in) ||
+        ((in < STEAM_API_TIMEOUT) && (size < 1)))
+    {
+        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+                    "Timeout of %" G_GINT64_FORMAT " too low", in);
+        return;
+    }
+
     if (!steam_json_int(json, "messagelast", &in) || (in == sata->api->lmid))
         return;
 
     sata->api->lmid = in;
-
-    if (!steam_json_val(json, "messages", json_array, &jv))
-        return;
-
-    messages = NULL;
+    messages        = NULL;
 
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
@@ -1281,10 +1291,13 @@ void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
 {
     SteamApiData *sata;
     gchar        *lmid;
+    gchar        *tout;
 
     g_return_if_fail(api != NULL);
 
     lmid = g_strdup_printf("%" G_GINT64_FORMAT, api->lmid);
+    tout = g_strdup_printf("%" G_GINT32_FORMAT, STEAM_API_TIMEOUT);
+
     sata = steam_api_data_new(api, STEAM_API_TYPE_POLL, func, data);
     steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_POLL);
 
@@ -1297,12 +1310,14 @@ void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
         STEAM_HTTP_PAIR("message",      lmid),
-        STEAM_HTTP_PAIR("sectimeout",   STEAM_API_TIMEOUT),
+        STEAM_HTTP_PAIR("sectimeout",   tout),
         NULL
     );
 
     sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(sata->req);
+
+    g_free(tout);
     g_free(lmid);
 }
 
