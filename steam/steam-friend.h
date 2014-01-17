@@ -95,4 +95,6 @@ const gchar *steam_friend_state_str(SteamFriendState state);
 
 SteamFriendState steam_friend_state_from_str(const gchar *state);
 
+gint steam_friend_user_mode(gchar *mode);
+
 #endif /* _STEAM_FRIEND_H */

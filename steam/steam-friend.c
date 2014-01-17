@@ -15,6 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <string.h>
+
 #include "steam-friend.h"
 
 SteamFriend *steam_friend_new(bee_user_t *bu)
@@ -33,7 +35,6 @@ void steam_friend_free(SteamFriend *frnd)
 
     g_free(frnd->server);
     g_free(frnd->game);
-
     g_free(frnd);
 }
 
@@ -71,7 +72,10 @@ void steam_friend_chans_umode(SteamFriend *frnd, gint mode)
     irc_channel_user_t *icu;
     GSList             *l;
 
-    g_return_if_fail(frnd   != NULL);
+    g_return_if_fail(frnd != NULL);
+
+    if (mode == IRC_CHANNEL_USER_NONE)
+        return;
 
     iu = frnd->buser->ui_data;
 
@@ -141,4 +145,19 @@ SteamFriendState steam_friend_state_from_str(const gchar *state)
     }
 
     return STEAM_FRIEND_STATE_OFFLINE;
+}
+
+gint steam_friend_user_mode(gchar *mode)
+{
+    if ((mode == NULL) || (strlen(mode) < 1))
+        return IRC_CHANNEL_USER_NONE;
+
+    switch (mode[0]) {
+    case '@': return IRC_CHANNEL_USER_OP;
+    case '%': return IRC_CHANNEL_USER_HALFOP;
+    case '+': return IRC_CHANNEL_USER_VOICE;
+
+    default:
+        return IRC_CHANNEL_USER_NONE;
+    }
 }

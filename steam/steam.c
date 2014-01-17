@@ -49,7 +49,7 @@ SteamData *steam_data_new(account_t *acc)
     sata->game_status  = set_getbool(&acc->set, "game_status");
 
     str = set_getstr(&acc->set, "show_playing");
-    sata->show_playing = steam_user_mode(str);
+    sata->show_playing = steam_friend_user_mode(str);
 
     return sata;
 }
@@ -60,21 +60,6 @@ void steam_data_free(SteamData *sata)
 
     steam_api_free(sata->api);
     g_free(sata);
-}
-
-gint steam_user_mode(gchar *mode)
-{
-    if (mode == NULL)
-        return IRC_CHANNEL_USER_NONE;
-
-    switch (mode[0]) {
-    case '@': return IRC_CHANNEL_USER_OP;
-    case '%': return IRC_CHANNEL_USER_HALFOP;
-    case '+': return IRC_CHANNEL_USER_VOICE;
-
-    default:
-        return IRC_CHANNEL_USER_NONE;
-    }
 }
 
 static void steam_buddy_status(SteamData *sata, SteamFriendSummary *smry,
@@ -597,39 +582,34 @@ static char *steam_eval_game_status(set_t *set, char *value)
 
 static char *steam_eval_show_playing(set_t *set, char *value)
 {
-    account_t          *acc = set->data;
-    SteamData          *sata;
-    SteamFriendSummary  smry;
-    bee_user_t         *bu;
-    GSList             *l;
-    gint                p;
+    account_t   *acc = set->data;
+    SteamData   *sata;
+    SteamFriend *frnd;
+    bee_user_t  *bu;
+    GSList      *l;
+    gint         sply;
 
     if ((acc->ic == NULL) || (acc->ic->proto_data == NULL))
         return value;
 
     sata = acc->ic->proto_data;
-    p    = steam_user_mode(value);
+    sply = steam_friend_user_mode(value);
 
-    if (p == sata->show_playing)
+    if (sply == sata->show_playing)
         return value;
 
-    sata->show_playing = p;
+    sata->show_playing = sply;
 
     for (l = acc->bee->users; l; l = l->next) {
-        bu = l->data;
+        bu   = l->data;
+        frnd = bu->data;
 
-        if (!(bu->flags & BEE_USER_ONLINE))
+        if (!(bu->flags & BEE_USER_ONLINE) || (frnd->game == NULL))
             continue;
 
-        memset(&smry, 0, sizeof smry);
-
-        smry.state    = steam_friend_state_from_str(bu->status);
-        smry.steamid  = bu->handle;
-        smry.nick     = bu->nick;
-        smry.game     = bu->status_msg;
-        smry.fullname = bu->fullname;
-
-        steam_buddy_status(sata, &smry, bu);
+        imcb_buddy_status(acc->ic, bu->handle, bu->flags,
+                          bu->status, bu->status_msg);
+        steam_friend_chans_umode(frnd, sata->show_playing);
     }
 
     return value;
