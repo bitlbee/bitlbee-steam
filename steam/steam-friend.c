@@ -123,7 +123,7 @@ const gchar *steam_friend_state_str(SteamFriendState state)
         [STEAM_FRIEND_STATE_PLAY]    = "Looking to Play"
     };
 
-    if ((state < 0) || (state > STEAM_FRIEND_STATE_LAST))
+    if ((state < 0) || (state >= STEAM_FRIEND_STATE_LAST))
         return "Offline";
 
     return strs[state];

@@ -63,6 +63,8 @@ struct _SteamFriend
 
     gchar *game;
     gchar *server;
+
+    gint64 lview;
 };
 
 struct _SteamFriendSummary
@@ -76,6 +78,9 @@ struct _SteamFriendSummary
     gchar *fullname;
     gchar *game;
     gchar *server;
+
+    gint64 lmesg;
+    gint64 lview;
 };
 
 

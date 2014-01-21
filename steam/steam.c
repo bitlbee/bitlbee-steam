@@ -45,7 +45,6 @@ SteamData *steam_data_new(account_t *acc)
     sata->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sata->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sata->api->sessid  = g_strdup(set_getstr(&acc->set, "sessid"));
-    sata->tstamp       = set_getint(&acc->set, "tstamp");
     sata->game_status  = set_getbool(&acc->set, "game_status");
 
     str = set_getstr(&acc->set, "show_playing");
@@ -239,7 +238,9 @@ static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
                           gpointer data)
 {
     SteamData       *sata = data;
+    SteamFriend     *frnd;
     SteamApiMessage *mesg;
+    bee_user_t      *bu;
     GSList          *l;
 
     if (err != NULL) {
@@ -247,10 +248,20 @@ static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
         return;
     }
 
-    for (l = messages; l != NULL; l = l->next) {
+    for (bu = NULL, l = messages; l != NULL; l = l->next) {
         mesg = l->data;
 
-        if (mesg->tstamp > sata->tstamp)
+        if ((bu == NULL) || (g_strcmp0(mesg->smry->steamid, bu->handle) != 0)) {
+            bu = bee_user_by_handle(sata->ic->bee, sata->ic,
+                                    mesg->smry->steamid);
+
+            if (G_UNLIKELY(bu == NULL))
+                continue;
+
+            frnd = bu->data;
+        }
+
+        if (mesg->tstamp > frnd->lview)
             steam_poll_mesg(sata, mesg, mesg->tstamp);
     }
 }
@@ -324,6 +335,7 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err,
 {
     SteamData            *sata = data;
     SteamFriendSummary   *smry;
+    SteamFriend          *frnd;
     struct im_connection *ic;
     GSList               *l;
     bee_user_t           *bu;
@@ -348,6 +360,9 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err,
         if (G_UNLIKELY(bu == NULL))
             continue;
 
+        frnd = bu->data;
+        frnd->lview = smry->lview;
+
         switch (smry->relation) {
         case STEAM_FRIEND_RELATION_FRIEND:
             steam_buddy_status(sata, smry, bu);
@@ -359,7 +374,8 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err,
             break;
         }
 
-        steam_api_chatlog(api, smry->steamid, steam_chatlog, sata);
+        if (smry->lmesg > smry->lview)
+            steam_api_chatlog(api, smry->steamid, steam_chatlog, sata);
     }
 
     steam_api_poll(api, steam_poll, sata);
@@ -405,11 +421,6 @@ static void steam_logon(SteamApi *api, GError *err, gpointer data)
     }
 
     acc = sata->ic->acc;
-
-    if (sata->tstamp < 1) {
-        sata->tstamp = api->tstamp;
-        set_setint(&acc->set, "tstamp", api->tstamp);
-    }
 
     set_setstr(&acc->set, "steamid", api->steamid);
     set_setstr(&acc->set, "umqid",   api->umqid);
@@ -461,10 +472,8 @@ static void steam_message(SteamApi *api, GError *err, gpointer data)
 static void steam_poll(SteamApi *api, GSList *messages, GError *err,
                        gpointer data)
 {
-    SteamData       *sata = data;
-    SteamApiMessage *mesg;
-    GSList          *l;
-    gint64           tstamp;
+    SteamData *sata = data;
+    GSList    *l;
 
     if (err != NULL) {
         if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
@@ -477,19 +486,8 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
         return;
     }
 
-    tstamp = 0;
-
-    for (l = messages; l != NULL; l = l->next) {
-        mesg = l->data;
-
-        if (mesg->tstamp > tstamp)
-            tstamp = mesg->tstamp;
-
-        steam_poll_mesg(sata, mesg, 0);
-    }
-
-    if (tstamp > 0)
-        set_setint(&sata->ic->acc->set, "tstamp", tstamp);
+    for (l = messages; l != NULL; l = l->next)
+        steam_poll_mesg(sata, l->data, 0);
 
     steam_api_poll(api, steam_poll, sata);
 }
@@ -659,9 +657,6 @@ static void steam_init(account_t *acc)
 
     s = set_add(&acc->set, "sessid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_PASSWORD;
-
-    s = set_add(&acc->set, "tstamp", NULL, set_eval_int, acc);
-    s->flags = SET_NULL_OK | SET_HIDDEN;
 
     s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
     s->flags = SET_NULL_OK;

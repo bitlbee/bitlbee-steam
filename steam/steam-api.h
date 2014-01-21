@@ -40,6 +40,7 @@
 #define STEAM_COM_PATH_AUTH          "/mobilelogin/dologin/"
 #define STEAM_COM_PATH_AUTH_RDIR     "/mobileloginsucceeded/"
 #define STEAM_COM_PATH_CAPTCHA       "/public/captcha.php"
+#define STEAM_COM_PATH_CHAT          "/chat/"
 #define STEAM_COM_PATH_CHATLOG       "/chat/chatlog/"
 #define STEAM_COM_PATH_FRIEND_ADD    "/actions/AddFriendAjax/"
 #define STEAM_COM_PATH_FRIEND_BLOCK  "/actions/BlockUserAjax/"
@@ -72,6 +73,7 @@ enum _SteamApiError
     STEAM_API_ERROR_FRIEND_REMOVE,
     STEAM_API_ERROR_FRIEND_SEARCH,
     STEAM_API_ERROR_FRIENDS,
+    STEAM_API_ERROR_FRIENDS_CINFO,
     STEAM_API_ERROR_KEY,
     STEAM_API_ERROR_LOGOFF,
     STEAM_API_ERROR_LOGON,
@@ -108,7 +110,9 @@ enum _SteamApiMessageType
 
 enum _SteamApiType
 {
-    STEAM_API_TYPE_AUTH = 0,
+    STEAM_API_TYPE_NONE = 0,
+
+    STEAM_API_TYPE_AUTH,
     STEAM_API_TYPE_AUTH_RDIR,
     STEAM_API_TYPE_CHATLOG,
     STEAM_API_TYPE_FRIEND_ACCEPT,
@@ -117,12 +121,14 @@ enum _SteamApiType
     STEAM_API_TYPE_FRIEND_REMOVE,
     STEAM_API_TYPE_FRIEND_SEARCH,
     STEAM_API_TYPE_FRIENDS,
+    STEAM_API_TYPE_FRIENDS_CINFO,
     STEAM_API_TYPE_KEY,
     STEAM_API_TYPE_LOGOFF,
     STEAM_API_TYPE_LOGON,
     STEAM_API_TYPE_RELOGON,
     STEAM_API_TYPE_MESSAGE,
     STEAM_API_TYPE_POLL,
+    STEAM_API_TYPE_SUMMARIES,
     STEAM_API_TYPE_SUMMARY,
 
     STEAM_API_TYPE_LAST
@@ -145,8 +151,9 @@ struct _SteamApi
 struct _SteamApiData
 {
     SteamApi      *api;
-    SteamApiFlags  flags;
     SteamApiType   type;
+    SteamApiType   typel;
+    SteamApiFlags  flags;
     GError        *err;
 
     gpointer func;
