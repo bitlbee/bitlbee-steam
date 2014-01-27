@@ -766,38 +766,36 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
     GSList          *messages;
     const gchar     *str;
     gint64           in;
-    gsize            size;
     guint            i;
 
-    if (steam_json_str(json, "error", &str) &&
-        (g_ascii_strcasecmp(str, "Timeout") != 0) &&
-        (g_ascii_strcasecmp(str, "OK")      != 0))
+    if (!steam_json_scmp(json, "error", "OK", &str))
     {
         if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
             steam_api_data_relogon(sata);
             return;
         }
 
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
-                    "%s", str);
-        return;
+        if (g_ascii_strcasecmp(str, "Timeout") != 0) {
+            g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+                        "%s", str);
+            return;
+        }
+
+        steam_json_int(json, "sectimeout", &in);
+
+        if (in < STEAM_API_TIMEOUT) {
+            g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+                        "Timeout of %" G_GINT64_FORMAT " too low", in);
+            return;
+        }
     }
 
-    if (steam_json_val(json, "messages", json_array, &jv))
-        size = jv->u.array.length;
-    else
-        size = 0;
-
-    if (!steam_json_int(json, "sectimeout", &in) ||
-        ((in < STEAM_API_TIMEOUT) && (size < 1)))
+    if (!steam_json_val(json, "messages", json_array, &jv) ||
+        !steam_json_int(json, "messagelast", &in) ||
+        (in == sata->api->lmid))
     {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
-                    "Timeout of %" G_GINT64_FORMAT " too low", in);
         return;
     }
-
-    if (!steam_json_int(json, "messagelast", &in) || (in == sata->api->lmid))
-        return;
 
     sata->api->lmid = in;
     messages        = NULL;
