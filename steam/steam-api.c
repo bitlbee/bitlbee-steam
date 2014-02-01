@@ -442,7 +442,7 @@ static void steam_api_friend_accept_cb(SteamApiData *sata, json_value *json)
         return;
 
     g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_ACCEPT,
-                str);
+                "%s", str);
 }
 
 static void steam_api_friend_add_cb(SteamApiData *sata, json_value *json)
