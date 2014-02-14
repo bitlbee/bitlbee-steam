@@ -322,6 +322,7 @@ static void steam_api_data_relogon(SteamApiData *sata)
 static void steam_api_auth_cb(SteamApiData *sata, json_value *json)
 {
     SteamApiError  err;
+    json_value    *jv;
     const gchar   *str;
     GTree         *prms;
 
@@ -346,15 +347,15 @@ static void steam_api_auth_cb(SteamApiData *sata, json_value *json)
         return;
     }
 
-    if (!steam_json_str(json, "oauth", &str)) {
+    if (!steam_json_val(json, "oauth", json_string, &jv)) {
         g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
-                    "Failed to obtain OAuth sata");
+                    "Failed to obtain OAuth data");
         return;
     }
 
-    json = steam_json_new(str, &sata->err);
+    json = steam_json_new(jv->u.string.ptr, jv->u.string.length, &sata->err);
 
-    if (json == NULL)
+    if ((json == NULL) || (sata->err != NULL))
         return;
 
     if (!steam_json_str(json, "oauth_token", &str)) {
@@ -606,6 +607,7 @@ static void steam_api_friends_cinfo_cb(SteamApiData *sata, json_value *json)
     const gchar        *str;
     const gchar        *end;
     gchar              *jraw;
+    gsize               size;
     GSList             *l;
     guint               i;
 
@@ -621,10 +623,11 @@ static void steam_api_friends_cinfo_cb(SteamApiData *sata, json_value *json)
         return;
     }
 
-    jraw = g_strndup(str, (end - str) + 1);
-    json = steam_json_new(jraw, &sata->err);
+    size = (end - str) + 1;
+    jraw = g_strndup(str, size);
+    json = steam_json_new(jraw, size, &sata->err);
 
-    if (sata->err != NULL) {
+    if ((json == NULL) || (sata->err != NULL)) {
         g_free(jraw);
         return;
     }
@@ -966,7 +969,7 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     if (sata->err == NULL)
     {
         if (!(tata->flags & STEAM_API_FLAG_NOJSON)) {
-            json = steam_json_new(req->body, &sata->err);
+            json = steam_json_new(req->body, req->body_size, &sata->err);
 
             if (sata->err == NULL)
                 pfuncs[type](sata, json);

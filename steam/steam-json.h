@@ -32,7 +32,7 @@ enum _SteamJsonError
 
 GQuark steam_json_error_quark(void);
 
-json_value *steam_json_new(const gchar *data, GError **err);
+json_value *steam_json_new(const gchar *data, gsize length, GError **err);
 
 gboolean steam_json_val(const json_value *json, const gchar *name,
                         json_type type, json_value **val);

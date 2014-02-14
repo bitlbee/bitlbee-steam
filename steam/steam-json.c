@@ -29,20 +29,31 @@ GQuark steam_json_error_quark(void)
     return q;
 }
 
-json_value *steam_json_new(const gchar *data, GError **err)
+json_value *steam_json_new(const gchar *data, gsize length, GError **err)
 {
     json_value    *json;
     json_settings  js;
-    gchar          estr[128];
+    gchar         *estr;
 
     memset(&js, 0, sizeof js);
-    json = json_parse_ex(&js, data, estr);
 
-    if ((json != NULL) || (err == NULL))
+#ifdef json_error_max
+    estr = g_new0(gchar, json_error_max);
+    json = json_parse_ex(&js, data, length, estr);
+#else
+    estr = g_new0(gchar, 128);
+    json = json_parse_ex(&js, data, estr);
+#endif
+
+    if ((json != NULL) && (strlen(estr) < 1)) {
+        g_free(estr);
         return json;
+    }
 
     g_set_error(err, STEAM_JSON_ERROR, STEAM_JSON_ERROR_PARSER,
                 "Parser: %s", estr);
+
+    g_free(estr);
     return NULL;
 }
 
@@ -94,7 +105,9 @@ gboolean steam_json_str(const json_value *json, const gchar *name,
 
     if (!steam_json_val(json, name, json_string, &jv) ||
         (jv->u.string.length < 1))
+    {
         return FALSE;
+    }
 
     *str = jv->u.string.ptr;
     return TRUE;
@@ -134,7 +147,11 @@ static void steam_json_tree_prop(GTree *tree, gchar *key,
         return;
 
     case json_integer:
+#if json_error_max
+        val = g_strdup_printf("%ld", json->u.integer);
+#else
         val = g_strdup_printf("%lld", json->u.integer);
+#endif
         break;
 
     case json_double:
