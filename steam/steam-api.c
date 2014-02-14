@@ -862,8 +862,14 @@ static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
     GList              *c;
     guint               i;
 
-    if (!steam_json_val(json, "players", json_array, &jv))
+    if ((!steam_json_val(json, "players", json_array, &jv) ||
+         (jv->u.array.length < 1)) &&
+        (sata->sums != NULL))
+    {
+        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARIES,
+                    "Failed to retrieve requested friend summaries");
         return;
+    }
 
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
@@ -894,16 +900,21 @@ static void steam_api_summary_cb(SteamApiData *sata, json_value *json)
     json_value         *jv;
     const gchar        *str;
 
-    if (!steam_json_val(json, "players", json_array, &jv))
+    if (!steam_json_val(json, "players", json_array, &jv) ||
+        (jv->u.array.length != 1))
+    {
+        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARY,
+                    "Failed to retrieve friend summary");
         return;
-
-    if (jv->u.array.length < 1)
-        return;
+    }
 
     jv = jv->u.array.values[0];
 
-    if (!steam_json_str(jv, "steamid", &str))
+    if (!steam_json_str(jv, "steamid", &str)) {
+        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARY,
+                    "Failed to retrieve friend summary steamid");
         return;
+    }
 
     smry = steam_friend_summary_new(str);
     steam_friend_summary_json(smry, jv);
