@@ -20,24 +20,7 @@
 
 #include "steam-glib.h"
 
-#ifndef g_hash_table_add
-/* Compatibility with glib < 2.32 */
-void g_hash_table_add(GHashTable *hash_table, gpointer key)
-{
-    g_hash_table_replace(hash_table, key, key);
-}
-#endif
-
-#ifndef g_hash_table_contains
-/* Compatibility with glib < 2.32 */
-gboolean g_hash_table_contains(GHashTable *hash_table, gconstpointer key)
-{
-    return (g_hash_table_lookup(hash_table, key) != NULL);
-}
-#endif
-
-#ifndef g_prefix_error
-/* Compatibility with glib < 2.16 */
+#if !GLIB_CHECK_VERSION(2, 16, 0)
 void g_prefix_error(GError **err, const gchar *format, ...)
 {
     va_list  ap;
@@ -57,19 +40,7 @@ void g_prefix_error(GError **err, const gchar *format, ...)
     g_free(p);
     g_free(m);
 }
-#endif
 
-#ifndef g_slist_free_full
-/* Compatibility with glib < 2.28 */
-void g_slist_free_full(GSList *list, GDestroyNotify free_func)
-{
-    g_slist_foreach(list, (GFunc) free_func, NULL);
-    g_slist_free(list);
-}
-#endif
-
-#ifndef g_strcmp0
-/* Compatibility with glib < 2.16 */
 int g_strcmp0(const char *str1, const char *str2)
 {
     if (str1 == NULL)
@@ -79,5 +50,25 @@ int g_strcmp0(const char *str1, const char *str2)
         return str1 != str2;
 
     return strcmp(str1, str2);
+}
+#endif
+
+#if !GLIB_CHECK_VERSION(2, 28, 0)
+void g_slist_free_full(GSList *list, GDestroyNotify free_func)
+{
+    g_slist_foreach(list, (GFunc) free_func, NULL);
+    g_slist_free(list);
+}
+#endif
+
+#if !GLIB_CHECK_VERSION(2, 32, 0)
+void g_hash_table_add(GHashTable *hash_table, gpointer key)
+{
+    g_hash_table_replace(hash_table, key, key);
+}
+
+gboolean g_hash_table_contains(GHashTable *hash_table, gconstpointer key)
+{
+    return (g_hash_table_lookup(hash_table, key) != NULL);
 }
 #endif

@@ -20,24 +20,20 @@
 
 #include <glib.h>
 
-#ifndef g_hash_table_add
-void g_hash_table_add(GHashTable *hash_table, gpointer key);
-#endif
-
-#ifndef g_hash_table_contains
-gboolean g_hash_table_contains(GHashTable *hash_table, gconstpointer key);
-#endif
-
-#ifndef g_prefix_error
+#if !GLIB_CHECK_VERSION(2, 16, 0)
 void g_prefix_error(GError **err, const gchar *format, ...);
+
+int g_strcmp0(const char *str1, const char *str2);
 #endif
 
-#ifndef g_slist_free_full
+#if !GLIB_CHECK_VERSION(2, 28, 0)
 void g_slist_free_full(GSList *list, GDestroyNotify free_func);
 #endif
 
-#ifndef g_strcmp0
-int g_strcmp0(const char *str1, const char *str2);
+#if !GLIB_CHECK_VERSION(2, 32, 0)
+void g_hash_table_add(GHashTable *hash_table, gpointer key);
+
+gboolean g_hash_table_contains(GHashTable *hash_table, gconstpointer key);
 #endif
 
 #endif /* _STEAM_GLIB_H */
