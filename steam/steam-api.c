@@ -1460,7 +1460,8 @@ void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
         NULL
     );
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    sata->req->timeout  = (STEAM_API_TIMEOUT + 5) * 1000;
+    sata->req->flags   |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(sata->req);
 
     g_free(tout);

@@ -74,6 +74,7 @@ struct _SteamHttpReq
     gchar *host;
     gint   port;
     gchar *path;
+    gint   timeout;
 
     GTree *headers;
     GTree *params;
@@ -88,7 +89,7 @@ struct _SteamHttpReq
     gchar  *body;
     gint    body_size;
 
-    gint   rsid;
+    gint   toid;
     guint8 rsc;
 };
 
@@ -116,6 +117,8 @@ gchar *steam_http_cookies_str(SteamHttp *http);
 SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
                                  gint port, const gchar *path,
                                  SteamHttpFunc func, gpointer data);
+
+void steam_http_req_close(SteamHttpReq *req);
 
 void steam_http_req_free(SteamHttpReq *req);
 
