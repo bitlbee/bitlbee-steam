@@ -36,7 +36,7 @@ AC_ARG_ENABLE(
     [AS_HELP_STRING(
         [--enable-debug],
         [Enable debugging features])],
-    [AC_DEFINE(DEBUG, 1)
+    [AC_DEFINE(DEBUG_STEAM, 1)
      CFLAGS="$CFLAGS -Wall -g -O0"])
 
 AC_ARG_WITH(

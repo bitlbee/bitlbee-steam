@@ -84,6 +84,7 @@ struct _SteamHttpReq
     struct http_request *request;
 
     GError *err;
+    gchar  *header;
     gchar  *body;
     gint    body_size;
 

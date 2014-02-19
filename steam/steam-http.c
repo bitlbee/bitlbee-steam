@@ -21,10 +21,6 @@
 #include "steam-glib.h"
 #include "steam-http.h"
 
-#ifdef DEBUG
-global_t global;
-#endif /* DEBUG */
-
 static void steam_http_req_queue(SteamHttp *http, gboolean force);
 
 static void steam_http_tree_ins(GTree *tree, SteamHttpPair *pair, va_list ap)
@@ -326,6 +322,56 @@ static gboolean steam_http_req_done_error(gpointer data, gint fd,
 
 static void steam_http_req_done(SteamHttpReq *req)
 {
+#ifdef DEBUG_STEAM
+    const gchar  *str;
+    gchar       **ls;
+    guint         i;
+
+    static gint8 debug = -1;
+
+    if (G_UNLIKELY(debug < 0))
+        debug = g_getenv("BITLBEE_DEBUG") || g_getenv("BITLBEE_DEBUG_STEAM");
+
+    if (debug) {
+        if (req->err != NULL)
+            str = req->err->message;
+        else if (req->request != NULL)
+            str = req->request->status_string;
+        else
+            str = "Unknown status";
+
+        g_print("HTTP Response (%p): %s:%d%s (%s)\n",
+                req, req->host, req->port, req->path, str);
+
+        if (req->rsc > 0)
+            g_print("Reattempted request: #%u\n", req->rsc);
+
+        if (req->header != NULL) {
+            ls = g_strsplit(req->header, "\n", 0);
+
+            for (i = 0; ls[i] != NULL; i++)
+                g_print("  %s\n", ls[i]);
+
+            g_strfreev(ls);
+        } else {
+            g_print("  ** No header data returned **\n\n");
+        }
+
+        if (req->body_size > 0) {
+            ls = g_strsplit(req->body, "\n", 0);
+
+            for (i = 0; ls[i] != NULL; i++)
+                g_print("  %s\n", ls[i]);
+
+            g_strfreev(ls);
+        } else {
+            g_print("  ** No body data returned **\n");
+        }
+
+        g_print("\n\n");
+    }
+#endif /* DEBUG_STEAM */
+
     if (req->err != NULL) {
         if (req->rsc < STEAM_HTTP_RESEND_MAX) {
             g_error_free(req->err);
@@ -367,46 +413,9 @@ static void steam_http_req_cb(struct http_request *request)
     SteamHttpReq *req = request->data;
 
     /* Shortcut some req->request values into req */
+    req->header    = request->reply_headers;
     req->body      = request->reply_body;
     req->body_size = request->body_size;
-
-#ifdef DEBUG
-    gchar **ls;
-    guint   i;
-
-    if (global.conf->verbose) {
-        g_print("HTTP Response (%s:%d%s): %s\n",
-                req->host, req->port, req->path,
-                request->status_string);
-
-        if (req->rsc > 0)
-            g_print("Reattempted request: #%u\n", req->rsc);
-
-        if (request->reply_headers != NULL) {
-            ls = g_strsplit(request->reply_headers, "\n", 0);
-
-            for (i = 0; ls[i] != NULL; i++)
-                g_print("  %s\n", ls[i]);
-
-            g_strfreev(ls);
-        } else {
-            g_print("  ** No header data returned **\n\n");
-        }
-
-        if (req->body_size > 0) {
-            ls = g_strsplit(req->body, "\n", 0);
-
-            for (i = 0; ls[i] != NULL; i++)
-                g_print("  %s\n", ls[i]);
-
-            g_strfreev(ls);
-        } else {
-            g_print("  ** No body data returned **\n");
-        }
-
-        g_print("\n\n");
-    }
-#endif /* DEBUG */
 
     switch (request->status_code) {
     case 200:
@@ -491,12 +500,18 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
                               req->path, ps, hs);
     }
 
-#ifdef DEBUG
+#ifdef DEBUG_STEAM
     gchar **ls;
     guint   i;
 
-    if (global.conf->verbose) {
-        g_print("HTTP Request (%s:%d%s)\n", req->host, req->port, req->path);
+    static gint8 debug = -1;
+
+    if (G_UNLIKELY(debug < 0))
+        debug = g_getenv("BITLBEE_DEBUG") || g_getenv("BITLBEE_DEBUG_STEAM");
+
+    if (debug) {
+        g_print("HTTP Request (%p): %s:%d%s\n",
+                req, req->host, req->port, req->path);
 
         if (req->rsc > 0)
             g_print("Reattempted request: #%u\n", req->rsc);
@@ -525,7 +540,7 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
 
         g_print("\n\n");
     }
-#endif /* DEBUG */
+#endif /* DEBUG_STEAM */
 
     req->request = http_dorequest(req->host, req->port,
                                   (req->flags & STEAM_HTTP_REQ_FLAG_SSL),
