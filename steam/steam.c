@@ -430,43 +430,12 @@ static void steam_logon(SteamApi *api, GError *err, gpointer data)
     steam_api_friends(api, steam_friends, sata);
 }
 
-static void steam_relogon(SteamApi *api, GError *err, gpointer data)
-{
-    SteamData *sata = data;
-
-    if (err == NULL)
-        return;
-
-    imcb_error(sata->ic, "%s", err->message);
-    imc_logout(sata->ic, TRUE);
-}
-
-static void steam_relogon_poll(SteamApi *api, GError *err, gpointer data)
-{
-    SteamData *sata = data;
-
-    if (err == NULL) {
-        steam_api_poll(api, steam_poll, sata);
-        return;
-    }
-
-    imcb_error(sata->ic, "%s", err->message);
-    imc_logout(sata->ic, TRUE);
-}
-
 static void steam_message(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sata = data;
 
-    if (err == NULL)
-        return;
-
-    if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
-        steam_api_relogon(api, steam_relogon, sata);
-        return;
-    }
-
-    imcb_error(sata->ic, "%s", err->message);
+    if (err != NULL)
+        imcb_error(sata->ic, "%s", err->message);
 }
 
 static void steam_poll(SteamApi *api, GSList *messages, GError *err,
@@ -476,11 +445,6 @@ static void steam_poll(SteamApi *api, GSList *messages, GError *err,
     GSList    *l;
 
     if (err != NULL) {
-        if (err->code == STEAM_API_ERROR_LOGON_EXPIRED) {
-            steam_api_relogon(api, steam_relogon_poll, sata);
-            return;
-        }
-
         imcb_error(sata->ic, "%s", err->message);
         imc_logout(sata->ic, TRUE);
         return;

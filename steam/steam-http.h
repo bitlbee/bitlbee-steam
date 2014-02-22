@@ -21,6 +21,7 @@
 #include <glib.h>
 #include <http_client.h>
 
+#define STEAM_HTTP_CLIENT_FREED   (1 << 31)
 #define STEAM_HTTP_RESEND_MAX     3
 #define STEAM_HTTP_RESEND_TIMEOUT 2000
 
@@ -47,8 +48,9 @@ enum _SteamHttpReqFlags
     STEAM_HTTP_REQ_FLAG_SSL    = 1 << 2,
 
     STEAM_HTTP_REQ_FLAG_NOFREE = 1 << 3,
-    STEAM_HTTP_REQ_FLAG_QUEUED = 1 << 4,
-    STEAM_HTTP_REQ_FLAG_RESEND = 1 << 5
+    STEAM_HTTP_REQ_FLAG_NOWAIT = 1 << 4,
+    STEAM_HTTP_REQ_FLAG_QUEUED = 1 << 5,
+    STEAM_HTTP_REQ_FLAG_RESEND = 1 << 6
 };
 
 struct _SteamHttp
@@ -56,8 +58,8 @@ struct _SteamHttp
     SteamHttpFlags flags;
 
     gchar  *agent;
-    GQueue *reqq;
     GTree  *cookies;
+    GQueue *queue;
 };
 
 struct _SteamHttpPair

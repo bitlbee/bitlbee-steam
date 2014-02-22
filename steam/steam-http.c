@@ -59,7 +59,7 @@ SteamHttp *steam_http_new(const gchar *agent)
     http = g_new0(SteamHttp, 1);
 
     http->agent   = g_strdup(agent);
-    http->reqq    = g_queue_new();
+    http->queue   = g_queue_new();
     http->cookies = g_tree_new_full((GCompareDataFunc) g_ascii_strcasecmp,
                                     NULL, g_free, g_free);
     return http;
@@ -73,7 +73,7 @@ void steam_http_free_reqs(SteamHttp *http)
 
     http->flags &= ~STEAM_HTTP_FLAG_QUEUED;
 
-    while ((req = g_queue_pop_tail(http->reqq)) != NULL)
+    while ((req = g_queue_pop_tail(http->queue)) != NULL)
         steam_http_req_free(req);
 }
 
@@ -82,7 +82,7 @@ void steam_http_free(SteamHttp *http)
     g_return_if_fail(http != NULL);
 
     steam_http_free_reqs(http);
-    g_queue_free(http->reqq);
+    g_queue_free(http->queue);
     g_tree_destroy(http->cookies);
 
     g_free(http->agent);
@@ -91,14 +91,32 @@ void steam_http_free(SteamHttp *http)
 
 void steam_http_queue_pause(SteamHttp *http, gboolean pause)
 {
+    SteamHttpReq *req;
+    GList        *l;
+
     g_return_if_fail(http != NULL);
 
-    if (!pause) {
-        http->flags &= ~STEAM_HTTP_FLAG_PAUSED;
-        steam_http_req_queue(http, TRUE);
-    } else {
+    if (pause) {
+        for (l = http->queue->tail; l != NULL; l = l->prev)
+            steam_http_req_close(l->data);
+
         http->flags |= STEAM_HTTP_FLAG_PAUSED;
+        return;
     }
+
+    http->flags &= ~STEAM_HTTP_FLAG_PAUSED;
+
+    for (l = http->queue->tail; l != NULL; l = l->prev) {
+        req = l->data;
+
+        if (!(req->flags & STEAM_HTTP_REQ_FLAG_QUEUED) &&
+            (req->request == NULL))
+        {
+            steam_http_req_sendasm(req);
+        }
+    }
+
+    steam_http_req_queue(http, TRUE);
 }
 
 void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
@@ -274,7 +292,9 @@ void steam_http_req_close(SteamHttpReq *req)
         req->request->func = steam_http_req_close_nuller;
         req->request->data = NULL;
 
-        http_close(req->request);
+        if (!(req->request->flags & STEAM_HTTP_CLIENT_FREED))
+            http_close(req->request);
+
         req->request = NULL;
     }
 }
@@ -396,11 +416,9 @@ static void steam_http_req_done(SteamHttpReq *req)
 
     if (req->err != NULL) {
         if (req->rsc < STEAM_HTTP_RESEND_MAX) {
-            b_event_remove(req->toid);
+            steam_http_req_close(req);
             g_error_free(req->err);
-
-            req->request = NULL;
-            req->err     = NULL;
+            req->err = NULL;
 
             req->toid = b_timeout_add(STEAM_HTTP_RESEND_TIMEOUT,
                                       steam_http_req_done_error, req);
@@ -411,10 +429,8 @@ static void steam_http_req_done(SteamHttpReq *req)
         g_prefix_error(&req->err, "HTTP: ");
     }
 
-    b_event_remove(req->toid);
-    g_queue_remove(req->http->reqq, req);
-
-    req->flags &= ~(STEAM_HTTP_REQ_FLAG_NOFREE | STEAM_HTTP_REQ_FLAG_RESEND);
+    req->flags &= ~STEAM_HTTP_REQ_FLAG_NOFREE;
+    g_queue_remove(req->http->queue, req);
 
     if (req->func != NULL)
         req->func(req, req->data);
@@ -422,15 +438,13 @@ static void steam_http_req_done(SteamHttpReq *req)
     if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED)
         steam_http_req_queue(req->http, TRUE);
 
-    req->request = NULL;
-    steam_http_req_close(req);
-
     if (!(req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)) {
         steam_http_req_free(req);
         return;
     }
 
-    req->flags &= ~(STEAM_HTTP_REQ_FLAG_NOFREE | STEAM_HTTP_REQ_FLAG_RESEND);
+    req->flags &= ~STEAM_HTTP_REQ_FLAG_NOFREE;
+    steam_http_req_close(req);
 }
 
 static void steam_http_req_cb(struct http_request *request)
@@ -454,6 +468,7 @@ static void steam_http_req_cb(struct http_request *request)
                     "%s", request->status_string);
     }
 
+    req->request->flags |= STEAM_HTTP_CLIENT_FREED;
     steam_http_req_done(req);
 }
 
@@ -609,15 +624,15 @@ static void steam_http_req_queue(SteamHttp *http, gboolean force)
     SteamHttpReq *treq;
     GList        *l;
 
-    if (http->flags & STEAM_HTTP_FLAG_PAUSED)
+    if ((http->flags & STEAM_HTTP_FLAG_PAUSED) ||
+        (!force && (http->flags & STEAM_HTTP_FLAG_QUEUED)))
+    {
         return;
-
-    if (!force && (http->flags & STEAM_HTTP_FLAG_QUEUED))
-        return;
+    }
 
     req = NULL;
 
-    for (l = http->reqq->tail; l != NULL; l = l->prev) {
+    for (l = http->queue->tail; l != NULL; l = l->prev) {
         treq = l->data;
 
         if (treq->flags & STEAM_HTTP_REQ_FLAG_QUEUED) {
@@ -636,33 +651,31 @@ static void steam_http_req_queue(SteamHttp *http, gboolean force)
     steam_http_req_sendasm(req);
 
     if (G_UNLIKELY(req->request == NULL))
-        g_queue_remove(req->http->reqq, req);
+        g_queue_remove(req->http->queue, req);
 }
 
 void steam_http_req_send(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
 
-    if (req->flags & STEAM_HTTP_REQ_FLAG_RESEND) {
-        g_queue_push_tail(req->http->reqq, req);
-
-        if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED)
-            steam_http_req_queue(req->http, FALSE);
-        else
-            steam_http_req_sendasm(req);
+    if (req->flags & STEAM_HTTP_REQ_FLAG_NOWAIT) {
+        g_queue_push_tail(req->http->queue, req);
+        steam_http_req_sendasm(req);
         return;
     }
 
+    if (req->flags & STEAM_HTTP_REQ_FLAG_RESEND)
+        g_queue_push_tail(req->http->queue, req);
+    else
+        g_queue_push_head(req->http->queue, req);
+
     if (req->flags & STEAM_HTTP_REQ_FLAG_QUEUED) {
-        g_queue_push_head(req->http->reqq, req);
         steam_http_req_queue(req->http, FALSE);
         return;
     }
 
-    steam_http_req_sendasm(req);
-
-    if (G_LIKELY(req->request != NULL))
-        g_queue_push_head(req->http->reqq, req);
+    if (!(req->http->flags & STEAM_HTTP_FLAG_PAUSED))
+        steam_http_req_sendasm(req);
 }
 
 gchar *steam_http_uri_escape(const gchar *unescaped)

@@ -26,6 +26,7 @@ typedef void (*SteamApiParseFunc) (SteamApiData *sata, json_value *json);
 
 static void steam_api_auth_rdir(SteamApiData *sata, GTree *params);
 static void steam_api_friends_cinfo(SteamApiData *sata);
+static void steam_api_relogon(SteamApiData *sata);
 static void steam_api_summaries(SteamApiData *sata);
 
 GQuark steam_api_error_quark(void)
@@ -163,8 +164,8 @@ SteamApiData *steam_api_data_new(SteamApi *api, SteamApiType type,
 
     sata = g_new0(SteamApiData, 1);
 
-    sata->api  = api;
     sata->type = type;
+    sata->api  = api;
     sata->func = func;
     sata->data = data;
 
@@ -308,17 +309,6 @@ static void steam_friend_summary_json(SteamFriendSummary *smry,
     smry->state = in;
 }
 
-static void steam_api_data_relogon(SteamApiData *sata)
-{
-    g_return_if_fail(sata != NULL);
-
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON_EXPIRED,
-                "Logon session expired");
-
-    steam_http_queue_pause(sata->api->http, TRUE);
-    steam_http_req_resend(sata->req);
-}
-
 static void steam_api_auth_cb(SteamApiData *sata, json_value *json)
 {
     SteamApiError  err;
@@ -368,7 +358,6 @@ static void steam_api_auth_cb(SteamApiData *sata, json_value *json)
     sata->api->token = g_strdup(str);
 
     prms = steam_json_tree(json);
-    sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
     steam_api_auth_rdir(sata, prms);
     g_tree_destroy(prms);
 
@@ -564,10 +553,8 @@ static void steam_api_friends_cb(SteamApiData *sata, json_value *json)
     sata->rdata = friends;
     sata->rfunc = (GDestroyNotify) steam_api_friends_free;
 
-    if (friends != NULL) {
-        sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
+    if (friends != NULL)
         steam_api_friends_cinfo(sata);
-    }
 }
 
 static const gchar *unquotechr(const gchar *str, gchar chr)
@@ -722,11 +709,13 @@ static void steam_api_relogon_cb(SteamApiData *sata, json_value *json)
 
     steam_http_queue_pause(sata->api->http, FALSE);
 
-    if (steam_json_scmp(json, "error", "OK", &str))
+    if (!steam_json_scmp(json, "error", "OK", &str)) {
+        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
+                    "%s", str);
         return;
+    }
 
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
-                "%s", str);
+    sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
 }
 
 static void steam_api_logoff_cb(SteamApiData *sata, json_value *json)
@@ -748,7 +737,7 @@ static void steam_api_message_cb(SteamApiData *sata, json_value *json)
         return;
 
     if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
-        steam_api_data_relogon(sata);
+        steam_api_relogon(sata);
         return;
     }
 
@@ -774,7 +763,7 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
     if (!steam_json_scmp(json, "error", "OK", &str))
     {
         if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
-            steam_api_data_relogon(sata);
+            steam_api_relogon(sata);
             return;
         }
 
@@ -951,10 +940,8 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
         [STEAM_API_TYPE_SUMMARY]       = steam_api_summary_cb
     };
 
-    if (G_UNLIKELY(sata->req != req)) {
-        sata->req = req;
-        g_warn_if_reached();
-    }
+    /* Ensure the active request is defined */
+    sata->req = req;
 
     if (sata->typel != STEAM_API_TYPE_NONE) {
         type = sata->typel;
@@ -996,7 +983,6 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
         (sata->sums != NULL) &&
         (sata->type == tata->type))
     {
-        sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
         steam_api_summaries(sata);
     }
 
@@ -1101,7 +1087,8 @@ static void steam_api_auth_rdir(SteamApiData *sata, GTree *params)
     g_tree_foreach(params, (GTraverseFunc) steam_api_params, sata->req);
 
     sata->type        = STEAM_API_TYPE_AUTH_RDIR;
-    sata->flags      |= STEAM_API_FLAG_NOJSON;
+    sata->flags      |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE |
+                        STEAM_API_FLAG_NOJSON;
     sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(sata->req);
 }
@@ -1302,7 +1289,8 @@ static void steam_api_friends_cinfo(SteamApiData *sata)
     steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_CHAT);
 
     sata->type   = STEAM_API_TYPE_FRIENDS_CINFO;
-    sata->flags |= STEAM_API_FLAG_NOJSON;
+    sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE |
+                   STEAM_API_FLAG_NOJSON;
     steam_http_req_send(sata->req);
 }
 
@@ -1371,23 +1359,21 @@ void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
     steam_http_req_send(sata->req);
 }
 
-void steam_api_relogon(SteamApi *api, SteamApiFunc func, gpointer data)
+static void steam_api_relogon(SteamApiData *sata)
 {
-    SteamApiData *sata;
-
-    g_return_if_fail(api != NULL);
-
-    sata = steam_api_data_new(api, STEAM_API_TYPE_RELOGON, func, data);
+    steam_http_queue_pause(sata->api->http, TRUE);
+    steam_http_req_resend(sata->req);
     steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
     steam_http_req_params_set(sata->req,
-        STEAM_HTTP_PAIR("access_token", api->token),
-        STEAM_HTTP_PAIR("umqid",        api->umqid),
+        STEAM_HTTP_PAIR("access_token", sata->api->token),
+        STEAM_HTTP_PAIR("umqid",        sata->api->umqid),
         NULL
     );
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_queue_pause(api->http, TRUE);
+    sata->type        = STEAM_API_TYPE_RELOGON;
+    sata->flags      |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
+    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_NOWAIT;
     steam_http_req_send(sata->req);
 }
 
@@ -1476,7 +1462,7 @@ static void steam_api_summaries(SteamApiData *sata)
     GList              *l;
     gsize               i;
 
-    if (sata->sums == NULL)
+    if (G_UNLIKELY(sata->sums == NULL))
         return;
 
     tbl  = g_hash_table_new(g_str_hash, g_str_equal);
@@ -1505,7 +1491,8 @@ static void steam_api_summaries(SteamApiData *sata)
         NULL
     );
 
-    sata->type = STEAM_API_TYPE_SUMMARIES;
+    sata->type   = STEAM_API_TYPE_SUMMARIES;
+    sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
     steam_http_req_send(sata->req);
 
     g_string_free(gstr, TRUE);

@@ -86,7 +86,6 @@ enum _SteamApiError
     STEAM_API_ERROR_AUTH_CAPTCHA,
     STEAM_API_ERROR_AUTH_GUARD,
     STEAM_API_ERROR_EMPTY_REPLY,
-    STEAM_API_ERROR_LOGON_EXPIRED,
     STEAM_API_ERROR_PARSER
 };
 
@@ -151,11 +150,13 @@ struct _SteamApi
 
 struct _SteamApiData
 {
-    SteamApi      *api;
-    SteamApiType   type;
-    SteamApiType   typel;
-    SteamApiFlags  flags;
-    GError        *err;
+    SteamApiType  type;
+    SteamApiFlags flags;
+
+    SteamApi     *api;
+    SteamHttpReq *req;
+    GError       *err;
+    GList        *sums;
 
     gpointer func;
     gpointer data;
@@ -163,8 +164,7 @@ struct _SteamApiData
     gpointer       rdata;
     GDestroyNotify rfunc;
 
-    GList        *sums;
-    SteamHttpReq *req;
+    SteamApiType typel;
 };
 
 struct _SteamApiMessage
@@ -245,8 +245,6 @@ void steam_api_key(SteamApi *api, const gchar *user, SteamApiFunc func,
 void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data);
 
 void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data);
-
-void steam_api_relogon(SteamApi *api, SteamApiFunc func, gpointer data);
 
 void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
                        SteamApiFunc func, gpointer data);
