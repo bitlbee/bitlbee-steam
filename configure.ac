@@ -15,7 +15,7 @@
 
 AC_INIT(
     [bitlbee-steam],
-    [0.1.0],
+    [1.0.0],
     [https://github.com/jgeboski/bitlbee-steam/issues])
 
 AC_CONFIG_AUX_DIR([config])
