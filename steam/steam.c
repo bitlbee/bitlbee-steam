@@ -220,15 +220,17 @@ static void steam_auth(SteamApi *api, GError *err, gpointer data)
     set_setstr(&acc->set, "cgid", api->auth->cgid);
     imcb_log(sata->ic, "%s", err->message);
 
-    switch (err->code) {
-    case STEAM_API_ERROR_AUTH_CAPTCHA:
-        imcb_log(sata->ic, "View: %s", api->auth->curl);
-        imcb_log(sata->ic, "Run: account %s set captcha <text>", acc->tag);
-        break;
+    if (err->domain == STEAM_API_ERROR) {
+        switch (err->code) {
+        case STEAM_API_ERROR_AUTH_CAPTCHA:
+            imcb_log(sata->ic, "View: %s", api->auth->curl);
+            imcb_log(sata->ic, "Run: account %s set captcha <text>", acc->tag);
+            break;
 
-    case STEAM_API_ERROR_AUTH_GUARD:
-        imcb_log(sata->ic, "Run: account %s set authcode <code>", acc->tag);
-        break;
+        case STEAM_API_ERROR_AUTH_GUARD:
+            imcb_log(sata->ic, "Run: account %s set authcode <code>", acc->tag);
+            break;
+        }
     }
 
     imc_logout(sata->ic, FALSE);
