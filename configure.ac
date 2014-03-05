@@ -16,7 +16,11 @@
 AC_INIT(
     [bitlbee-steam],
     [1.0.0],
-    [https://github.com/jgeboski/bitlbee-steam/issues])
+    [https://github.com/jgeboski/bitlbee-steam/issues],
+    [bitlbee-steam],
+    [https://github.com/jgeboski/bitlbee-steam],
+    []
+)
 
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([m4])
@@ -35,39 +39,49 @@ AC_ARG_ENABLE(
     [debug],
     [AS_HELP_STRING(
         [--enable-debug],
-        [Enable debugging features])],
-    [AC_DEFINE(DEBUG_STEAM, 1)
-     CFLAGS="$CFLAGS -Wall -g -O0"])
+        [Enable debugging features]
+    )], [
+        AC_DEFINE(DEBUG_STEAM, 1)
+        CFLAGS="$CFLAGS -Wall -g -O0"
+    ]
+)
 
 AC_ARG_WITH(
     [plugindir],
     [AS_HELP_STRING(
         [--with-plugindir],
-        [BitlBee plugin directory])],
+        [BitlBee plugin directory]
+    )],
     [plugindir="$with_plugindir"],
-    [plugindir="$libdir/bitlbee"])
+    [plugindir="$libdir/bitlbee"]
+)
 
 m4_define_default(
-    [PKG_CHECK_MODULES],
-    [AC_MSG_CHECKING([$1])
-     AC_MSG_RESULT([no])]
-    [AC_MSG_ERROR([Package requirements (pkg-config) were not met.])])
+    [PKG_CHECK_MODULES], [
+        AC_MSG_CHECKING([$1])
+        AC_MSG_RESULT([no])
+    ],
+    [AC_MSG_ERROR([Package requirements (pkg-config) were not met.])]
+)
 
 AC_CHECK_LIB(
     [gmp],
     [__gmpz_init],
     [HAVE_GMP_LIB=yes],
-    [HAVE_GMP_LIB=no])
+    [HAVE_GMP_LIB=no]
+)
 
 AC_CHECK_HEADER(
     [gmp.h],
     [HAVE_GMP_HEADER=yes],
-    [HAVE_GMP_HEADER=no])
+    [HAVE_GMP_HEADER=no]
+)
 
 AS_IF(
     [test "x$HAVE_GMP_LIB" == "xno" -o "x$HAVE_GMP_HEADER" == "xno"],
     [AC_MSG_ERROR([Package requirements (GMP) were not met.])],
-    [GMP_LIBS=-lgmp])
+    [GMP_LIBS=-lgmp]
+)
 
 PKG_CHECK_MODULES([GLIB],    [glib-2.0])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee])
@@ -80,15 +94,17 @@ AC_PREPROC_IFELSE(
         #define HAVE_CONFIG_H 1
         #include <bitlbee.h>
         #include <http_client.h>
-        ]], [])],
+    ]], [])],
     [HAVE_BITLBEE_HEADERS=yes],
-    [HAVE_BITLBEE_HEADERS=no])
+    [HAVE_BITLBEE_HEADERS=no]
+)
 
 AC_MSG_RESULT([$HAVE_BITLBEE_HEADERS])
 
 AS_IF(
     [test "x$HAVE_BITLBEE_HEADERS" == "xno"],
-    [AC_MSG_ERROR([Failed to find required bitlbee headers.])])
+    [AC_MSG_ERROR([Failed to find required bitlbee headers.])]
+)
 
 # No "reliable" version set in bitlbee.pc, check manually
 CPPFLAGS="$GLIB_CFLAGS $BITLBEE_CFLAGS"
@@ -99,7 +115,7 @@ AC_RUN_IFELSE(
         #if BITLBEE_VERSION_CODE < BITLBEE_VER(3, 2, 0)
         #error outdated bitlbee version
         #endif
-        ]], [[
+    ]], [[
         #if BITLBEE_VERSION_CODE == BITLBEE_VER(3, 2, 0)
         #include <stdlib.h>
         #include <string.h>
@@ -115,15 +131,17 @@ AC_RUN_IFELSE(
 
         return EXIT_SUCCESS;
         #endif
-        ]])],
+    ]])],
     [HAVE_BITLBEE_REQ=yes],
-    [HAVE_BITLBEE_REQ=no])
+    [HAVE_BITLBEE_REQ=no]
+)
 
 AC_MSG_RESULT([$HAVE_BITLBEE_REQ])
 
 AS_IF(
     [test "x$HAVE_BITLBEE_REQ" == "xno"],
-    [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2.1) were not met.])])
+    [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2.1) were not met.])]
+)
 
 AC_CONFIG_FILES([Makefile steam/Makefile])
 AC_SUBST([GMP_LIBS])
