@@ -40,10 +40,28 @@ AC_ARG_ENABLE(
     [AS_HELP_STRING(
         [--enable-debug],
         [Enable debugging features]
-    )], [
-        AC_DEFINE(DEBUG_STEAM, 1)
-        CFLAGS="$CFLAGS -Wall -g -O0"
-    ]
+    )],
+    [DEBUG="yes"],
+    [DEBUG="no"]
+)
+
+AC_ARG_ENABLE(
+    [minimal-flags],
+    [AS_HELP_STRING(
+        [--enable-minimal-flags],
+        [Disable internal CFLAGS which are not required]
+    )],
+    [MINIMAL_FLAGS="yes"],
+    [MINIMAL_FLAGS="no"]
+)
+
+AS_IF(
+    [test "x$DEBUG" == "xyes"],
+    [AC_DEFINE(DEBUG_STEAM, 1)
+     AS_IF(
+        [test "x$MINIMAL_FLAGS" == "xno"],
+        [CFLAGS="$CFLAGS -Wall -g -O0"]
+    )]
 )
 
 AC_ARG_WITH(
