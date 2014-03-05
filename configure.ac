@@ -37,7 +37,7 @@ AC_ARG_ENABLE(
         [--enable-debug],
         [Enable debugging features])],
     [AC_DEFINE(DEBUG_STEAM, 1)
-     CFLAGS="-Wall -g -O0"])
+     CFLAGS="$CFLAGS -Wall -g -O0"])
 
 AC_ARG_WITH(
     [plugindir],
