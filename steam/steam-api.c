@@ -1368,6 +1368,7 @@ static void steam_api_relogon(SteamApiData *sata)
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("access_token", sata->api->token),
         STEAM_HTTP_PAIR("umqid",        sata->api->umqid),
+        STEAM_HTTP_PAIR("ui_mode",      "web"),
         NULL
     );
 
