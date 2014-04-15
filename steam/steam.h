@@ -19,6 +19,7 @@
 #define _STEAM_H
 
 #include <bitlbee.h>
+#include <glib.h>
 
 #include "steam-api.h"
 

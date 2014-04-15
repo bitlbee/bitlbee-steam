@@ -18,7 +18,6 @@
 #include <bitlbee.h>
 #include <string.h>
 
-#include "steam-glib.h"
 #include "steam-http.h"
 
 static void steam_http_req_sendasm(SteamHttpReq *req);

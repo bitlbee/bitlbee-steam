@@ -101,7 +101,7 @@ AS_IF(
     [GMP_LIBS=-lgmp]
 )
 
-PKG_CHECK_MODULES([GLIB],    [glib-2.0])
+PKG_CHECK_MODULES([GLIB],    [glib-2.0 >= 2.32.0])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee])
 
 # Check for "real" bitlbee headers

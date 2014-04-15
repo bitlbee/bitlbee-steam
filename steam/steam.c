@@ -19,7 +19,6 @@
 #include <string.h>
 
 #include "steam.h"
-#include "steam-glib.h"
 
 static void steam_logon(SteamApi *api, GError *err, gpointer data);
 static void steam_poll(SteamApi *api, GSList *messages, GError *err,

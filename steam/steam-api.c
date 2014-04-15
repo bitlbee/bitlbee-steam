@@ -18,7 +18,6 @@
 #include <string.h>
 
 #include "steam-api.h"
-#include "steam-glib.h"
 #include "steam-http.h"
 #include "steam-json.h"
 

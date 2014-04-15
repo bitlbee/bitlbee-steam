@@ -19,6 +19,7 @@
 #define _STEAM_FRIEND_H
 
 #include <bitlbee.h>
+#include <glib.h>
 
 #define STEAM_FRIEND_ID_NEW(u, t, i, n) ((gint64) ( \
          ((gint32) n)        | \
