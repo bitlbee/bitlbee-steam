@@ -104,7 +104,7 @@ static void steam_buddy_status(SteamData *sata, SteamFriendSummary *smry,
         imcb_buddy_status(sata->ic, smry->id->steam.s, f, m, game);
 
         if (smry->game != NULL)
-            steam_friend_chans_umode(frnd, sata->show_playing);
+            steam_friend_chans_umode(frnd, sata->show_playing, TRUE);
 
         g_free(frnd->game);
         frnd->game = g_strdup(smry->game);
@@ -569,7 +569,7 @@ static char *steam_eval_show_playing(set_t *set, char *value)
 
         imcb_buddy_status(acc->ic, bu->handle, bu->flags,
                           bu->status, bu->status_msg);
-        steam_friend_chans_umode(frnd, sata->show_playing);
+        steam_friend_chans_umode(frnd, sata->show_playing, TRUE);
     }
 
     return value;

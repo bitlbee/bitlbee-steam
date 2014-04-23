@@ -117,17 +117,17 @@ void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...)
     g_free(str);
 }
 
-void steam_friend_chans_umode(SteamFriend *frnd, gint mode)
+void steam_friend_chans_umode(SteamFriend *frnd, gint mode, gboolean override)
 {
-    irc_channel_t      *ic;
-    irc_user_t         *iu;
-    irc_channel_user_t *icu;
-    GSList             *l;
+    irc_channel_t            *ic;
+    irc_user_t               *iu;
+    irc_channel_user_t       *icu;
+    irc_channel_user_flags_t  flags;
+    irc_channel_user_flags_t  flag;
+    GSList                   *l;
+    guint                     i;
 
     g_return_if_fail(frnd != NULL);
-
-    if (mode == IRC_CHANNEL_USER_NONE)
-        return;
 
     iu = frnd->buser->ui_data;
 
@@ -135,8 +135,24 @@ void steam_friend_chans_umode(SteamFriend *frnd, gint mode)
         ic  = l->data;
         icu = irc_channel_has_user(ic, iu);
 
-        if (icu != NULL)
-            irc_channel_user_set_mode(ic, iu, icu->flags | mode);
+        if (icu == NULL)
+            continue;
+
+        if (override) {
+            for (flags = mode, i = 3; i >= 0; i--) {
+                flag = 1 << i;
+
+                if (mode & flag)
+                    break;
+
+                if (icu->flags & flag)
+                    flags |= flag;
+            }
+        } else {
+            flags = icu->flags | mode;
+        }
+
+        irc_channel_user_set_mode(ic, iu, flags);
     }
 }
 

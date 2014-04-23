@@ -168,7 +168,7 @@ void steam_friend_id_free(SteamFriendId *id);
 
 void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...);
 
-void steam_friend_chans_umode(SteamFriend *frnd, gint mode);
+void steam_friend_chans_umode(SteamFriend *frnd, gint mode, gboolean override);
 
 SteamFriendSummary *steam_friend_summary_new(gint64 id);
 
