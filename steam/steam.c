@@ -552,6 +552,11 @@ static char *steam_eval_show_playing(set_t *set, char *value)
     if ((acc->ic == NULL) || (acc->ic->proto_data == NULL))
         return value;
 
+    if (G_UNLIKELY(g_strcmp0(acc->prpl->name, "steam") != 0)) {
+        g_warn_if_reached();
+        return value;
+    }
+
     sata = acc->ic->proto_data;
     sply = steam_friend_user_mode(value);
 
@@ -563,6 +568,11 @@ static char *steam_eval_show_playing(set_t *set, char *value)
     for (l = acc->bee->users; l; l = l->next) {
         bu   = l->data;
         frnd = bu->data;
+
+        if (G_UNLIKELY((bu->ic != acc->ic) || (frnd == NULL))) {
+            g_warn_if_reached();
+            continue;
+        }
 
         if (!(bu->flags & BEE_USER_ONLINE) || (frnd->game == NULL))
             continue;
