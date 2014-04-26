@@ -736,13 +736,14 @@ static void steam_api_poll_free(GSList *messages)
 
 static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
 {
-    SteamApiMessage *mesg;
-    json_value      *jv;
-    json_value      *je;
-    GSList          *messages;
-    const gchar     *str;
-    gint64           in;
-    guint            i;
+    SteamApiMessage   *mesg;
+    SteamFriendIdType  type;
+    json_value        *jv;
+    json_value        *je;
+    GSList            *messages;
+    const gchar       *str;
+    gint64             in;
+    guint              i;
 
     if (!steam_json_scmp(json, "error", "OK", &str))
     {
@@ -780,6 +781,13 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
         je = jv->u.array.values[i];
 
         if (steam_json_scmp(je, "steamid_from", sata->api->id->steam.s, &str))
+            continue;
+
+        in   = g_ascii_strtoll(str, NULL, 10);
+        type = STEAM_FRIEND_ID_TYPE(in);
+
+        /* For now, only handle individuals */
+        if (type != STEAM_FRIEND_ID_TYPE_INDIVIDUAL)
             continue;
 
         mesg = steam_api_message_new_str(str);
