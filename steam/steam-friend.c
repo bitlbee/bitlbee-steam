@@ -38,6 +38,56 @@ void steam_friend_free(SteamFriend *frnd)
     g_free(frnd);
 }
 
+SteamFriendId *steam_friend_id_new(gint64 id)
+{
+    SteamFriendId *fnid;
+
+    fnid = g_new0(SteamFriendId, 1);
+
+    fnid->steam.i  = id;
+    fnid->steam.s  = g_strdup_printf("%" G_GINT64_FORMAT, fnid->steam.i);
+
+    fnid->commu.i  = STEAM_FRIEND_ID_NUMBER(id);
+    fnid->commu.s  = g_strdup_printf("%" G_GINT64_FORMAT, fnid->commu.i);
+
+    fnid->type     = STEAM_FRIEND_ID_TYPE(fnid->steam.i);
+    fnid->universe = STEAM_FRIEND_ID_UNIVERSE(fnid->steam.i);
+
+    return fnid;
+}
+
+SteamFriendId *steam_friend_id_new_str(const gchar *id)
+{
+    gint64 in;
+
+    g_return_val_if_fail(id != NULL, NULL);
+
+    in = g_ascii_strtoll(id, NULL, 10);
+    return steam_friend_id_new(in);
+}
+
+SteamFriendId *steam_friend_id_dup(SteamFriendId *id)
+{
+    SteamFriendId *fnid;
+
+    g_return_val_if_fail(id != NULL, NULL);
+
+    fnid = g_memdup(id, sizeof *id);
+    fnid->steam.s = g_strdup(fnid->steam.s);
+    fnid->commu.s = g_strdup(fnid->commu.s);
+
+    return fnid;
+}
+
+void steam_friend_id_free(SteamFriendId *id)
+{
+    g_return_if_fail(id != NULL);
+
+    g_free(id->steam.s);
+    g_free(id->commu.s);
+    g_free(id);
+}
+
 void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...)
 {
     irc_channel_t *ic;
@@ -88,26 +138,37 @@ void steam_friend_chans_umode(SteamFriend *frnd, gint mode)
     }
 }
 
-SteamFriendSummary *steam_friend_summary_new(const gchar *steamid)
+SteamFriendSummary *steam_friend_summary_new(gint64 id)
 {
     SteamFriendSummary *smry;
 
     smry = g_new0(SteamFriendSummary, 1);
-    smry->action  = STEAM_FRIEND_ACTION_NONE;
-    smry->steamid = g_strdup(steamid);
+    smry->id     = steam_friend_id_new(id);
+    smry->action = STEAM_FRIEND_ACTION_NONE;
 
     return smry;
+}
+
+SteamFriendSummary *steam_friend_summary_new_str(const gchar *id)
+{
+    gint64 in;
+
+    g_return_val_if_fail(id != NULL, NULL);
+
+    in = g_ascii_strtoll(id, NULL, 10);
+    return steam_friend_summary_new(in);
 }
 
 void steam_friend_summary_free(SteamFriendSummary *smry)
 {
     g_return_if_fail(smry != NULL);
 
+    steam_friend_id_free(smry->id);
+
     g_free(smry->server);
     g_free(smry->game);
     g_free(smry->fullname);
     g_free(smry->nick);
-    g_free(smry->steamid);
     g_free(smry);
 }
 

@@ -26,7 +26,6 @@
 #define STEAM_COM_HOST     "steamcommunity.com"
 #define STEAM_API_AGENT    "Steam App / " PACKAGE " / " PACKAGE_VERSION
 #define STEAM_API_CLIENTID "DE45CD61"
-#define STEAM_API_STEAMID  76561197960265728
 #define STEAM_API_TIMEOUT  30
 
 #define STEAM_API_PATH_FRIEND_SEARCH "/ISteamUserOAuth/Search/v0001"
@@ -57,7 +56,7 @@ typedef struct _SteamApiData        SteamApiData;
 typedef struct _SteamApiMessage     SteamApiMessage;
 
 typedef void (*SteamApiFunc)        (SteamApi *api, GError *err,gpointer data);
-typedef void (*SteamApiIdFunc)      (SteamApi *api, gchar *steamid,
+typedef void (*SteamApiIdFunc)      (SteamApi *api, SteamFriendId *id,
                                      GError *err, gpointer data);
 typedef void (*SteamApiListFunc)    (SteamApi *api, GSList *list, GError *err,
                                      gpointer data);
@@ -136,7 +135,8 @@ enum _SteamApiType
 
 struct _SteamApi
 {
-    gchar *steamid;
+    SteamFriendId *id;
+
     gchar *umqid;
     gchar *token;
     gchar *sessid;
@@ -184,15 +184,7 @@ SteamApi *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamApi *api);
 
-gint64 steam_api_accountid_int(gint64 steamid);
-
-gint64 steam_api_accountid_str(const gchar *steamid);
-
-gint64 steam_api_steamid_int(gint64 accid);
-
-gint64 steam_api_steamid_str(const gchar *accid);
-
-gchar *steam_api_profile_url(const gchar *steamid);
+gchar *steam_api_profile_url(SteamFriendId *id);
 
 void steam_api_refresh(SteamApi *api);
 
@@ -205,7 +197,9 @@ void steam_api_data_free(SteamApiData *data);
 
 void steam_api_data_func(SteamApiData *data);
 
-SteamApiMessage *steam_api_message_new(const gchar *steamid);
+SteamApiMessage *steam_api_message_new(gint64 id);
+
+SteamApiMessage *steam_api_message_new_str(const gchar *id);
 
 void steam_api_message_free(SteamApiMessage *mesg);
 
@@ -217,21 +211,20 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
                     const gchar *authcode, const gchar *captcha,
                     SteamApiFunc func, gpointer data);
 
-void steam_api_chatlog(SteamApi *api, const gchar *steamid,
+void steam_api_chatlog(SteamApi *api, SteamFriendId *id,
                        SteamApiListFunc func, gpointer data);
 
-void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
+void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
                              const gchar *action, SteamApiIdFunc func,
                              gpointer data);
 
-void steam_api_friend_add(SteamApi *api, const gchar *steamid,
+void steam_api_friend_add(SteamApi *api, SteamFriendId *id,
                           SteamApiIdFunc func, gpointer data);
 
-void steam_api_friend_ignore(SteamApi *api, const gchar *steamid,
-                             gboolean ignore, SteamApiIdFunc func,
-                             gpointer data);
+void steam_api_friend_ignore(SteamApi *api, SteamFriendId *id, gboolean ignore,
+                             SteamApiIdFunc func, gpointer data);
 
-void steam_api_friend_remove(SteamApi *api, const gchar *steamid,
+void steam_api_friend_remove(SteamApi *api, SteamFriendId *id,
                              SteamApiIdFunc func, gpointer data);
 
 void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
@@ -239,8 +232,8 @@ void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
 
 void steam_api_friends(SteamApi *api, SteamApiListFunc func, gpointer data);
 
-void steam_api_key(SteamApi *api, const gchar *user, SteamApiFunc func,
-                   gpointer data);
+void steam_api_key(SteamApi *api, const gchar *user,
+                   SteamApiFunc func, gpointer data);
 
 void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data);
 
@@ -251,7 +244,7 @@ void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
 
 void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data);
 
-void steam_api_summary(SteamApi *api, const gchar *steamid,
+void steam_api_summary(SteamApi *api, SteamFriendId *id,
                        SteamApiSummaryFunc func, gpointer data);
 
 #endif /* _STEAM_API_H */

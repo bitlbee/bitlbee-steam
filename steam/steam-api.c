@@ -55,7 +55,9 @@ SteamApi *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
+    api->id   = steam_friend_id_new(0);
     api->http = steam_http_new(STEAM_API_AGENT);
+
     return api;
 }
 
@@ -67,48 +69,20 @@ void steam_api_free(SteamApi *api)
         steam_auth_free(api->auth);
 
     steam_http_free(api->http);
+    steam_friend_id_free(api->id);
 
     g_free(api->sessid);
     g_free(api->token);
     g_free(api->umqid);
-    g_free(api->steamid);
     g_free(api);
 }
 
-gint64 steam_api_accountid_int(gint64 steamid)
+gchar *steam_api_profile_url(SteamFriendId *id)
 {
-    return steamid - STEAM_API_STEAMID;
-}
+    g_return_val_if_fail(id != NULL, NULL);
 
-gint64 steam_api_accountid_str(const gchar *steamid)
-{
-    gint64 in;
-
-    g_return_val_if_fail(steamid != NULL, 0);
-
-    in = g_ascii_strtoll(steamid, NULL, 10);
-    return steam_api_accountid_int(in);
-}
-
-gint64 steam_api_steamid_int(gint64 accid)
-{
-    return accid + STEAM_API_STEAMID;
-}
-
-gint64 steam_api_steamid_str(const gchar *accid)
-{
-    gint64 in;
-
-    g_return_val_if_fail(accid != NULL, 0);
-
-    in = g_ascii_strtoll(accid, NULL, 10);
-    return steam_api_steamid_int(in);
-}
-
-gchar *steam_api_profile_url(const gchar *steamid)
-{
     return g_strdup_printf("https://%s%s%s/", STEAM_COM_HOST,
-                           STEAM_COM_PATH_PROFILE, steamid);
+                           STEAM_COM_PATH_PROFILE, id->steam.s);
 }
 
 void steam_api_refresh(SteamApi *api)
@@ -117,7 +91,7 @@ void steam_api_refresh(SteamApi *api)
 
     g_return_if_fail(api != NULL);
 
-    str = g_strdup_printf("%s||oauth:%s", api->steamid, api->token);
+    str = g_strdup_printf("%s||oauth:%s", api->id->steam.s, api->token);
 
     steam_http_cookies_set(api->http,
         STEAM_HTTP_PAIR("steamLogin", str),
@@ -231,14 +205,24 @@ void steam_api_data_func(SteamApiData *sata)
     }
 }
 
-SteamApiMessage *steam_api_message_new(const gchar *steamid)
+SteamApiMessage *steam_api_message_new(gint64 id)
 {
     SteamApiMessage *mesg;
 
     mesg = g_new0(SteamApiMessage, 1);
-    mesg->smry = steam_friend_summary_new(steamid);
+    mesg->smry = steam_friend_summary_new(id);
 
     return mesg;
+}
+
+SteamApiMessage *steam_api_message_new_str(const gchar *id)
+{
+    gint64 in;
+
+    g_return_val_if_fail(id != NULL, NULL);
+
+    in = g_ascii_strtoll(id, NULL, 10);
+    return steam_api_message_new(in);
 }
 
 void steam_api_message_free(SteamApiMessage *mesg)
@@ -393,24 +377,24 @@ static void steam_api_chatlog_cb(SteamApiData *sata, json_value *json)
     json_value      *jv;
     GSList          *messages;
     const gchar     *str;
-    gint64           accid;
     gint64           in;
     gsize            i;
 
-    accid    = steam_api_accountid_str(sata->api->steamid);
     messages = NULL;
 
     for (i = 0; i < json->u.array.length; i++) {
         jv = json->u.array.values[i];
+        steam_json_int(jv, "m_unAccountID", &in);
 
-        if (!steam_json_int(jv, "m_unAccountID", &in) || (in == accid))
+        if (in == sata->api->id->commu.i)
             continue;
 
-        in = steam_api_steamid_int(in);
+        in = STEAM_FRIEND_ID_NEW(STEAM_FRIEND_ID_UNIVERSE_PUBLIC,
+                                 STEAM_FRIEND_ID_TYPE_INDIVIDUAL,
+                                 1, in);
 
-        mesg = steam_api_message_new(NULL);
-        mesg->type          = STEAM_API_MESSAGE_TYPE_SAYTEXT;
-        mesg->smry->steamid = g_strdup_printf("%" G_GINT64_FORMAT, in);
+        mesg = steam_api_message_new(in);
+        mesg->type = STEAM_API_MESSAGE_TYPE_SAYTEXT;
 
         steam_json_str(jv, "m_strMessage",  &str);
         mesg->text = g_strdup(str);
@@ -493,7 +477,7 @@ static void steam_api_friend_search_cb(SteamApiData *sata, json_value *json)
         if (!steam_json_str(je, "steamid", &str))
             continue;
 
-        smry = steam_friend_summary_new(str);
+        smry = steam_friend_summary_new_str(str);
 
         steam_json_str(je, "matchingtext", &str);
         smry->nick = g_strdup(str);
@@ -543,7 +527,7 @@ static void steam_api_friends_cb(SteamApiData *sata, json_value *json)
         if (!steam_json_str(je, "steamid", &str))
             continue;
 
-        smry = steam_friend_summary_new(str);
+        smry = steam_friend_summary_new_str(str);
         smry->relation = rlat;
 
         friends    = g_slist_prepend(friends, smry);
@@ -623,7 +607,7 @@ static void steam_api_friends_cinfo_cb(SteamApiData *sata, json_value *json)
 
     for (l = sata->rdata; l != NULL; l = l->next) {
         smry = l->data;
-        g_hash_table_insert(stbl, smry->steamid, smry);
+        g_hash_table_insert(stbl, smry->id->steam.s, smry);
     }
 
     for (i = 0; i < json->u.array.length; i++) {
@@ -692,9 +676,11 @@ static void steam_api_logon_cb(SteamApiData *sata, json_value *json)
     steam_json_int(json, "utc_timestamp", &in);
     sata->api->tstamp = in;
 
-    if (!steam_json_scmp(json, "steamid", sata->api->steamid, &str)) {
-        g_free(sata->api->steamid);
-        sata->api->steamid = g_strdup(str);
+    if (!steam_json_scmp(json, "steamid", sata->api->id->steam.s, &str)) {
+        if (sata->api->id != NULL)
+            steam_friend_id_free(sata->api->id);
+
+        sata->api->id = steam_friend_id_new_str(str);
     }
 
     if (!steam_json_scmp(json, "umqid", sata->api->umqid, &str)) {
@@ -795,10 +781,10 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (steam_json_scmp(je, "steamid_from", sata->api->steamid, &str))
+        if (steam_json_scmp(je, "steamid_from", sata->api->id->steam.s, &str))
             continue;
 
-        mesg = steam_api_message_new(str);
+        mesg = steam_api_message_new_str(str);
 
         steam_json_str(je, "type", &str);
         steam_json_int(je, "utc_timestamp", &in);
@@ -869,7 +855,7 @@ static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
         for (l = sata->sums; l != NULL; ) {
             smry = l->data;
 
-            if (g_strcmp0(smry->steamid, str) != 0) {
+            if (g_strcmp0(smry->id->steam.s, str) != 0) {
                 l = l->next;
                 continue;
             }
@@ -905,7 +891,7 @@ static void steam_api_summary_cb(SteamApiData *sata, json_value *json)
         return;
     }
 
-    smry = steam_friend_summary_new(str);
+    smry = steam_friend_summary_new_str(str);
     steam_friend_summary_json(smry, jv);
 
     sata->rdata = smry;
@@ -1093,17 +1079,16 @@ static void steam_api_auth_rdir(SteamApiData *sata, GTree *params)
     steam_http_req_send(sata->req);
 }
 
-void steam_api_chatlog(SteamApi *api, const gchar *steamid,
+void steam_api_chatlog(SteamApi *api, SteamFriendId *id,
                        SteamApiListFunc func, gpointer data)
 {
     SteamApiData *sata;
     gchar        *path;
-    gint64        in;
 
     g_return_if_fail(api != NULL);
+    g_return_if_fail(id  != NULL);
 
-    in   = steam_api_accountid_str(steamid);
-    path = g_strdup_printf("%s%" G_GINT64_FORMAT, STEAM_COM_PATH_CHATLOG, in);
+    path = g_strconcat(STEAM_COM_PATH_CHATLOG, id->commu.s, NULL);
     sata = steam_api_data_new(api, STEAM_API_TYPE_CHATLOG, func, data);
 
     steam_api_data_req(sata, STEAM_COM_HOST, path);
@@ -1119,7 +1104,7 @@ void steam_api_chatlog(SteamApi *api, const gchar *steamid,
     g_free(path);
 }
 
-void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
+void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
                              const gchar *action, SteamApiIdFunc func,
                              gpointer data)
 {
@@ -1127,15 +1112,16 @@ void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
     gchar        *url;
 
     g_return_if_fail(api != NULL);
+    g_return_if_fail(id  != NULL);
 
     url  = g_strdup_printf("%s%s/home_process", STEAM_COM_PATH_PROFILE,
-                           api->steamid);
+                           api->id->steam.s);
     sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_ACCEPT, func, data);
     steam_api_data_req(sata, STEAM_COM_HOST, url);
 
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("sessionID", api->sessid),
-        STEAM_HTTP_PAIR("id",        steamid),
+        STEAM_HTTP_PAIR("id",        id->steam.s),
         STEAM_HTTP_PAIR("perform",   action),
         STEAM_HTTP_PAIR("action",    "approvePending"),
         STEAM_HTTP_PAIR("itype",     "friend"),
@@ -1144,40 +1130,40 @@ void steam_api_friend_accept(SteamApi *api, const gchar *steamid,
         NULL
     );
 
-    sata->rdata = g_strdup(steamid);
-    sata->rfunc = g_free;
+    sata->rdata = steam_friend_id_dup(id);
+    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
 
     sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(sata->req);
     g_free(url);
 }
 
-void steam_api_friend_add(SteamApi *api, const gchar *steamid,
+void steam_api_friend_add(SteamApi *api, SteamFriendId *id,
                           SteamApiIdFunc func, gpointer data)
 {
     SteamApiData *sata;
 
     g_return_if_fail(api != NULL);
+    g_return_if_fail(id  != NULL);
 
     sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_ADD, func, data);
     steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_ADD);
 
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("sessionID", api->sessid),
-        STEAM_HTTP_PAIR("steamid",   steamid),
+        STEAM_HTTP_PAIR("steamid",   id->steam.s),
         NULL
     );
 
-    sata->rdata = g_strdup(steamid);
-    sata->rfunc = g_free;
+    sata->rdata = steam_friend_id_dup(id);
+    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
 
     sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(sata->req);
 }
 
-void steam_api_friend_ignore(SteamApi *api, const gchar *steamid,
-                             gboolean ignore, SteamApiIdFunc func,
-                             gpointer data)
+void steam_api_friend_ignore(SteamApi *api, SteamFriendId *id, gboolean ignore,
+                             SteamApiIdFunc func, gpointer data)
 {
     SteamApiData *sata;
     const gchar  *act;
@@ -1185,11 +1171,12 @@ void steam_api_friend_ignore(SteamApi *api, const gchar *steamid,
     gchar        *url;
 
     g_return_if_fail(api != NULL);
+    g_return_if_fail(id  != NULL);
 
     act  = ignore ? "ignore" : "unignore";
-    frnd = g_strdup_printf("friends[%s]", steamid);
+    frnd = g_strdup_printf("friends[%s]", id->steam.s);
     url  = g_strdup_printf("%s%s/friends/", STEAM_COM_PATH_PROFILE,
-                           api->steamid);
+                           api->id->steam.s);
 
     sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_IGNORE, func, data);
     steam_api_data_req(sata, STEAM_COM_HOST, url);
@@ -1201,8 +1188,8 @@ void steam_api_friend_ignore(SteamApi *api, const gchar *steamid,
         NULL
     );
 
-    sata->rdata = g_strdup(steamid);
-    sata->rfunc = g_free;
+    sata->rdata = steam_friend_id_dup(id);
+    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
 
     sata->flags      |= STEAM_API_FLAG_NOJSON;
     sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -1212,24 +1199,25 @@ void steam_api_friend_ignore(SteamApi *api, const gchar *steamid,
     g_free(frnd);
 }
 
-void steam_api_friend_remove(SteamApi *api, const gchar *steamid,
+void steam_api_friend_remove(SteamApi *api, SteamFriendId *id,
                              SteamApiIdFunc func, gpointer data)
 {
     SteamApiData *sata;
 
     g_return_if_fail(api != NULL);
+    g_return_if_fail(id  != NULL);
 
     sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_REMOVE, func, data);
     steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_REMOVE);
 
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("sessionID", api->sessid),
-        STEAM_HTTP_PAIR("steamid",   steamid),
+        STEAM_HTTP_PAIR("steamid",   id->steam.s),
         NULL
     );
 
-    sata->rdata = g_strdup(steamid);
-    sata->rfunc = g_free;
+    sata->rdata = steam_friend_id_dup(id);
+    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
 
     sata->flags      |= STEAM_API_FLAG_NOJSON;
     sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
@@ -1276,7 +1264,7 @@ void steam_api_friends(SteamApi *api, SteamApiListFunc func, gpointer data)
 
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("access_token", api->token),
-        STEAM_HTTP_PAIR("steamid",      api->steamid),
+        STEAM_HTTP_PAIR("steamid",      api->id->steam.s),
         STEAM_HTTP_PAIR("relationship", "friend,ignoredfriend"),
         NULL
     );
@@ -1294,8 +1282,8 @@ static void steam_api_friends_cinfo(SteamApiData *sata)
     steam_http_req_send(sata->req);
 }
 
-void steam_api_key(SteamApi *api, const gchar *user, SteamApiFunc func,
-                   gpointer data)
+void steam_api_key(SteamApi *api, const gchar *user,
+                   SteamApiFunc func, gpointer data)
 {
     SteamApiData *sata;
     gchar        *ms;
@@ -1394,7 +1382,7 @@ void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
-        STEAM_HTTP_PAIR("steamid_dst",  mesg->smry->steamid),
+        STEAM_HTTP_PAIR("steamid_dst",  mesg->smry->id->steam.s),
         STEAM_HTTP_PAIR("type",         type),
         NULL
     );
@@ -1466,17 +1454,17 @@ static void steam_api_summaries(SteamApiData *sata)
     if (G_UNLIKELY(sata->sums == NULL))
         return;
 
-    tbl  = g_hash_table_new(g_str_hash, g_str_equal);
+    tbl  = g_hash_table_new(g_int64_hash, g_int64_equal);
     gstr = g_string_sized_new(2048);
 
     for (l = sata->sums, i = 0; l != NULL; l = l->next) {
         smry = l->data;
 
-        if (g_hash_table_contains(tbl, smry->steamid))
+        if (g_hash_table_contains(tbl, &smry->id->steam.i))
             continue;
 
-        g_hash_table_add(tbl, smry->steamid);
-        g_string_append_printf(gstr, "%s,", smry->steamid);
+        g_hash_table_add(tbl, &smry->id->steam.i);
+        g_string_append_printf(gstr, "%s,", smry->id->steam.s);
 
         if ((++i % 100) == 0)
             break;
@@ -1500,19 +1488,20 @@ static void steam_api_summaries(SteamApiData *sata)
     g_hash_table_destroy(tbl);
 }
 
-void steam_api_summary(SteamApi *api, const gchar *steamid,
+void steam_api_summary(SteamApi *api, SteamFriendId *id,
                        SteamApiSummaryFunc func, gpointer data)
 {
     SteamApiData *sata;
 
     g_return_if_fail(api != NULL);
+    g_return_if_fail(id  != NULL);
 
     sata = steam_api_data_new(api, STEAM_API_TYPE_SUMMARY, func, data);
     steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
     steam_http_req_params_set(sata->req,
         STEAM_HTTP_PAIR("access_token", api->token),
-        STEAM_HTTP_PAIR("steamids",     steamid),
+        STEAM_HTTP_PAIR("steamids",     id->steam.s),
         NULL
     );
 

@@ -42,7 +42,6 @@ SteamData *steam_data_new(account_t *acc)
     str = set_getstr(&acc->set, "umqid");
     sata->api = steam_api_new(str);
 
-    sata->api->steamid = g_strdup(set_getstr(&acc->set, "steamid"));
     sata->api->token   = g_strdup(set_getstr(&acc->set, "token"));
     sata->api->sessid  = g_strdup(set_getstr(&acc->set, "sessid"));
     sata->game_status  = set_getbool(&acc->set, "game_status");
@@ -72,7 +71,7 @@ static void steam_buddy_status(SteamData *sata, SteamFriendSummary *smry,
     gboolean     csv;
 
     if (smry->state == STEAM_FRIEND_STATE_OFFLINE) {
-        imcb_buddy_status(sata->ic, smry->steamid, 0, NULL, NULL);
+        imcb_buddy_status(sata->ic, smry->id->steam.s, 0, NULL, NULL);
         return;
     }
 
@@ -87,8 +86,10 @@ static void steam_buddy_status(SteamData *sata, SteamFriendSummary *smry,
     csv  = g_strcmp0(smry->server, frnd->server) != 0;
 
     if (!cgm && !csv) {
-        if (frnd->game == NULL)
-            imcb_buddy_status(sata->ic, smry->steamid, f, m, bu->status_msg);
+        if (frnd->game == NULL) {
+            imcb_buddy_status(sata->ic, smry->id->steam.s, f, m,
+                              bu->status_msg);
+        }
 
         return;
     }
@@ -99,7 +100,7 @@ static void steam_buddy_status(SteamData *sata, SteamFriendSummary *smry,
         game = g_strdup(smry->game);
 
     if (cgm) {
-        imcb_buddy_status(sata->ic, smry->steamid, f, m, game);
+        imcb_buddy_status(sata->ic, smry->id->steam.s, f, m, game);
 
         if (smry->game != NULL)
             steam_friend_chans_umode(frnd, sata->show_playing);
@@ -122,72 +123,73 @@ static void steam_buddy_status(SteamData *sata, SteamFriendSummary *smry,
 static void steam_poll_mesg(SteamData *sata, SteamApiMessage *mesg,
                             gint64 tstamp)
 {
-    bee_user_t *bu;
-    gchar      *str;
-    guint32     f;
+    SteamFriendSummary *smry = mesg->smry;
+    bee_user_t         *bu;
+    gchar              *str;
+    guint32             f;
 
     switch (mesg->type) {
     case STEAM_API_MESSAGE_TYPE_EMOTE:
     case STEAM_API_MESSAGE_TYPE_SAYTEXT:
-        bu = imcb_buddy_by_handle(sata->ic, mesg->smry->steamid);
+        bu = imcb_buddy_by_handle(sata->ic, smry->id->steam.s);
 
         if ((bu != NULL) && (bu->flags & OPT_TYPING))
-            imcb_buddy_typing(sata->ic, mesg->smry->steamid, 0);
+            imcb_buddy_typing(sata->ic, smry->id->steam.s, 0);
 
         if (mesg->type == STEAM_API_MESSAGE_TYPE_EMOTE)
             str = g_strconcat("/me ", mesg->text, NULL);
         else
             str = g_strdup(mesg->text);
 
-        imcb_buddy_msg(sata->ic, mesg->smry->steamid, str, 0, tstamp);
+        imcb_buddy_msg(sata->ic, smry->id->steam.s, str, 0, tstamp);
         g_free(str);
         return;
 
     case STEAM_API_MESSAGE_TYPE_LEFT_CONV:
-        imcb_buddy_typing(sata->ic, mesg->smry->steamid, 0);
+        imcb_buddy_typing(sata->ic, smry->id->steam.s, 0);
         return;
 
     case STEAM_API_MESSAGE_TYPE_RELATIONSHIP:
         goto relationship;
 
     case STEAM_API_MESSAGE_TYPE_TYPING:
-        bu = imcb_buddy_by_handle(sata->ic, mesg->smry->steamid);
+        bu = imcb_buddy_by_handle(sata->ic, smry->id->steam.s);
 
         if (G_UNLIKELY(bu == NULL))
             return;
 
         f = (bu->flags & OPT_TYPING) ? 0 : OPT_TYPING;
-        imcb_buddy_typing(sata->ic, mesg->smry->steamid, f);
+        imcb_buddy_typing(sata->ic, smry->id->steam.s, f);
         return;
 
     default:
-        bu = imcb_buddy_by_handle(sata->ic, mesg->smry->steamid);
+        bu = imcb_buddy_by_handle(sata->ic, smry->id->steam.s);
 
         if (G_UNLIKELY(bu == NULL))
             return;
 
-        steam_buddy_status(sata, mesg->smry, bu);
+        steam_buddy_status(sata, smry, bu);
         return;
     }
 
 relationship:
-    switch (mesg->smry->action) {
+    switch (smry->action) {
     case STEAM_FRIEND_ACTION_REMOVE:
     case STEAM_FRIEND_ACTION_IGNORE:
-        imcb_remove_buddy(sata->ic, mesg->smry->steamid, NULL);
+        imcb_remove_buddy(sata->ic, smry->id->steam.s, NULL);
         return;
 
     case STEAM_FRIEND_ACTION_REQUEST:
-        imcb_ask_auth(sata->ic, mesg->smry->steamid, mesg->smry->nick);
+        imcb_ask_auth(sata->ic, smry->id->steam.s, smry->nick);
         return;
 
     case STEAM_FRIEND_ACTION_ADD:
-        imcb_add_buddy(sata->ic, mesg->smry->steamid, NULL);
-        imcb_buddy_nick_hint(sata->ic, mesg->smry->steamid, mesg->smry->nick);
-        imcb_rename_buddy(sata->ic, mesg->smry->steamid, mesg->smry->fullname);
+        imcb_add_buddy(sata->ic, smry->id->steam.s, NULL);
+        imcb_buddy_nick_hint(sata->ic, smry->id->steam.s, smry->nick);
+        imcb_rename_buddy(sata->ic, smry->id->steam.s, smry->fullname);
 
-        bu = imcb_buddy_by_handle(sata->ic, mesg->smry->steamid);
-        steam_buddy_status(sata, mesg->smry, bu);
+        bu = imcb_buddy_by_handle(sata->ic, smry->id->steam.s);
+        steam_buddy_status(sata, smry, bu);
         return;
 
     default:
@@ -203,7 +205,6 @@ static void steam_auth(SteamApi *api, GError *err, gpointer data)
     acc = sata->ic->acc;
 
     if (err == NULL) {
-        set_setstr(&acc->set, "steamid", api->steamid);
         set_setstr(&acc->set, "token",   api->token);
         set_setstr(&acc->set, "sessid",  api->sessid);
 
@@ -239,11 +240,12 @@ static void steam_auth(SteamApi *api, GError *err, gpointer data)
 static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
                           gpointer data)
 {
-    SteamData       *sata = data;
-    SteamFriend     *frnd;
-    SteamApiMessage *mesg;
-    bee_user_t      *bu;
-    GSList          *l;
+    SteamData          *sata = data;
+    SteamFriend        *frnd;
+    SteamApiMessage    *mesg;
+    SteamFriendSummary *smry;
+    bee_user_t         *bu;
+    GSList             *l;
 
     if (err != NULL) {
         imcb_error(sata->ic, "%s", err->message);
@@ -252,10 +254,10 @@ static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
 
     for (bu = NULL, l = messages; l != NULL; l = l->next) {
         mesg = l->data;
+        smry = mesg->smry;
 
-        if ((bu == NULL) || (g_strcmp0(mesg->smry->steamid, bu->handle) != 0)) {
-            bu = bee_user_by_handle(sata->ic->bee, sata->ic,
-                                    mesg->smry->steamid);
+        if ((bu == NULL) || (g_strcmp0(smry->id->steam.s, bu->handle) != 0)) {
+            bu = bee_user_by_handle(sata->ic->bee, sata->ic, smry->id->steam.s);
 
             if (G_UNLIKELY(bu == NULL))
                 continue;
@@ -268,7 +270,7 @@ static void steam_chatlog(SteamApi *api, GSList *messages, GError *err,
     }
 }
 
-static void steam_friend_action(SteamApi *api, gchar *steamid, GError *err,
+static void steam_friend_action(SteamApi *api, SteamFriendId *id, GError *err,
                                 gpointer data)
 {
     SteamData *sata = data;
@@ -277,8 +279,8 @@ static void steam_friend_action(SteamApi *api, gchar *steamid, GError *err,
         imcb_error(sata->ic, "%s", err->message);
 }
 
-static void steam_friend_action_u(SteamApi *api, gchar *steamid, GError *err,
-                                  gpointer data)
+static void steam_friend_action_u(SteamApi *api, SteamFriendId *id,
+                                  GError *err, gpointer data)
 {
     SteamData *sata = data;
 
@@ -287,7 +289,7 @@ static void steam_friend_action_u(SteamApi *api, gchar *steamid, GError *err,
         return;
     }
 
-    steam_api_summary(api, steamid, steam_summary_u, sata);
+    steam_api_summary(api, id, steam_summary_u, sata);
 }
 
 static void steam_friend_search(SteamApi *api, GSList *results, GError *err,
@@ -314,7 +316,7 @@ static void steam_friend_search(SteamApi *api, GSList *results, GError *err,
 
     if (i == 1) {
         smry = results->data;
-        steam_api_friend_add(api, smry->steamid, steam_friend_action, sata);
+        steam_api_friend_add(api, smry->id, steam_friend_action, sata);
         return;
     }
 
@@ -323,10 +325,10 @@ static void steam_friend_search(SteamApi *api, GSList *results, GError *err,
 
     for (l = results, i = 1; l != NULL; l = l->next, i++) {
         smry = l->data;
-        str  = steam_api_profile_url(smry->steamid);
+        str  = steam_api_profile_url(smry->id);
 
         imcb_log(sata->ic, "%u. `%s' %s", i, smry->nick, str);
-        imcb_log(sata->ic, "-- add %s steamid:%s", tag, smry->steamid);
+        imcb_log(sata->ic, "-- add %s steamid:%s", tag, smry->id->steam.s);
 
         g_free(str);
     }
@@ -353,11 +355,11 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err,
     for (l = friends; l != NULL; l = l->next) {
         smry = l->data;
 
-        imcb_add_buddy(sata->ic, smry->steamid, NULL);
-        imcb_buddy_nick_hint(sata->ic, smry->steamid, smry->nick);
-        imcb_rename_buddy(sata->ic, smry->steamid, smry->fullname);
+        imcb_add_buddy(sata->ic, smry->id->steam.s, NULL);
+        imcb_buddy_nick_hint(sata->ic, smry->id->steam.s, smry->nick);
+        imcb_rename_buddy(sata->ic, smry->id->steam.s, smry->fullname);
 
-        bu = bee_user_by_handle(sata->ic->bee, sata->ic, smry->steamid);
+        bu = bee_user_by_handle(sata->ic->bee, sata->ic, smry->id->steam.s);
 
         if (G_UNLIKELY(bu == NULL))
             continue;
@@ -377,7 +379,7 @@ static void steam_friends(SteamApi *api, GSList *friends, GError *err,
         }
 
         if (smry->lmesg > smry->lview)
-            steam_api_chatlog(api, smry->steamid, steam_chatlog, sata);
+            steam_api_chatlog(api, smry->id, steam_chatlog, sata);
     }
 
     steam_api_poll(api, steam_poll, sata);
@@ -414,7 +416,6 @@ static void steam_logoff(SteamApi *api, GError *err, gpointer data)
 static void steam_logon(SteamApi *api, GError *err, gpointer data)
 {
     SteamData *sata = data;
-    account_t *acc;
 
     if (err != NULL) {
         imcb_error(sata->ic, "%s", err->message);
@@ -422,12 +423,9 @@ static void steam_logon(SteamApi *api, GError *err, gpointer data)
         return;
     }
 
-    acc = sata->ic->acc;
-
-    set_setstr(&acc->set, "steamid", api->steamid);
-    set_setstr(&acc->set, "umqid",   api->umqid);
-
+    set_setstr(&sata->ic->acc->set, "umqid", api->umqid);
     imcb_log(sata->ic, "Requesting friends list");
+
     steam_api_refresh(api);
     steam_api_friends(api, steam_friends, sata);
 }
@@ -463,7 +461,6 @@ static void steam_summary(SteamApi *api, SteamFriendSummary *smry,
 {
     SteamData *sata = data;
     gchar     *str;
-    gint64     in;
 
     if (err != NULL) {
         imcb_error(sata->ic, "%s", err->message);
@@ -482,15 +479,13 @@ static void steam_summary(SteamApi *api, SteamFriendSummary *smry,
     if (smry->fullname != NULL)
         imcb_log(sata->ic, "Real Name:  %s", smry->fullname);
 
-    in = steam_api_accountid_str(smry->steamid);
-    imcb_log(sata->ic, "Account ID: %" G_GINT64_FORMAT, in);
-
-    imcb_log(sata->ic, "Steam ID:   %s", smry->steamid);
+    imcb_log(sata->ic, "Account ID: %s", smry->id->commu.s);
+    imcb_log(sata->ic, "Steam ID:   %s", smry->id->steam.s);
 
     str = (gchar *) steam_friend_state_str(smry->state);
     imcb_log(sata->ic, "Status:     %s", str);
 
-    str = steam_api_profile_url(smry->steamid);
+    str = steam_api_profile_url(smry->id);
     imcb_log(sata->ic, "Profile:    %s", str);
     g_free(str);
 }
@@ -501,7 +496,7 @@ static void steam_summary_u(SteamApi *api, SteamFriendSummary *smry,
     SteamData  *sata = data;
     bee_user_t *bu;
 
-    bu = bee_user_by_handle(sata->ic->bee, sata->ic, smry->steamid);
+    bu = bee_user_by_handle(sata->ic->bee, sata->ic, smry->id->steam.s);
 
     if (G_LIKELY(bu != NULL))
         steam_buddy_status(sata, smry, bu);
@@ -612,9 +607,6 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "cgid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
 
-    s = set_add(&acc->set, "steamid", NULL, NULL, acc);
-    s->flags = SET_NULL_OK | SET_HIDDEN;
-
     s = set_add(&acc->set, "umqid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN;
 
@@ -675,7 +667,7 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
     SteamData       *sata = ic->proto_data;
     SteamApiMessage *mesg;
 
-    mesg = steam_api_message_new(to);
+    mesg = steam_api_message_new_str(to);
     mesg->type = STEAM_API_MESSAGE_TYPE_SAYTEXT;
     mesg->text = g_strdup(message);
 
@@ -709,7 +701,7 @@ static int steam_send_typing(struct im_connection *ic, char *who, int flags)
     SteamData       *sata = ic->proto_data;
     SteamApiMessage *mesg;
 
-    mesg = steam_api_message_new(who);
+    mesg = steam_api_message_new_str(who);
     mesg->type = STEAM_API_MESSAGE_TYPE_TYPING;
 
     steam_api_message(sata->api, mesg, steam_message, sata);
@@ -719,8 +711,9 @@ static int steam_send_typing(struct im_connection *ic, char *who, int flags)
 
 static void steam_add_buddy(struct im_connection *ic, char *name, char * group)
 {
-    SteamData *sata = ic->proto_data;
-    gchar     *str;
+    SteamData     *sata = ic->proto_data;
+    SteamFriendId *id;
+    gchar         *str;
 
     if (g_ascii_strncasecmp(name, "steamid:", 8) != 0) {
         steam_api_friend_search(sata->api, name, 5, steam_friend_search, sata);
@@ -729,18 +722,24 @@ static void steam_add_buddy(struct im_connection *ic, char *name, char * group)
 
     str = strchr(name, ':');
 
-    if ((++str)[0] != 0)
-        steam_api_friend_add(sata->api, str, steam_friend_action, sata);
-    else
+    if ((++str)[0] != 0) {
+        id = steam_friend_id_new_str(str);
+        steam_api_friend_add(sata->api, id, steam_friend_action, sata);
+        steam_friend_id_free(id);
+    } else {
         imcb_error(sata->ic, "No Steam ID specified");
+    }
 }
 
 static void steam_remove_buddy(struct im_connection *ic, char *name,
-                               char * group)
+                               char *group)
 {
-    SteamData *sata = ic->proto_data;
+    SteamData     *sata = ic->proto_data;
+    SteamFriendId *id;
 
-    steam_api_friend_remove(sata->api, name, steam_friend_action, sata);
+    id = steam_friend_id_new_str(name);
+    steam_api_friend_remove(sata->api, id, steam_friend_action, sata);
+    steam_friend_id_free(id);
 }
 
 static void steam_add_permit(struct im_connection *ic, char *who)
@@ -750,10 +749,14 @@ static void steam_add_permit(struct im_connection *ic, char *who)
 
 static void steam_add_deny(struct im_connection *ic, char *who)
 {
-    SteamData *sata = ic->proto_data;
+    SteamData     *sata = ic->proto_data;
+    SteamFriendId *id;
 
     imcb_buddy_status(ic, who, 0, NULL, NULL);
-    steam_api_friend_ignore(sata->api, who, TRUE, steam_friend_action, sata);
+
+    id = steam_friend_id_new_str(who);
+    steam_api_friend_ignore(sata->api, id, TRUE, steam_friend_action, sata);
+    steam_friend_id_free(id);
 }
 
 static void steam_rem_permit(struct im_connection *ic, char *who)
@@ -763,33 +766,42 @@ static void steam_rem_permit(struct im_connection *ic, char *who)
 
 static void steam_rem_deny(struct im_connection *ic, char *who)
 {
-    SteamData *sata = ic->proto_data;
+    SteamData     *sata = ic->proto_data;
+    SteamFriendId *id;
 
-    steam_api_friend_ignore(sata->api, who, FALSE, steam_friend_action_u,
-                            sata);
+    id = steam_friend_id_new_str(who);
+    steam_api_friend_ignore(sata->api, id, FALSE, steam_friend_action_u, sata);
+    steam_friend_id_free(id);
 }
 
 static void steam_get_info(struct im_connection *ic, char *who)
 {
-    SteamData *sata = ic->proto_data;
+    SteamData     *sata = ic->proto_data;
+    SteamFriendId *id;
 
-    steam_api_summary(sata->api, who, steam_summary, sata);
+    id = steam_friend_id_new_str(who);
+    steam_api_summary(sata->api, id, steam_summary, sata);
+    steam_friend_id_free(id);
 }
 
 static void steam_auth_allow(struct im_connection *ic, const char *who)
 {
-    SteamData *sata = ic->proto_data;
+    SteamData     *sata = ic->proto_data;
+    SteamFriendId *id;
 
-    steam_api_friend_accept(sata->api, who, "accept", steam_friend_action,
-                            sata);
+    id = steam_friend_id_new_str(who);
+    steam_api_friend_accept(sata->api, id, "accept", steam_friend_action, sata);
+    steam_friend_id_free(id);
 }
 
 static void steam_auth_deny(struct im_connection *ic, const char *who)
 {
-    SteamData *sata = ic->proto_data;
+    SteamData     *sata = ic->proto_data;
+    SteamFriendId *id;
 
-    steam_api_friend_accept(sata->api, who, "ignore", steam_friend_action,
-                            sata);
+    id = steam_friend_id_new_str(who);
+    steam_api_friend_accept(sata->api, id, "ignore", steam_friend_action, sata);
+    steam_friend_id_free(id);
 }
 
 static void steam_buddy_data_add(struct bee_user *bu)

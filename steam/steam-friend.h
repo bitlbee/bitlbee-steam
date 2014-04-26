@@ -20,11 +20,37 @@
 
 #include <bitlbee.h>
 
-typedef enum   _SteamFriendAction   SteamFriendAction;
-typedef enum   _SteamFriendRelation SteamFriendRelation;
-typedef enum   _SteamFriendState    SteamFriendState;
-typedef struct _SteamFriend         SteamFriend;
-typedef struct _SteamFriendSummary  SteamFriendSummary;
+#define STEAM_FRIEND_ID_NEW(u, t, i, n) ((gint64) ( \
+         ((gint32) n)        | \
+        (((gint64) i) << 32) | \
+        (((gint64) t) << 52) | \
+        (((gint64) u) << 56)   \
+    ))
+
+#define STEAM_FRIEND_ID_INSTANCE(id) ((gint32) ( \
+        (((gint64) id) >> 32) & 0x0FFFFF \
+    ))
+
+#define STEAM_FRIEND_ID_NUMBER(id) ((gint32) ( \
+        ((gint64) id) & 0xFFFFFFFF \
+    ))
+
+#define STEAM_FRIEND_ID_TYPE(id) ((SteamFriendIdType) ( \
+        (id >> 52) & 0x0F \
+    ))
+
+#define STEAM_FRIEND_ID_UNIVERSE(id) ((SteamFriendIdUniverse) ( \
+        ((gint64) id) >> 56 \
+    ))
+
+typedef enum   _SteamFriendAction     SteamFriendAction;
+typedef enum   _SteamFriendIdType     SteamFriendIdType;
+typedef enum   _SteamFriendIdUniverse SteamFriendIdUniverse;
+typedef enum   _SteamFriendRelation   SteamFriendRelation;
+typedef enum   _SteamFriendState      SteamFriendState;
+typedef struct _SteamFriend           SteamFriend;
+typedef struct _SteamFriendSummary    SteamFriendSummary;
+typedef struct _SteamFriendId         SteamFriendId;
 
 enum _SteamFriendAction
 {
@@ -36,6 +62,31 @@ enum _SteamFriendAction
 
     STEAM_FRIEND_ACTION_NONE,
     STEAM_FRIEND_ACTION_LAST
+};
+
+enum _SteamFriendIdType
+{
+    STEAM_FRIEND_ID_TYPE_INVALID        = 0,
+    STEAM_FRIEND_ID_TYPE_INDIVIDUAL     = 1,
+    STEAM_FRIEND_ID_TYPE_MULTISEAT      = 2,
+    STEAM_FRIEND_ID_TYPE_GAMESERVER     = 3,
+    STEAM_FRIEND_ID_TYPE_ANONGAMESERVER = 4,
+    STEAM_FRIEND_ID_TYPE_PENDING        = 5,
+    STEAM_FRIEND_ID_TYPE_CONTENTSERVER  = 6,
+    STEAM_FRIEND_ID_TYPE_CLAN           = 7,
+    STEAM_FRIEND_ID_TYPE_CHAT           = 8,
+    STEAM_FRIEND_ID_TYPE_SUPERSEEDER    = 9,
+    STEAM_FRIEND_ID_TYPE_ANONUSER       = 10
+};
+
+enum _SteamFriendIdUniverse
+{
+    STEAM_FRIEND_ID_UNIVERSE_UNKNOWN  = 0,
+    STEAM_FRIEND_ID_UNIVERSE_PUBLIC   = 1,
+    STEAM_FRIEND_ID_UNIVERSE_BETA     = 2,
+    STEAM_FRIEND_ID_UNIVERSE_INTERNAL = 3,
+    STEAM_FRIEND_ID_UNIVERSE_DEV      = 4,
+    STEAM_FRIEND_ID_UNIVERSE_RC       = 5
 };
 
 enum _SteamFriendRelation
@@ -67,13 +118,32 @@ struct _SteamFriend
     gint64 lview;
 };
 
+struct _SteamFriendId
+{
+    SteamFriendIdType     type;
+    SteamFriendIdUniverse universe;
+
+    struct
+    {
+        gchar  *s;
+        gint64  i;
+    } steam;
+
+    struct
+    {
+        gchar  *s;
+        gint64  i;
+    } commu;
+};
+
 struct _SteamFriendSummary
 {
     SteamFriendState    state;
     SteamFriendRelation relation;
     SteamFriendAction   action;
 
-    gchar *steamid;
+    SteamFriendId *id;
+
     gchar *nick;
     gchar *fullname;
     gchar *game;
@@ -88,11 +158,21 @@ SteamFriend *steam_friend_new(bee_user_t *bu);
 
 void steam_friend_free(SteamFriend *frnd);
 
+SteamFriendId *steam_friend_id_new(gint64 id);
+
+SteamFriendId *steam_friend_id_new_str(const gchar *id);
+
+SteamFriendId *steam_friend_id_dup(SteamFriendId *id);
+
+void steam_friend_id_free(SteamFriendId *id);
+
 void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...);
 
 void steam_friend_chans_umode(SteamFriend *frnd, gint mode);
 
-SteamFriendSummary *steam_friend_summary_new(const gchar *steamid);
+SteamFriendSummary *steam_friend_summary_new(gint64 id);
+
+SteamFriendSummary *steam_friend_summary_new_str(const gchar *id);
 
 void steam_friend_summary_free(SteamFriendSummary *smry);
 
