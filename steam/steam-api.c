@@ -63,11 +63,10 @@ SteamApi *steam_api_new(const gchar *umqid)
 
 void steam_api_free(SteamApi *api)
 {
-    g_return_if_fail(api != NULL);
+    if (G_UNLIKELY(api == NULL))
+        return;
 
-    if (api->auth != NULL)
-        steam_auth_free(api->auth);
-
+    steam_auth_free(api->auth);
     steam_http_free(api->http);
     steam_friend_id_free(api->id);
 
@@ -148,7 +147,8 @@ SteamApiData *steam_api_data_new(SteamApi *api, SteamApiType type,
 
 void steam_api_data_free(SteamApiData *sata)
 {
-    g_return_if_fail(sata != NULL);
+    if (G_UNLIKELY(sata == NULL))
+        return;
 
     if ((sata->rfunc != NULL) && (sata->rdata != NULL))
         sata->rfunc(sata->rdata);
@@ -227,10 +227,10 @@ SteamApiMessage *steam_api_message_new_str(const gchar *id)
 
 void steam_api_message_free(SteamApiMessage *mesg)
 {
-    g_return_if_fail(mesg != NULL);
+    if (G_UNLIKELY(mesg == NULL))
+        return;
 
-    if (mesg->smry != NULL)
-        steam_friend_summary_free(mesg->smry);
+    steam_friend_summary_free(mesg->smry);
 
     g_free(mesg->text);
     g_free(mesg);
@@ -677,9 +677,7 @@ static void steam_api_logon_cb(SteamApiData *sata, json_value *json)
     sata->api->tstamp = in;
 
     if (!steam_json_scmp(json, "steamid", sata->api->id->steam.s, &str)) {
-        if (sata->api->id != NULL)
-            steam_friend_id_free(sata->api->id);
-
+        steam_friend_id_free(sata->api->id);
         sata->api->id = steam_friend_id_new_str(str);
     }
 

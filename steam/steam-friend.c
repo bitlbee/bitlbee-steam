@@ -31,7 +31,8 @@ SteamFriend *steam_friend_new(bee_user_t *bu)
 
 void steam_friend_free(SteamFriend *frnd)
 {
-    g_return_if_fail(frnd != NULL);
+    if (G_UNLIKELY(frnd == NULL))
+        return;
 
     g_free(frnd->server);
     g_free(frnd->game);
@@ -81,7 +82,8 @@ SteamFriendId *steam_friend_id_dup(SteamFriendId *id)
 
 void steam_friend_id_free(SteamFriendId *id)
 {
-    g_return_if_fail(id != NULL);
+    if (G_UNLIKELY(id == NULL))
+        return;
 
     g_free(id->steam.s);
     g_free(id->commu.s);
@@ -161,7 +163,8 @@ SteamFriendSummary *steam_friend_summary_new_str(const gchar *id)
 
 void steam_friend_summary_free(SteamFriendSummary *smry)
 {
-    g_return_if_fail(smry != NULL);
+    if (G_UNLIKELY(smry == NULL))
+        return;
 
     steam_friend_id_free(smry->id);
 

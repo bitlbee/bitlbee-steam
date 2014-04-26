@@ -79,7 +79,8 @@ void steam_http_free_reqs(SteamHttp *http)
 
 void steam_http_free(SteamHttp *http)
 {
-    g_return_if_fail(http != NULL);
+    if (G_UNLIKELY(http == NULL))
+        return;
 
     steam_http_free_reqs(http);
     g_queue_free(http->queue);
@@ -301,7 +302,8 @@ void steam_http_req_close(SteamHttpReq *req)
 
 void steam_http_req_free(SteamHttpReq *req)
 {
-    g_return_if_fail(req != NULL);
+    if (G_UNLIKELY(req == NULL))
+        return;
 
     steam_http_req_close(req);
 

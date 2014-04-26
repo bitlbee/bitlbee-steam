@@ -54,7 +54,8 @@ SteamData *steam_data_new(account_t *acc)
 
 void steam_data_free(SteamData *sata)
 {
-    g_return_if_fail(sata != NULL);
+    if (G_UNLIKELY(sata == NULL))
+        return;
 
     steam_api_free(sata->api);
     g_free(sata);

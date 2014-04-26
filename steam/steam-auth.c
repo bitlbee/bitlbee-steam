@@ -34,7 +34,8 @@ SteamAuth *steam_auth_new(void)
 
 void steam_auth_free(SteamAuth *auth)
 {
-    g_return_if_fail(auth != NULL);
+    if (G_UNLIKELY(auth == NULL))
+        return;
 
     mpz_clear(auth->exp);
     mpz_clear(auth->mod);
