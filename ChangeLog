@@ -1,2 +1,12 @@
+bitlbee-steam-1.0.1 (2014-04-27):
+  - Added --enable-minimal-flags option to autoconf
+  - Fixed a segfault when setting `show_playing`
+  - Fixed channel modes not being forced and overridden
+  - Fixed freeing functions not gracefully handling NULL pointers
+  - Fixed the handling of unsupported poll messages
+  - Fixed UI mode switching to mobile upon hidden relogons
+  - Improved the parsing and storage of SteamIDs/CommunityIDs
+  - Reverted the ignoring of CFLAGS when debugging is enabled
+
 bitlbee-steam-1.0.0 (2014-03-03):
   - Initial release
