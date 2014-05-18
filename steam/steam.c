@@ -566,26 +566,28 @@ static void steam_user_info(SteamApiReq *req, gpointer data)
     if (G_LIKELY(bu == NULL))
         steam_user_status(sata, info, bu);
 
-    if (info->nick != NULL)
-        imcb_log(sata->ic, "Name:       %s", info->nick);
-
-    if (info->game != NULL)
-        imcb_log(sata->ic, "Playing:    %s", info->game);
-
-    if (info->server != NULL)
-        imcb_log(sata->ic, "Server:     steam://connect/%s", info->server);
-
     if (info->fullname != NULL)
-        imcb_log(sata->ic, "Real Name:  %s", info->fullname);
+        imcb_log(sata->ic, "Name: %s (%s)", info->nick, info->fullname);
+    else
+        imcb_log(sata->ic, "Name: %s", info->nick);
 
-    imcb_log(sata->ic, "Account ID: %s", info->id->commu.s);
-    imcb_log(sata->ic, "Steam ID:   %s", info->id->steam.s);
+    if (info->game != NULL) {
+        if (info->server != NULL) {
+            imcb_log(sata->ic, "Playing: %s - steam://connect/%s",
+                     info->game, info->server);
+        } else {
+            imcb_log(sata->ic, "Playing: %s", info->game);
+        }
+    }
 
     str = (gchar *) steam_user_state_str(info->state);
-    imcb_log(sata->ic, "Status:     %s", str);
+    imcb_log(sata->ic, "Status: %s", str);
+
+    imcb_log(sata->ic, "Steam ID: %s (%s)", info->id->steam.s,
+             info->id->commu.s);
 
     str = steam_api_profile_url(info->id);
-    imcb_log(sata->ic, "Profile:    %s", str);
+    imcb_log(sata->ic, "Profile: %s", str);
     g_free(str);
 }
 
