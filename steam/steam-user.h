@@ -104,6 +104,9 @@ typedef enum _SteamUserRel SteamUserRel;
 /** The state of a #SteamUserInfo. **/
 typedef enum _SteamUserState SteamUserState;
 
+/** The flags of #SteamUserInfo. **/
+typedef enum _SteamUserFlags SteamUserFlags;
+
 /** The structure for a Steam user. **/
 typedef struct _SteamUser SteamUser;
 
@@ -201,6 +204,16 @@ enum _SteamUserState
 };
 
 /**
+ * The flags of #SteamUserInfo.
+ **/
+enum _SteamUserFlags
+{
+    STEAM_USER_FLAG_WEB    = 1 << 8, /** Using web client **/
+    STEAM_USER_FLAG_MOBILE = 1 << 9, /** Using mobile client **/
+    STEAM_USER_FLAG_BIGPIC = 1 << 10 /** Using Big Picture **/
+};
+
+/**
  * The structure for a Steam user.
  **/
 struct _SteamUser
@@ -248,6 +261,7 @@ struct _SteamUserInfo
     SteamUserId *id;      /** The #SteamUserId. **/
 
     SteamUserState state; /** The #SteamUserState. **/
+    SteamUserFlags flags; /** The #SteamUserFlags. **/
     SteamUserRel   rel;   /** The #SteamUserRel. **/
     SteamUserAct   act;   /** The #SteamUserAct. **/
 
@@ -285,6 +299,8 @@ void steam_user_chans_msg(SteamUser *user, const gchar *format, ...);
 void steam_user_chans_umode(SteamUser *user, gint mode, gboolean override);
 
 gint steam_user_chan_mode(const gchar *mode);
+
+gchar *steam_user_flags_str(SteamUserFlags flags);
 
 SteamUserId *steam_user_id_new(gint64 id);
 

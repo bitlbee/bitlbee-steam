@@ -160,6 +160,39 @@ void steam_user_chans_umode(SteamUser *user, gint mode, gboolean override)
 }
 
 /**
+ * Gets the string representation of #SteamUserFlags. The returned
+ * string should be freed with #g_free() when no longer needed.
+ *
+ * @param flags The #SteamUserFlags.
+ *
+ * @return The string representation of the #SteamUserFlags.
+ **/
+gchar *steam_user_flags_str(SteamUserFlags flags)
+{
+    gchar **strs;
+    gchar  *str;
+
+    static const SteamUtilEnum enums[] = {
+        {STEAM_USER_FLAG_WEB,    "Web"},
+        {STEAM_USER_FLAG_MOBILE, "Mobile"},
+        {STEAM_USER_FLAG_BIGPIC, "Big Picture"},
+        {0, NULL}
+    };
+
+    strs = (gchar **) steam_util_enum_ptrs(enums, flags);
+
+    if (strs[0] == NULL) {
+        g_free(strs);
+        return NULL;
+    }
+
+    str = g_strjoinv(", ", strs);
+
+    g_free(strs);
+    return str;
+}
+
+/**
  * Creates a new #SteamUserId. The returned #SteamUserId should be freed
  * with #steam_user_id_free() when no longer needed.
  *

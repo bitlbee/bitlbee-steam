@@ -556,6 +556,7 @@ static void steam_user_info(SteamApiReq *req, gpointer data)
     SteamData     *sata = data;
     SteamUserInfo *info = req->infs->head->data;
     bee_user_t    *bu;
+    const gchar   *ctr;
     gchar         *str;
 
     if (steam_req_error(sata, req, TRUE))
@@ -580,8 +581,15 @@ static void steam_user_info(SteamApiReq *req, gpointer data)
         }
     }
 
-    str = (gchar *) steam_user_state_str(info->state);
-    imcb_log(sata->ic, "Status: %s", str);
+    ctr = steam_user_state_str(info->state);
+    str = steam_user_flags_str(info->flags);
+
+    if (str != NULL) {
+        imcb_log(sata->ic, "Status: %s (%s)", ctr, str);
+        g_free(str);
+    } else {
+        imcb_log(sata->ic, "Status: %s", ctr);
+    }
 
     imcb_log(sata->ic, "Steam ID: %s (%s)", info->id->steam.s,
              info->id->commu.s);

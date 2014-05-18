@@ -259,6 +259,9 @@ static void steam_api_json_user_info(SteamUserInfo *info,
 
     if (steam_json_int(json, "personastate", &in))
         info->state = in;
+
+    if (steam_json_int(json, "personastateflags", &in))
+        info->flags = in;
 }
 
 /**

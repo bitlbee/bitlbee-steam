@@ -45,6 +45,39 @@ gpointer steam_util_enum_ptr(const SteamUtilEnum *enums, gpointer def,
 }
 
 /**
+ * Gets the enumerator pointers from its value. The returned array
+ * should be freed when no longer needed.
+ *
+ * @param enums The array of #SteamUtilEnum.
+ * @param vals  The enumerator values.
+ *
+ * @return The enumerator pointer array.
+ **/
+gpointer *steam_util_enum_ptrs(const SteamUtilEnum *enums, guint vals)
+{
+    gpointer *ptrs;
+    gsize     size;
+    guint     i;
+    guint     j;
+
+    g_return_val_if_fail(enums != NULL, g_new0(gpointer, 0));
+
+    for (size = 0, i = 0; enums[i].ptr != NULL; i++) {
+        if (vals & enums[i].val)
+            size++;
+    }
+
+    ptrs = g_new0(gpointer, ++size);
+
+    for (i = 0, j = 0; enums[i].ptr != NULL; i++) {
+        if (vals & enums[i].val)
+            ptrs[j++] = enums[i].ptr;
+    }
+
+    return ptrs;
+}
+
+/**
  * Gets the enumerator value from its pointer.
  *
  * @param enums   The array of #SteamUtilEnum.

@@ -39,6 +39,8 @@ struct _SteamUtilEnum
 gpointer steam_util_enum_ptr(const SteamUtilEnum *enums, gpointer def,
                              guint val);
 
+gpointer *steam_util_enum_ptrs(const SteamUtilEnum *enums, guint vals);
+
 guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
                           gconstpointer ptr, GCompareFunc cmpfunc);
 
