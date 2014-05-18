@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "steam-user.h"
+#include "steam-util.h"
 
 /**
  * Creates a new #SteamUser with a #bee_user_t. The returned #SteamUser
@@ -357,19 +358,17 @@ void steam_user_msg_free(SteamUserMsg *msg)
  **/
 const gchar *steam_user_msg_type_str(SteamUserMsgType type)
 {
-    static const gchar *strs[STEAM_USER_MSG_TYPE_LAST] = {
-        [STEAM_USER_MSG_TYPE_SAYTEXT]      = "saytext",
-        [STEAM_USER_MSG_TYPE_EMOTE]        = "emote",
-        [STEAM_USER_MSG_TYPE_LEFT_CONV]    = "leftconversation",
-        [STEAM_USER_MSG_TYPE_RELATIONSHIP] = "personarelationship",
-        [STEAM_USER_MSG_TYPE_STATE]        = "personastate",
-        [STEAM_USER_MSG_TYPE_TYPING]       = "typing"
+    static const SteamUtilEnum enums[] = {
+        {STEAM_USER_MSG_TYPE_SAYTEXT,      "saytext"},
+        {STEAM_USER_MSG_TYPE_EMOTE,        "emote"},
+        {STEAM_USER_MSG_TYPE_LEFT_CONV,    "leftconversation"},
+        {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
+        {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
+        {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
+        {0, NULL}
     };
 
-    if ((type < 0) || (type >= STEAM_USER_MSG_TYPE_LAST))
-        return "";
-
-    return strs[type];
+    return steam_util_enum_ptr(enums, NULL, type);
 }
 
 /**
@@ -381,20 +380,18 @@ const gchar *steam_user_msg_type_str(SteamUserMsgType type)
  **/
 SteamUserMsgType steam_user_msg_type_from_str(const gchar *type)
 {
-    const gchar *s;
-    guint        i;
+    static const SteamUtilEnum enums[] = {
+        {STEAM_USER_MSG_TYPE_SAYTEXT,      "saytext"},
+        {STEAM_USER_MSG_TYPE_EMOTE,        "emote"},
+        {STEAM_USER_MSG_TYPE_LEFT_CONV,    "leftconversation"},
+        {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
+        {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
+        {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
+        {0, NULL}
+    };
 
-    if (type == NULL)
-        return STEAM_USER_MSG_TYPE_LAST;
-
-    for (i = 0; i < STEAM_USER_MSG_TYPE_LAST; i++) {
-        s = steam_user_msg_type_str(i);
-
-        if (g_ascii_strcasecmp(type, s) == 0)
-            return i;
-    }
-
-    return STEAM_USER_MSG_TYPE_LAST;
+    return steam_util_enum_val(enums, STEAM_USER_MSG_TYPE_UNKNOWN, type,
+                               (GCompareFunc) g_ascii_strcasecmp);
 }
 
 /**
@@ -402,22 +399,20 @@ SteamUserMsgType steam_user_msg_type_from_str(const gchar *type)
  *
  * @param state The #SteamUserState.
  *
- * @return The string representation of the #SteamUserState.
+ * @return The string representation or NULL on error.
  **/
 const gchar *steam_user_state_str(SteamUserState state)
 {
-    static const gchar *strs[STEAM_USER_STATE_LAST] = {
-        [STEAM_USER_STATE_OFFLINE] = "Offline",
-        [STEAM_USER_STATE_ONLINE]  = "Online",
-        [STEAM_USER_STATE_BUSY]    = "Busy",
-        [STEAM_USER_STATE_AWAY]    = "Away",
-        [STEAM_USER_STATE_SNOOZE]  = "Snooze",
-        [STEAM_USER_STATE_TRADE]   = "Looking to Trade",
-        [STEAM_USER_STATE_PLAY]    = "Looking to Play"
+    static const SteamUtilEnum enums[] = {
+        {STEAM_USER_STATE_OFFLINE, "Offline"},
+        {STEAM_USER_STATE_ONLINE,  "Online"},
+        {STEAM_USER_STATE_BUSY,    "Busy"},
+        {STEAM_USER_STATE_AWAY,    "Away"},
+        {STEAM_USER_STATE_SNOOZE,  "Snooze"},
+        {STEAM_USER_STATE_TRADE,   "Looking to Trade"},
+        {STEAM_USER_STATE_PLAY,    "Looking to Play"},
+        {0, NULL}
     };
 
-    if ((state < 0) || (state >= STEAM_USER_STATE_LAST))
-        return "Offline";
-
-    return strs[state];
+    return steam_util_enum_ptr(enums, NULL, state);
 }

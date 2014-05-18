@@ -128,8 +128,7 @@ enum _SteamUserAct
     STEAM_USER_ACT_ADD       = 3, /** Added **/
     STEAM_USER_ACT_REQUESTED = 4, /** Friendship request **/
 
-    STEAM_USER_ACT_NONE,          /** None **/
-    STEAM_USER_ACT_LAST           /** Last **/
+    STEAM_USER_ACT_NONE           /** None **/
 };
 
 /**
@@ -175,7 +174,7 @@ enum _SteamUserMsgType
     STEAM_USER_MSG_TYPE_STATE,        /** State **/
     STEAM_USER_MSG_TYPE_TYPING,       /** Typing **/
 
-    STEAM_USER_MSG_TYPE_LAST          /** Last **/
+    STEAM_USER_MSG_TYPE_UNKNOWN       /** Unknown **/
 };
 
 /**
@@ -198,9 +197,7 @@ enum _SteamUserState
     STEAM_USER_STATE_AWAY    = 3, /** Away **/
     STEAM_USER_STATE_SNOOZE  = 4, /** Snooze **/
     STEAM_USER_STATE_TRADE   = 5, /** Looking to trade **/
-    STEAM_USER_STATE_PLAY    = 6, /** Looking to play **/
-
-    STEAM_USER_STATE_LAST         /** Last **/
+    STEAM_USER_STATE_PLAY    = 6  /** Looking to play **/
 };
 
 /**

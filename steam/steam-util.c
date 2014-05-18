@@ -20,6 +20,57 @@
 #include "steam-util.h"
 
 /**
+ * Gets the enumerator pointer from its value.
+ *
+ * @param enums The array of #SteamUtilEnum.
+ * @param def   The default return value.
+ * @param val   The enumerator value.
+ *
+ * @return The enumerator pointer, or NULL on error.
+ **/
+gpointer steam_util_enum_ptr(const SteamUtilEnum *enums, gpointer def,
+                             guint val)
+{
+    guint i;
+
+    g_return_val_if_fail(enums != NULL, NULL);
+
+    for (i = 0; enums[i].ptr != NULL; i++) {
+        if (enums[i].val == val)
+            return enums[i].ptr;
+    }
+
+    return def;
+}
+
+/**
+ * Gets the enumerator value from its pointer.
+ *
+ * @param enums   The array of #SteamUtilEnum.
+ * @param ptr     The enumerator pointer.
+ * @param def     The default return value.
+ * @param cmpfunc The #GCompareFunc.
+ *
+ * @return The enumerator value, or 0 on error.
+ **/
+guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
+                          gconstpointer ptr, GCompareFunc cmpfunc)
+{
+    guint i;
+
+    g_return_val_if_fail(enums   != NULL, 0);
+    g_return_val_if_fail(ptr     != NULL, 0);
+    g_return_val_if_fail(cmpfunc != NULL, 0);
+
+    for (i = 0; enums[i].ptr != NULL; i++) {
+        if (cmpfunc(ptr, enums[i].ptr) == 0)
+            return enums[i].val;
+    }
+
+    return def;
+}
+
+/**
  * Find the first occurrence of a character in a string not contained
  * inside quotes (single or double).
  *

@@ -22,6 +22,26 @@
 
 #include <glib.h>
 
+/** The structure for holding value/pointer pairs for enumerators. **/
+typedef struct _SteamUtilEnum SteamUtilEnum;
+
+
+/**
+ * The structure for holding value/pointer pairs for enumerators.
+ **/
+struct _SteamUtilEnum
+{
+    guint    val; /** The value. **/
+    gpointer ptr; /** The pointer. **/
+};
+
+
+gpointer steam_util_enum_ptr(const SteamUtilEnum *enums, gpointer def,
+                             guint val);
+
+guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
+                          gconstpointer ptr, GCompareFunc cmpfunc);
+
 gchar *steam_util_ustrchr(const gchar *str, gchar chr);
 
 #endif /* _STEAM_UTIL_H */
