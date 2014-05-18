@@ -23,24 +23,11 @@
 static void steam_http_req_sendasm(SteamHttpReq *req);
 static void steam_http_req_queue(SteamHttp *http, gboolean force);
 
-static void steam_http_tree_ins(GTree *tree, SteamHttpPair *pair, va_list ap)
-{
-    SteamHttpPair *p;
-    gchar         *key;
-    gchar         *val;
-
-    for (p = pair; p != NULL; ) {
-        if (p->key == NULL)
-            continue;
-
-        key = g_strdup(p->key);
-        val = g_strdup(p->val);
-
-        g_tree_replace(tree, key, val);
-        p = va_arg(ap, SteamHttpPair*);
-    }
-}
-
+/**
+ * Gets the error domain for #SteamHttp.
+ *
+ * @return The #GQuark of the error domain.
+ **/
 GQuark steam_http_error_quark(void)
 {
     static GQuark q;
@@ -51,6 +38,14 @@ GQuark steam_http_error_quark(void)
     return q;
 }
 
+/**
+ * Creates a new #SteamHttp. The returned #SteamHttp should be freed
+ * with #steam_http_free() when no longer needed.
+ *
+ * @param agent The HTTP agent.
+ *
+ * @return The #SteamHttp or NULL on error.
+ **/
 SteamHttp *steam_http_new(const gchar *agent)
 {
     SteamHttp *http;
@@ -64,6 +59,11 @@ SteamHttp *steam_http_new(const gchar *agent)
     return http;
 }
 
+/**
+ * Frees all #SteamHttpReq inside a #SteamHttp.
+ *
+ * @param http The #SteamHttp.
+ **/
 void steam_http_free_reqs(SteamHttp *http)
 {
     SteamHttpReq *req;
@@ -76,6 +76,11 @@ void steam_http_free_reqs(SteamHttp *http)
         steam_http_req_free(req);
 }
 
+/**
+ * Frees all memory used by a #SteamHttp.
+ *
+ * @param http The #SteamHttp.
+ **/
 void steam_http_free(SteamHttp *http)
 {
     if (G_UNLIKELY(http == NULL))
@@ -89,6 +94,12 @@ void steam_http_free(SteamHttp *http)
     g_free(http);
 }
 
+/**
+ * Pauses the #SteamHttp queue by raising a blockade.
+ *
+ * @param http  The #SteamHttp.
+ * @param pause TRUE to pause the queue, or FALSE to unpause the queue
+ **/
 void steam_http_queue_pause(SteamHttp *http, gboolean pause)
 {
     SteamHttpReq *req;
@@ -119,6 +130,39 @@ void steam_http_queue_pause(SteamHttp *http, gboolean pause)
     steam_http_req_queue(http, TRUE);
 }
 
+/**
+ * Inserts a #va_list into a #GTree.
+ *
+ * @param tree The #GTree.
+ * @param pair The first #SteamHttpPair.
+ * @param ap   The #va_list.
+ **/
+static void steam_http_tree_ins(GTree *tree, SteamHttpPair *pair, va_list ap)
+{
+    SteamHttpPair *p;
+    gchar         *key;
+    gchar         *val;
+
+    for (p = pair; p != NULL; ) {
+        if (p->key == NULL)
+            continue;
+
+        key = g_strdup(p->key);
+        val = g_strdup(p->val);
+
+        g_tree_replace(tree, key, val);
+        p = va_arg(ap, SteamHttpPair*);
+    }
+}
+
+/**
+ * Sets cookies from #SteamHttpPair. If a cookie already exists, it is
+ * overwritten with the new value.
+ *
+ * @param http The #SteamHttp.
+ * @param pair The first #SteamHttpPair.
+ * @param ...  The additional #SteamHttpPair.
+ **/
 void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
 {
     va_list ap;
@@ -130,6 +174,13 @@ void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
     va_end(ap);
 }
 
+/**
+ * Parses cookies from a #SteamHttpReq. If a cookie already exists,
+ * it is overwritten with the new value.
+ *
+ * @param http The #SteamHttp.
+ * @param req  The #SteamHttpReq.
+ **/
 void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req)
 {
     gchar **hdrs;
@@ -178,6 +229,13 @@ void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req)
     g_strfreev(hdrs);
 }
 
+/**
+ * Parses cookies from a string. If a cookie already exists, it is
+ * overwritten with the new value.
+ *
+ * @param http The #SteamHttp.
+ * @param data The string.
+ **/
 void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
 {
     gchar **ckis;
@@ -210,6 +268,15 @@ void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
     g_strfreev(ckis);
 }
 
+/**
+ * Implemented #GTraverseFunc for appending cookies to a #GString.
+ *
+ * @param key  The key.
+ * @param val  The value.
+ * @param gstr The #GString.
+ *
+ * @return FALSE to continue the traversal.
+ **/
 static gboolean steam_http_tree_cookies(gchar *key, gchar *val, GString *gstr)
 {
     gchar *sep;
@@ -228,6 +295,15 @@ static gboolean steam_http_tree_cookies(gchar *key, gchar *val, GString *gstr)
     return FALSE;
 }
 
+/**
+ * Gets a string representation of the cookies of a #SteamHttp. The
+ * returned string should be freed with #g_free() when no longer
+ * needed.
+ *
+ * @param http The #SteamHttp.
+ *
+ * @return The string representation of the cookies.
+ **/
 gchar *steam_http_cookies_str(SteamHttp *http)
 {
     GString *gstr;
@@ -240,6 +316,19 @@ gchar *steam_http_cookies_str(SteamHttp *http)
     return g_string_free(gstr, FALSE);
 }
 
+/**
+ * Creates a new #SteamHttpReq. The returned #SteamHttpReq should be
+ * freed with #steam_http_req_free() when no longer needed.
+ *
+ * @param http The #SteamHttp.
+ * @param host The hostname.
+ * @param port The port number.
+ * @param path The pathname.
+ * @param func The user callback function or NULL.
+ * @param data The user define data or NULL.
+ *
+ * @return The #SteamHttpReq or NULL on error.
+ **/
 SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
                                  gint port, const gchar *path,
                                  SteamHttpFunc func, gpointer data)
@@ -271,11 +360,21 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     return req;
 }
 
+/**
+ * Implemented #http_input_function for nulling the callback operation.
+ *
+ * @param request The #http_request.
+ **/
 static void steam_http_req_close_nuller(struct http_request *request)
 {
 
 }
 
+/**
+ * Closes the underlying #http_request.
+ *
+ * @param req The #SteamHttpReq.
+ **/
 void steam_http_req_close(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
@@ -299,6 +398,11 @@ void steam_http_req_close(SteamHttpReq *req)
     }
 }
 
+/**
+ * Frees all memory used by a #SteamHttpReq.
+ *
+ * @param req The #SteamHttpReq.
+ **/
 void steam_http_req_free(SteamHttpReq *req)
 {
     if (G_UNLIKELY(req == NULL))
@@ -317,6 +421,14 @@ void steam_http_req_free(SteamHttpReq *req)
     g_free(req);
 }
 
+/**
+ * Sets headers from #SteamHttpPair. If a header already exists, it is
+ * overwritten with the new value.
+ *
+ * @param req  The #SteamHttpReq.
+ * @param pair The first #SteamHttpPair.
+ * @param ...  The additional #SteamHttpPair.
+ **/
 void steam_http_req_headers_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
 {
     va_list ap;
@@ -328,6 +440,14 @@ void steam_http_req_headers_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
     va_end(ap);
 }
 
+/**
+ * Sets parameters from #SteamHttpPair. If a parameter already exists,
+ * it is overwritten with the new value.
+ *
+ * @param req  The #SteamHttpReq.
+ * @param pair The first #SteamHttpPair.
+ * @param ...  The additional #SteamHttpPair.
+ **/
 void steam_http_req_params_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
 {
     va_list ap;
@@ -339,6 +459,11 @@ void steam_http_req_params_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
     va_end(ap);
 }
 
+/**
+ * Resends a #SteamHttpReq.
+ *
+ * @param req The #SteamHttpReq.
+ **/
 void steam_http_req_resend(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
@@ -354,6 +479,15 @@ void steam_http_req_resend(SteamHttpReq *req)
     steam_http_req_send(req);
 }
 
+/**
+ * Implemented #b_event_handler for resending failed a #SteamHttpReq.
+ *
+ * @param data The user defined data, which is a #SteamHttpReq.
+ * @param fd   The file descriptor.
+ * @param cond The #b_input_condition.
+ *
+ * @return FALSE to kill the timer.
+ **/
 static gboolean steam_http_req_done_error(gpointer data, gint fd,
                                           b_input_condition cond)
 {
@@ -363,6 +497,11 @@ static gboolean steam_http_req_done_error(gpointer data, gint fd,
     return FALSE;
 }
 
+/**
+ * Processes all #SteamHttpReq by resending, queuing, and freeing.
+ *
+ * @param req The #SteamHttpReq.
+ **/
 static void steam_http_req_done(SteamHttpReq *req)
 {
 #ifdef DEBUG_STEAM
@@ -448,6 +587,11 @@ static void steam_http_req_done(SteamHttpReq *req)
     steam_http_req_close(req);
 }
 
+/**
+ * Implemented #http_input_function for all #SteamHttpReq.
+ *
+ * @param request The #http_request.
+ **/
 static void steam_http_req_cb(struct http_request *request)
 {
     SteamHttpReq *req = request->data;
@@ -473,6 +617,15 @@ static void steam_http_req_cb(struct http_request *request)
     steam_http_req_done(req);
 }
 
+/**
+ * Implemented #GTraverseFunc for appending headers to a #GString.
+ *
+ * @param key  The key.
+ * @param val  The value.
+ * @param gstr The #GString.
+ *
+ * @return FALSE to continue the traversal.
+ **/
 static gboolean steam_http_tree_headers(gchar *key, gchar *val, GString *gstr)
 {
     if (val == NULL)
@@ -482,6 +635,15 @@ static gboolean steam_http_tree_headers(gchar *key, gchar *val, GString *gstr)
     return FALSE;
 }
 
+/**
+ * Implemented #GTraverseFunc for appending parameters to a #GString.
+ *
+ * @param key  The key.
+ * @param val  The value.
+ * @param gstr The #GString.
+ *
+ * @return FALSE to continue the traversal.
+ **/
 static gboolean steam_http_tree_params(gchar *key, gchar *val, GString *gstr)
 {
     gchar *sep;
@@ -500,6 +662,15 @@ static gboolean steam_http_tree_params(gchar *key, gchar *val, GString *gstr)
     return FALSE;
 }
 
+/**
+ * Implemented #b_event_handler for handling a timed out #SteamHttpReq.
+ *
+ * @param data The user defined data, which is a #SteamHttpReq.
+ * @param fd   The file descriptor.
+ * @param cond The #b_input_condition.
+ *
+ * @return FALSE to kill the timer.
+ **/
 static gboolean steam_http_req_send_timeout(gpointer data, gint fd,
                                             b_input_condition cond)
 {
@@ -513,6 +684,11 @@ static gboolean steam_http_req_send_timeout(gpointer data, gint fd,
     return FALSE;
 }
 
+/**
+ * Assembles and sends the #SteamHttpReq.
+ *
+ * @param req The #SteamHttpReq.
+ **/
 static void steam_http_req_sendasm(SteamHttpReq *req)
 {
     GString *gstr;
@@ -619,6 +795,12 @@ static void steam_http_req_sendasm(SteamHttpReq *req)
     }
 }
 
+/**
+ * Queues the next #SteamHttpReq.
+ *
+ * @param http  The #SteamHttp.
+ * @param force TRUE to force queuing, or FALSE to queue as is.
+ **/
 static void steam_http_req_queue(SteamHttp *http, gboolean force)
 {
     SteamHttpReq *req;
@@ -655,6 +837,11 @@ static void steam_http_req_queue(SteamHttp *http, gboolean force)
         g_queue_remove(req->http->queue, req);
 }
 
+/**
+ * Queuefully send a #SteamHttpReq.
+ *
+ * @param req The #SteamHttpReq.
+ **/
 void steam_http_req_send(SteamHttpReq *req)
 {
     g_return_if_fail(req != NULL);
@@ -679,6 +866,14 @@ void steam_http_req_send(SteamHttpReq *req)
         steam_http_req_sendasm(req);
 }
 
+/**
+ * Escapes the characters of a string to make it URL safe. The returned
+ * string should be freed with #g_free() when no longer needed.
+ *
+ * @param unescaped The string.
+ *
+ * @return The escaped string or NULL on error.
+ **/
 gchar *steam_http_uri_escape(const gchar *unescaped)
 {
     gchar *ret;
@@ -695,6 +890,14 @@ gchar *steam_http_uri_escape(const gchar *unescaped)
     return ret;
 }
 
+/**
+ * Unescapes the characters of a string to make it a normal string. The
+ * returned string should be freed with #g_free() when no longer needed.
+ *
+ * @param escaped The string.
+ *
+ * @return The unescaped string or NULL on error.
+ **/
 gchar *steam_http_uri_unescape(const gchar *escaped)
 {
     gchar *ret;

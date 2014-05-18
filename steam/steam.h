@@ -15,6 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/** @file **/
+
 #ifndef _STEAM_H
 #define _STEAM_H
 
@@ -23,20 +25,26 @@
 
 #include "steam-api.h"
 
+
+/** The main structure for the plugin. **/
 typedef struct _SteamData SteamData;
 
+
+/**
+ * The main structure for the plugin.
+ **/
 struct _SteamData
 {
-    SteamApi *api;
-    struct im_connection *ic;
+    SteamApi *api;            /** The #SteamApi. **/
+    struct im_connection *ic; /** The #im_connection. **/
 
-    gboolean game_status;
-    gint     show_playing;
+    gboolean game_status;     /** The printing of game play statues. **/
+    gint     show_playing;    /** The user mode of a #SteamFriend in-game. **/
 };
 
 
 SteamData *steam_data_new(account_t *acc);
 
-void steam_data_free(SteamData *sd);
+void steam_data_free(SteamData *sata);
 
 #endif /* _STEAM_H */

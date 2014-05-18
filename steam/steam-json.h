@@ -15,18 +15,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/** @file **/
+
 #ifndef _STEAM_JSON_H
 #define _STEAM_JSON_H
 
 #include <glib.h>
 #include <json_util.h>
 
+
+/** The #GError codes of the JSON parser. **/
 typedef enum _SteamJsonError SteamJsonError;
 
+
+/**
+ * The #GError codes of JSON parser.
+ **/
 enum _SteamJsonError
 {
     STEAM_JSON_ERROR_PARSER
 };
+
 
 #define STEAM_JSON_ERROR steam_json_error_quark()
 

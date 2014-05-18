@@ -19,6 +19,11 @@
 
 #include "steam-json.h"
 
+/**
+ * Gets the error domain for the JSON parser.
+ *
+ * @return The #GQuark of the error domain.
+ **/
 GQuark steam_json_error_quark(void)
 {
     static GQuark q;
@@ -29,6 +34,16 @@ GQuark steam_json_error_quark(void)
     return q;
 }
 
+/**
+ * Creates a new #json_value from JSON data. The returned #json_value
+ * should be freed with #json_value_free() when no longer needed.
+ *
+ * @param data   The JSON data.
+ * @param length The length of the JSON data.
+ * @param err    The return location for a GError or NULL.
+ *
+ * @return The #json_value or NULL on error.
+ **/
 json_value *steam_json_new(const gchar *data, gsize length, GError **err)
 {
     json_value    *json;
@@ -57,6 +72,16 @@ json_value *steam_json_new(const gchar *data, gsize length, GError **err)
     return NULL;
 }
 
+/**
+ * Gets a #json_value by name from a parent #json_value.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ * @param type The #json_type.
+ * @param val  The return location for the value.
+ *
+ * @return TRUE if the value was found, or FALSE on error.
+ **/
 gboolean steam_json_val(const json_value *json, const gchar *name,
                         json_type type, json_value **val)
 {
@@ -69,6 +94,14 @@ gboolean steam_json_val(const json_value *json, const gchar *name,
     return ((*val != NULL) && ((*val)->type == type));
 }
 
+/**
+ * Gets a boolean value by name from a parent #json_value.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ *
+ * @return TRUE if the value was found, or FALSE on error.
+ **/
 gboolean steam_json_bool(const json_value *json, const gchar *name)
 {
     json_value *jv;
@@ -79,6 +112,15 @@ gboolean steam_json_bool(const json_value *json, const gchar *name)
     return jv->u.boolean;
 }
 
+/**
+ * Gets a integer value by name from a parent #json_value.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ * @param i    The return location for the value.
+ *
+ * @return TRUE if the value was found, or FALSE on error.
+ **/
 gboolean steam_json_int(const json_value *json, const gchar *name, gint64 *i)
 {
     json_value *jv;
@@ -94,6 +136,15 @@ gboolean steam_json_int(const json_value *json, const gchar *name, gint64 *i)
     return TRUE;
 }
 
+/**
+ * Gets a string value by name from a parent #json_value.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ * @param str  The return location for the value.
+ *
+ * @return TRUE if the value was found, or FALSE on error.
+ **/
 gboolean steam_json_str(const json_value *json, const gchar *name,
                         const gchar **str)
 {
@@ -113,6 +164,17 @@ gboolean steam_json_str(const json_value *json, const gchar *name,
     return TRUE;
 }
 
+/**
+ * Gets a string value by name from a parent #json_value, and compares
+ * the value. This matches case insensitively.
+ *
+ * @param json  The #json_value.
+ * @param name  The name.
+ * @param match The string to compare.
+ * @param str   The return location for the value.
+ *
+ * @return TRUE if the value was found and matches, or FALSE on error.
+ **/
 gboolean steam_json_scmp(const json_value *json, const gchar *name,
                          const gchar *match, const gchar **str)
 {
@@ -122,6 +184,14 @@ gboolean steam_json_scmp(const json_value *json, const gchar *name,
     return ((match != NULL) && (g_ascii_strcasecmp(match, *str) == 0));
 }
 
+/**
+ * Propagates a #GTree of key/value pairs from a #json_value
+ * recursively.
+ *
+ * @param tree The #GTree.
+ * @param key  The key name or NULL.
+ * @param json The #json_value.
+ **/
 static void steam_json_tree_prop(GTree *tree, gchar *key,
                                  const json_value *json)
 {
@@ -189,6 +259,13 @@ static void steam_json_tree_prop(GTree *tree, gchar *key,
     g_tree_replace(tree, key, val);
 }
 
+/**
+ * Gets a #GTree of key/value pairs from a #json_value recursively.
+ *
+ * @param json The #json_value.
+ *
+ * @return The #GTree of key/value pairs, or NULL on error.
+ **/
 GTree *steam_json_tree(const json_value *json)
 {
     GTree *tree;

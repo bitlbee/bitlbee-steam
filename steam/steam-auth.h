@@ -15,23 +15,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/** @file **/
+
 #ifndef _STEAM_AUTH_H
 #define _STEAM_AUTH_H
 
 #include <glib.h>
 #include <gmp.h>
 
+
+/** The structure for #SteamApi authentication. **/
 typedef struct _SteamAuth SteamAuth;
 
+
+/**
+ * The structure for #SteamApi authentication.
+ **/
 struct _SteamAuth
 {
-    mpz_t mod;
-    mpz_t exp;
+    mpz_t mod;   /** The PKCS key modulus **/
+    mpz_t exp;   /** The PKCS key exponent **/
 
-    gchar *time;
-    gchar *esid;
-    gchar *cgid;
-    gchar *curl;
+    gchar *time; /** The PKCS key timestamp **/
+    gchar *esid; /** The rmail ID or NULL **/
+    gchar *cgid; /** The captcha ID or NULL **/
+    gchar *curl; /** The captcha URL or NULL **/
 };
 
 

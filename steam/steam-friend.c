@@ -19,6 +19,15 @@
 
 #include "steam-friend.h"
 
+/**
+ * Creates a new #SteamFriend with a #bee_user_t. The returned
+ * #SteamFriend should be freed with #steam_friend_free() when
+ * no longer needed.
+ *
+ * @param bu The #bee_user_t.
+ *
+ * @return The #SteamFriend or NULL on error.
+ **/
 SteamFriend *steam_friend_new(bee_user_t *bu)
 {
     SteamFriend *frnd;
@@ -29,6 +38,11 @@ SteamFriend *steam_friend_new(bee_user_t *bu)
     return frnd;
 }
 
+/**
+ * Frees all memory used by a #SteamFriend.
+ *
+ * @param frnd The #SteamFriend.
+ **/
 void steam_friend_free(SteamFriend *frnd)
 {
     if (G_UNLIKELY(frnd == NULL))
@@ -39,6 +53,14 @@ void steam_friend_free(SteamFriend *frnd)
     g_free(frnd);
 }
 
+/**
+ * Creates a new #SteamFriendId. The returned #SteamFriendId should be
+ * freed with #steam_friend_id_free() when no longer needed.
+ *
+ * @param id The SteamID.
+ *
+ * @return The #SteamFriendId or NULL on error.
+ **/
 SteamFriendId *steam_friend_id_new(gint64 id)
 {
     SteamFriendId *fnid;
@@ -57,6 +79,15 @@ SteamFriendId *steam_friend_id_new(gint64 id)
     return fnid;
 }
 
+/**
+ * Creates a new #SteamFriendId from a string SteamID. The returned
+ * #SteamFriendId should be freed with #steam_friend_id_free() when
+ * no longer needed.
+ *
+ * @param id The string SteamID.
+ *
+ * @return The #SteamFriendId or NULL on error.
+ **/
 SteamFriendId *steam_friend_id_new_str(const gchar *id)
 {
     gint64 in;
@@ -67,6 +98,13 @@ SteamFriendId *steam_friend_id_new_str(const gchar *id)
     return steam_friend_id_new(in);
 }
 
+/**
+ * Duplicates all memory used by a #SteamFriendId.
+ *
+ * @param id The #SteamFriendId.
+ *
+ * @return The #SteamFriendId or NULL on error.
+ **/
 SteamFriendId *steam_friend_id_dup(SteamFriendId *id)
 {
     SteamFriendId *fnid;
@@ -80,6 +118,11 @@ SteamFriendId *steam_friend_id_dup(SteamFriendId *id)
     return fnid;
 }
 
+/**
+ * Frees all memory used by a #SteamFriendId.
+ *
+ * @param id The #SteamFriendId.
+ **/
 void steam_friend_id_free(SteamFriendId *id)
 {
     if (G_UNLIKELY(id == NULL))
@@ -90,6 +133,14 @@ void steam_friend_id_free(SteamFriendId *id)
     g_free(id);
 }
 
+/**
+ * Sends a message to all channels which a #SteamFriend is occupying
+ * with the sender being the #SteamFriend.
+ *
+ * @param frnd   The #SteamFriend.
+ * @param format The format string.
+ * @param ...    The arguments for the format string.
+ **/
 void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...)
 {
     irc_channel_t *ic;
@@ -117,6 +168,16 @@ void steam_friend_chans_msg(SteamFriend *frnd, const gchar *format, ...)
     g_free(str);
 }
 
+/**
+ * Sets the channel mode of a #SteamFriend in all channels which the
+ * #SteamFriend is occupying. If the mode will be overridden by current
+ * modes, they will optionally be unset, allowing the new mode to
+ * precedence.
+ *
+ * @param frnd     The #SteamFriend.
+ * @param mode     The #irc_channel_user_flags_t.
+ * @param override TRUE to override modes, or FALSE to keep all modes.
+ **/
 void steam_friend_chans_umode(SteamFriend *frnd, gint mode, gboolean override)
 {
     irc_channel_t            *ic;
@@ -156,6 +217,15 @@ void steam_friend_chans_umode(SteamFriend *frnd, gint mode, gboolean override)
     }
 }
 
+/**
+ * Creates a new #SteamFriendSummary. The returned #SteamFriendSummary
+ * should be freed with #steam_friend_summary_free() when no longer
+ * needed.
+ *
+ * @param id The SteamID.
+ *
+ * @return The #SteamFriendSummary or NULL on error.
+ **/
 SteamFriendSummary *steam_friend_summary_new(gint64 id)
 {
     SteamFriendSummary *smry;
@@ -167,6 +237,15 @@ SteamFriendSummary *steam_friend_summary_new(gint64 id)
     return smry;
 }
 
+/**
+ * Creates a new #SteamFriendSummary from a string SteamID. The returned
+ * #SteamFriendSummary should be freed with #steam_friend_summary_free()
+ * when no longer needed.
+ *
+ * @param id The SteamID.
+ *
+ * @return The #SteamFriendSummary or NULL on error.
+ **/
 SteamFriendSummary *steam_friend_summary_new_str(const gchar *id)
 {
     gint64 in;
@@ -177,6 +256,11 @@ SteamFriendSummary *steam_friend_summary_new_str(const gchar *id)
     return steam_friend_summary_new(in);
 }
 
+/**
+ * Frees all memory used by a #SteamFriendSummary.
+ *
+ * @param smry The #SteamFriendSummary.
+ **/
 void steam_friend_summary_free(SteamFriendSummary *smry)
 {
     if (G_UNLIKELY(smry == NULL))
@@ -191,6 +275,13 @@ void steam_friend_summary_free(SteamFriendSummary *smry)
     g_free(smry);
 }
 
+/**
+ * Gets the string representation of a #SteamFriendState.
+ *
+ * @param state The #SteamFriendState.
+ *
+ * @return The string representation of the #SteamFriendState.
+ **/
 const gchar *steam_friend_state_str(SteamFriendState state)
 {
     static const gchar *strs[STEAM_FRIEND_STATE_LAST] = {
@@ -209,6 +300,13 @@ const gchar *steam_friend_state_str(SteamFriendState state)
     return strs[state];
 }
 
+/**
+ * Gets the #SteamFriendState value of a string.
+ *
+ * @param state The string.
+ *
+ * @return The #SteamFriendState value.
+ **/
 SteamFriendState steam_friend_state_from_str(const gchar *state)
 {
     const gchar *s;
@@ -227,6 +325,13 @@ SteamFriendState steam_friend_state_from_str(const gchar *state)
     return STEAM_FRIEND_STATE_OFFLINE;
 }
 
+/**
+ * Gets the #irc_channel_user_flags_t value of a string.
+ *
+ * @param mode The string.
+ *
+ * @return The #irc_channel_user_flags_t value.
+ **/
 gint steam_friend_user_mode(gchar *mode)
 {
     if ((mode == NULL) || (strlen(mode) < 1))

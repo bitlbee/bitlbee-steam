@@ -21,13 +21,16 @@
 #include "steam-http.h"
 #include "steam-json.h"
 
-typedef void (*SteamApiParseFunc) (SteamApiData *sata, json_value *json);
-
 static void steam_api_auth_rdir(SteamApiData *sata, GTree *params);
 static void steam_api_friends_cinfo(SteamApiData *sata);
 static void steam_api_relogon(SteamApiData *sata);
 static void steam_api_summaries(SteamApiData *sata);
 
+/**
+ * Gets the error domain for #SteamApi.
+ *
+ * @return The #GQuark of the error domain.
+ **/
 GQuark steam_api_error_quark(void)
 {
     static GQuark q;
@@ -38,6 +41,14 @@ GQuark steam_api_error_quark(void)
     return q;
 }
 
+/**
+ * Creates a new #SteamApi. The returned #SteamApi should be freed with
+ * #steam_api_free() when no longer needed.
+ *
+ * @param umqid The umqid or NULL.
+ *
+ * @return The #SteamApi or NULL on error.
+ **/
 SteamApi *steam_api_new(const gchar *umqid)
 {
     SteamApi *api;
@@ -60,6 +71,11 @@ SteamApi *steam_api_new(const gchar *umqid)
     return api;
 }
 
+/**
+ * Frees all memory used by a #SteamApi.
+ *
+ * @param api The #SteamApi.
+ **/
 void steam_api_free(SteamApi *api)
 {
     if (G_UNLIKELY(api == NULL))
@@ -75,6 +91,14 @@ void steam_api_free(SteamApi *api)
     g_free(api);
 }
 
+/**
+ * Gets the profile URL of a #SteamFriendId. The returned string should
+ * be freed with #g_free() when no longer needed.
+ *
+ * @param id The #SteamFriendId.
+ *
+ * @return The profile URL, or NULL on error.
+ **/
 gchar *steam_api_profile_url(SteamFriendId *id)
 {
     g_return_val_if_fail(id != NULL, NULL);
@@ -83,6 +107,12 @@ gchar *steam_api_profile_url(SteamFriendId *id)
                            STEAM_COM_PATH_PROFILE, id->steam.s);
 }
 
+/**
+ * Refreshes the #SteamApi after the modification of session
+ * information.
+ *
+ * @param api The #SteamApi.
+ **/
 void steam_api_refresh(SteamApi *api)
 {
     gchar *str;
@@ -100,6 +130,13 @@ void steam_api_refresh(SteamApi *api)
     g_free(str);
 }
 
+/**
+ * Gets the string representation of a #SteamApiType.
+ *
+ * @param type The #SteamApiType.
+ *
+ * @return The string representation of the #SteamApiType.
+ **/
 const gchar *steam_api_type_str(SteamApiType type)
 {
     static const gchar *strs[STEAM_API_TYPE_LAST] = {
@@ -129,6 +166,17 @@ const gchar *steam_api_type_str(SteamApiType type)
     return strs[type];
 }
 
+/**
+ * Creates a new #SteamApiData. The returned #SteamApiData should be
+ * freed with #steam_api_data_free() when no longer needed.
+ *
+ * @param api  The #SteamApi.
+ * @param type The #SteamApiType.
+ * @param func The user callback function or NULL.
+ * @param data The user defined data or NULL.
+ *
+ * @return The #SteamApiData or NULL on error.
+ **/
 SteamApiData *steam_api_data_new(SteamApi *api, SteamApiType type,
                                  gpointer func, gpointer data)
 {
@@ -144,6 +192,11 @@ SteamApiData *steam_api_data_new(SteamApi *api, SteamApiType type,
     return sata;
 }
 
+/**
+ * Frees all memory used by a #SteamApiData.
+ *
+ * @param sata The #SteamApiData.
+ **/
 void steam_api_data_free(SteamApiData *sata)
 {
     if (G_UNLIKELY(sata == NULL))
@@ -161,6 +214,11 @@ void steam_api_data_free(SteamApiData *sata)
     g_free(sata);
 }
 
+/**
+ * Calls the user callback function.
+ *
+ * @param sata The #SteamApiData.
+ **/
 void steam_api_data_func(SteamApiData *sata)
 {
     g_return_if_fail(sata != NULL);
@@ -204,6 +262,14 @@ void steam_api_data_func(SteamApiData *sata)
     }
 }
 
+/**
+ * Creates a new #SteamApiMessage. The returned #SteamApiMessage should
+ * be freed with #steam_api_message_free() when no longer needed.
+ *
+ * @param id The SteamID.
+ *
+ * @return The #SteamApiMessage or NULL on error.
+ **/
 SteamApiMessage *steam_api_message_new(gint64 id)
 {
     SteamApiMessage *mesg;
@@ -214,6 +280,15 @@ SteamApiMessage *steam_api_message_new(gint64 id)
     return mesg;
 }
 
+/**
+ * Creates a new #SteamApiMessage from a string SteamID. The returned
+ * #SteamApiMessage should be freed with #steam_api_message_free() when
+ * no longer needed.
+ *
+ * @param id The string SteamID.
+ *
+ * @return The #SteamApiMessage or NULL on error.
+ **/
 SteamApiMessage *steam_api_message_new_str(const gchar *id)
 {
     gint64 in;
@@ -224,6 +299,11 @@ SteamApiMessage *steam_api_message_new_str(const gchar *id)
     return steam_api_message_new(in);
 }
 
+/**
+ * Frees all memory used by a #SteamApiMessage.
+ *
+ * @param mesg The #SteamApiMessage.
+ **/
 void steam_api_message_free(SteamApiMessage *mesg)
 {
     if (G_UNLIKELY(mesg == NULL))
@@ -235,6 +315,13 @@ void steam_api_message_free(SteamApiMessage *mesg)
     g_free(mesg);
 }
 
+/**
+ * Gets the string representation of a #SteamApiMessageType.
+ *
+ * @param type The #SteamApiMessageType.
+ *
+ * @return The string representation of the #SteamApiMessageType.
+ **/
 const gchar *steam_api_message_type_str(SteamApiMessageType type)
 {
     static const gchar *strs[STEAM_API_MESSAGE_TYPE_LAST] = {
@@ -252,6 +339,13 @@ const gchar *steam_api_message_type_str(SteamApiMessageType type)
     return strs[type];
 }
 
+/**
+ * Gets the #SteamApiMessageType value of a string.
+ *
+ * @param type The string.
+ *
+ * @return The #SteamApiMessageType value.
+ **/
 SteamApiMessageType steam_api_message_type_from_str(const gchar *type)
 {
     const gchar *s;
@@ -270,6 +364,12 @@ SteamApiMessageType steam_api_message_type_from_str(const gchar *type)
     return STEAM_API_MESSAGE_TYPE_LAST;
 }
 
+/**
+ * Parses and assigns #SteamFriendSummary values from a #json_value.
+ *
+ * @param smry The #SteamFriendSummary.
+ * @param json The #json_value.
+ **/
 static void steam_friend_summary_json(SteamFriendSummary *smry,
                                       json_value *json)
 {
@@ -292,6 +392,12 @@ static void steam_friend_summary_json(SteamFriendSummary *smry,
     smry->state = in;
 }
 
+/**
+ * Implemented #SteamApiParseFunc for authentication replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_auth_cb(SteamApiData *sata, json_value *json)
 {
     SteamApiError  err;
@@ -348,6 +454,12 @@ finish:
     json_value_free(json);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for authentication redirect replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_auth_rdir_cb(SteamApiData *sata, json_value *json)
 {
     const gchar *str;
@@ -365,11 +477,22 @@ static void steam_api_auth_rdir_cb(SteamApiData *sata, json_value *json)
     sata->api->sessid = g_strdup(str);
 }
 
+/**
+ * Implemented #GDestroyNotify for #steam_api_chatlog_cb().
+ *
+ * @param results The #GSList of items, which are #SteamApiMessage.
+ **/
 static void steam_api_chatlog_free(GSList *messages)
 {
     g_slist_free_full(messages, (GDestroyNotify) steam_api_message_free);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for chatlog replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_chatlog_cb(SteamApiData *sata, json_value *json)
 {
     SteamApiMessage *mesg;
@@ -409,6 +532,12 @@ static void steam_api_chatlog_cb(SteamApiData *sata, json_value *json)
 }
 
 
+/**
+ * Implemented #SteamApiParseFunc for friend accept replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_friend_accept_cb(SteamApiData *sata, json_value *json)
 {
     const gchar *str;
@@ -420,6 +549,12 @@ static void steam_api_friend_accept_cb(SteamApiData *sata, json_value *json)
                 "%s", str);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for friend add replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_friend_add_cb(SteamApiData *sata, json_value *json)
 {
     json_value *jv;
@@ -434,11 +569,23 @@ static void steam_api_friend_add_cb(SteamApiData *sata, json_value *json)
                 "Failed to add friend");
 }
 
+/**
+ * Implemented #SteamApiParseFunc for friend ignore replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_friend_ignore_cb(SteamApiData *sata, json_value *json)
 {
 
 }
 
+/**
+ * Implemented #SteamApiParseFunc for friend remove replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_friend_remove_cb(SteamApiData *sata, json_value *json)
 {
     if ((sata->req->body_size > 0) && bool2int(sata->req->body))
@@ -448,11 +595,22 @@ static void steam_api_friend_remove_cb(SteamApiData *sata, json_value *json)
                 "Failed to remove friend");
 }
 
+/**
+ * Implemented #GDestroyNotify for #steam_api_friend_search_cb().
+ *
+ * @param results The #GSList of items, which are #SteamFriendSummary.
+ **/
 static void steam_api_friend_search_free(GSList *results)
 {
     g_slist_free_full(results, (GDestroyNotify) steam_friend_summary_free);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for friend search replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_friend_search_cb(SteamApiData *sata, json_value *json)
 {
     SteamFriendSummary *smry;
@@ -488,11 +646,22 @@ static void steam_api_friend_search_cb(SteamApiData *sata, json_value *json)
     sata->rfunc = (GDestroyNotify) steam_api_friend_search_free;
 }
 
+/**
+ * Implemented #GDestroyNotify for #steam_api_friends_cb().
+ *
+ * @param friends The #GSList of items, which are #SteamFriendSummary.
+ **/
 static void steam_api_friends_free(GSList *friends)
 {
     g_slist_free_full(friends, (GDestroyNotify) steam_friend_summary_free);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for friends list replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_friends_cb(SteamApiData *sata, json_value *json)
 {
     SteamFriendSummary *smry;
@@ -540,6 +709,14 @@ static void steam_api_friends_cb(SteamApiData *sata, json_value *json)
         steam_api_friends_cinfo(sata);
 }
 
+/**
+ * Find the occurrance of a character in a string not inside quotes.
+ *
+ * @param str The search string.
+ * @param chr The character to find.
+ *
+ * @return A pointer to the character, or NULL if it was not found.
+ **/
 static const gchar *unquotechr(const gchar *str, gchar chr)
 {
     gboolean quoted;
@@ -569,6 +746,12 @@ static const gchar *unquotechr(const gchar *str, gchar chr)
     return NULL;
 }
 
+/**
+ * Implemented #SteamApiParseFunc for friends chat info replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_friends_cinfo_cb(SteamApiData *sata, json_value *json)
 {
     SteamFriendSummary *smry;
@@ -629,6 +812,12 @@ static void steam_api_friends_cinfo_cb(SteamApiData *sata, json_value *json)
     g_free(jraw);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for PKCS key replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_key_cb(SteamApiData *sata, json_value *json)
 {
     SteamAuth   *auth;
@@ -658,6 +847,12 @@ error:
                 "Failed to retrieve authentication key");
 }
 
+/**
+ * Implemented #SteamApiParseFunc for logon replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_logon_cb(SteamApiData *sata, json_value *json)
 {
     const gchar *str;
@@ -686,6 +881,12 @@ static void steam_api_logon_cb(SteamApiData *sata, json_value *json)
     }
 }
 
+/**
+ * Implemented #SteamApiParseFunc for relogon replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_relogon_cb(SteamApiData *sata, json_value *json)
 {
     const gchar  *str;
@@ -701,6 +902,12 @@ static void steam_api_relogon_cb(SteamApiData *sata, json_value *json)
     sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
 }
 
+/**
+ * Implemented #SteamApiParseFunc for logoff replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_logoff_cb(SteamApiData *sata, json_value *json)
 {
     const gchar *str;
@@ -712,6 +919,12 @@ static void steam_api_logoff_cb(SteamApiData *sata, json_value *json)
                 "%s", str);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for message replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_message_cb(SteamApiData *sata, json_value *json)
 {
     const gchar *str;
@@ -728,11 +941,22 @@ static void steam_api_message_cb(SteamApiData *sata, json_value *json)
                 "%s", str);
 }
 
+/**
+ * Implemented #GDestroyNotify for #steam_api_poll_free().
+ *
+ * @param messages The #GSList of items, which are #SteamFriendSummary.
+ **/
 static void steam_api_poll_free(GSList *messages)
 {
     g_slist_free_full(messages, (GDestroyNotify) steam_api_message_free);
 }
 
+/**
+ * Implemented #SteamApiParseFunc for poll replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
 {
     SteamApiMessage   *mesg;
@@ -832,6 +1056,12 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
     sata->rfunc = (GDestroyNotify) steam_api_poll_free;
 }
 
+/**
+ * Implemented #SteamApiParseFunc for summaries replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
 {
     SteamFriendSummary *smry;
@@ -874,6 +1104,12 @@ static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
     }
 }
 
+/**
+ * Implemented #SteamApiParseFunc for summary replies.
+ *
+ * @param sata The #SteamApiData.
+ * @param json The #json_value or NULL.
+ **/
 static void steam_api_summary_cb(SteamApiData *sata, json_value *json)
 {
     SteamFriendSummary *smry;
@@ -903,6 +1139,12 @@ static void steam_api_summary_cb(SteamApiData *sata, json_value *json)
     sata->rfunc = (GDestroyNotify) steam_friend_summary_free;
 }
 
+/**
+ * Implemented #SteamHttpFunc for handling #SteamApiData replies.
+ *
+ * @param req  The #SteamHttpReq.
+ * @param data The user defined data, which is #SteamApiData.
+ **/
 static void steam_api_cb(SteamHttpReq *req, gpointer data)
 {
     SteamApiData *sata = data;
@@ -1003,6 +1245,13 @@ static void steam_api_cb(SteamHttpReq *req, gpointer data)
     g_free(tata);
 }
 
+/**
+ * Creates a new SSL based #SteamHttpReq for a #SteamApiData.
+ *
+ * @param sata The #SteamApiData.
+ * @param host The request hostname.
+ * @param path The request pathname.
+ **/
 static void steam_api_data_req(SteamApiData *sata, const gchar *host,
                                const gchar *path)
 {
@@ -1015,6 +1264,21 @@ static void steam_api_data_req(SteamApiData *sata, const gchar *host,
     sata->req  = req;
 }
 
+/**
+ * Creates a new authorization request for the #SteamApi user. This is
+ * typically called twice to complete the authorization process. First,
+ * the user is authenticated partially, and then the Steam Guard code
+ * is requested. Then, with the Steam Guard code, the authentication
+ * process can be completed.
+ *
+ * @param api      The #SteamApi.
+ * @param user     The username.
+ * @param pass     The password.
+ * @param authcode The authorization code (Steam Guard) or NULL.
+ * @param captcha  The captcha code or NULL.
+ * @param func     The #SteamApiFunc or NULL.
+ * @param data     The user defined data or NULL.
+ **/
 void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
                     const gchar *authcode, const gchar *captcha,
                     SteamApiFunc func, gpointer data)
@@ -1066,12 +1330,32 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
     g_free(ms);
 }
 
+/**
+ * Implemented #GTraverseFunc for #steam_api_auth_rdir(). This adds
+ * each key/value pair as parameters to the #SteamHttpReq.
+ *
+ * @param key The key.
+ * @param val The value.
+ * @param req The #SteamHttpReq.
+ *
+ * @return FALSE to continue the traversal.
+ **/
 static gboolean steam_api_params(gchar *key, gchar *val, SteamHttpReq *req)
 {
     steam_http_req_params_set(req, STEAM_HTTP_PAIR(key, val), NULL);
     return FALSE;
 }
 
+/**
+ * Creates a new authorization redirect request for the #SteamApi user.
+ * This is called after the initial authorization process has been
+ * finished with #steam_api_auth(). With the provided OAuth parameters,
+ * this will provide session information which is later used by the
+ * #SteamApi.
+ *
+ * @param sata   The #SteamApiData.
+ * @param params The #GTree of OAuth parameters.
+ **/
 static void steam_api_auth_rdir(SteamApiData *sata, GTree *params)
 {
     steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_AUTH_RDIR);
@@ -1084,6 +1368,16 @@ static void steam_api_auth_rdir(SteamApiData *sata, GTree *params)
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new chatlog request for a Steam friend. This will retrieve
+ * read and unread messages from the Steam friend. If there are unread
+ * messages, this will also mark them as read.
+ *
+ * @param api  The #SteamApi.
+ * @param id   The #SteamFriendId.
+ * @param func The #SteamApiListFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_chatlog(SteamApi *api, SteamFriendId *id,
                        SteamApiListFunc func, gpointer data)
 {
@@ -1109,6 +1403,16 @@ void steam_api_chatlog(SteamApi *api, SteamFriendId *id,
     g_free(path);
 }
 
+/**
+ * Creates a new friend accept request for a Steam user. If a someone
+ * has requested friendship with the #SteamApi user, this will accept
+ * the friendship request.
+ *
+ * @param api  The #SteamApi.
+ * @param id   The #SteamFriendId.
+ * @param func The #SteamApiIdFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
                              const gchar *action, SteamApiIdFunc func,
                              gpointer data)
@@ -1143,6 +1447,16 @@ void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
     g_free(url);
 }
 
+/**
+ * Creates a new friend add request for a Steam user. This will request
+ * the friendship of another Steam user. The Steam user is not really
+ * a friend until they accept the request on their end.
+ *
+ * @param api  The #SteamApi.
+ * @param id   The #SteamFriendId.
+ * @param func The #SteamApiIdFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_friend_add(SteamApi *api, SteamFriendId *id,
                           SteamApiIdFunc func, gpointer data)
 {
@@ -1167,6 +1481,16 @@ void steam_api_friend_add(SteamApi *api, SteamFriendId *id,
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new friend ignore request for a Steam user. This either will
+ * ignore or unignore a Steam user.
+ *
+ * @param api    The #SteamApi.
+ * @param id     The #SteamFriendId.
+ * @param ignore TRUE to ignore, or FALSE to unignore.
+ * @param func   The #SteamApiIdFunc or NULL.
+ * @param data   The user defined data or NULL.
+ **/
 void steam_api_friend_ignore(SteamApi *api, SteamFriendId *id, gboolean ignore,
                              SteamApiIdFunc func, gpointer data)
 {
@@ -1204,6 +1528,16 @@ void steam_api_friend_ignore(SteamApi *api, SteamFriendId *id, gboolean ignore,
     g_free(frnd);
 }
 
+/**
+ * Creates a new friend remove request for a Steam user. This will
+ * remove a Steam friend from the friend list of the #SteamApi user.
+ * This does not block the user, see: #steam_api_friend_ignore().
+ *
+ * @param api  The #SteamApi.
+ * @param id   The #SteamFriendId.
+ * @param func The #SteamApiIdFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_friend_remove(SteamApi *api, SteamFriendId *id,
                              SteamApiIdFunc func, gpointer data)
 {
@@ -1229,6 +1563,17 @@ void steam_api_friend_remove(SteamApi *api, SteamFriendId *id,
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new friend search request. This searches for Steam users
+ * based on a search term. This is very useful when attempting to add
+ * Steam users by their name via #steam_api_friend_add(). 
+ *
+ * @param api    The #SteamApi.
+ * @param search The search term.
+ * @param count  The amount of search results.
+ * @param func   The #SteamApiListFunc or NULL.
+ * @param data   The user defined data or NULL.
+ **/
 void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
                              SteamApiListFunc func, gpointer data)
 {
@@ -1258,6 +1603,15 @@ void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
     g_free(str);
 }
 
+/**
+ * Creates a new friend list request for the #SteamApi user. This
+ * returns the entire list of friends for the #SteamApi user,
+ * including ignored friends.
+ *
+ * @param api    The #SteamApi.
+ * @param func   The #SteamApiListFunc or NULL.
+ * @param data   The user defined data or NULL.
+ **/
 void steam_api_friends(SteamApi *api, SteamApiListFunc func, gpointer data)
 {
     SteamApiData *sata;
@@ -1277,6 +1631,14 @@ void steam_api_friends(SteamApi *api, SteamApiListFunc func, gpointer data)
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new friends chat info request for the #SteamApi user. This
+ * gets additional information for the friends of the #SteamApi user.
+ * Information such as last viewed times, which can be used with
+ * #steam_api_chatlog() for displaying unread messages.
+ *
+ * @param sata The #SteamApiData.
+ **/
 static void steam_api_friends_cinfo(SteamApiData *sata)
 {
     steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_CHAT);
@@ -1287,6 +1649,16 @@ static void steam_api_friends_cinfo(SteamApiData *sata)
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new key request for the #SteamApi user. This is PKCS key
+ * is used to encrypt the password before it is sent during the
+ * authentication phase. 
+ *
+ * @param api  The #SteamApi.
+ * @param user The username.
+ * @param func The #SteamApiFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_key(SteamApi *api, const gchar *user,
                    SteamApiFunc func, gpointer data)
 {
@@ -1313,6 +1685,14 @@ void steam_api_key(SteamApi *api, const gchar *user,
     g_free(ms);
 }
 
+/**
+ * Creates a new logoff request for the #SteamApi user. This simply
+ * logs the #SteamApi user off.
+ *
+ * @param api  The #SteamApi.
+ * @param func The #SteamApiFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data)
 {
     SteamApiData *sata;
@@ -1332,6 +1712,15 @@ void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data)
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new logon request for the #SteamApi user. This simply logs
+ * the #SteamApi user on. The #SteamApi user must be authenticated via
+ * #steam_api_auth() before they can logon.
+ *
+ * @param api  The #SteamApi.
+ * @param func The #SteamApiFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
 {
     SteamApiData *sata;
@@ -1352,6 +1741,12 @@ void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new logon request for the #SteamApi user. This simply
+ * relogs the #SteamApi user after the session has gone stale.
+ *
+ * @param sata The #SteamApiData.
+ **/
 static void steam_api_relogon(SteamApiData *sata)
 {
     steam_http_queue_pause(sata->api->http, TRUE);
@@ -1371,6 +1766,15 @@ static void steam_api_relogon(SteamApiData *sata)
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new message request. This sends a #SteamApiMessage to
+ * a Steam friend.
+ *
+ * @param api  The #SteamApi.
+ * @param mesg The #SteamApiMessage.
+ * @param func The #SteamApiFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
                        SteamApiFunc func, gpointer data)
 {
@@ -1413,6 +1817,16 @@ void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
     steam_http_req_send(sata->req);
 }
 
+/**
+ * Creates a new poll request for the #SteamApi user. This retrieves
+ * messages from Steam friends. Additionally, this keeps the session
+ * for the #SteamApi user active, and it must be called every 30
+ * seconds. 
+ *
+ * @param api  The #SteamApi.
+ * @param func The #SteamApiListFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
 {
     SteamApiData *sata;
@@ -1448,6 +1862,12 @@ void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
     g_free(lmid);
 }
 
+/**
+ * Creates a new summary request. This retrieves the summaries of
+ * all users in the #SteamApiData->sums list.
+ *
+ * @param sata The #SteamApiData.
+ **/
 static void steam_api_summaries(SteamApiData *sata)
 {
     SteamFriendSummary *smry;
@@ -1493,6 +1913,15 @@ static void steam_api_summaries(SteamApiData *sata)
     g_hash_table_destroy(tbl);
 }
 
+/**
+ * Creates a new summary request. This retrieves the summary of a Steam
+ * friend.
+ *
+ * @param api  The #SteamApi.
+ * @param id   The #SteamFriendId.
+ * @param func The #SteamApiSummaryFunc or NULL.
+ * @param data The user defined data or NULL.
+ **/
 void steam_api_summary(SteamApi *api, SteamFriendId *id,
                        SteamApiSummaryFunc func, gpointer data)
 {

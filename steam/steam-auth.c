@@ -20,6 +20,12 @@
 #include "steam-api.h"
 #include "steam-auth.h"
 
+/**
+ * Creates a new #SteamAuth. The returned #SteamAuth should be freed
+ * with #steam_auth_free() when no longer needed.
+ *
+ * @return The #SteamAuth or NULL on error.
+ **/
 SteamAuth *steam_auth_new(void)
 {
     SteamAuth *auth;
@@ -32,6 +38,11 @@ SteamAuth *steam_auth_new(void)
     return auth;
 }
 
+/**
+ * Frees all memory used by a #SteamAuth.
+ *
+ * @param auth The #SteamAuth.
+ **/
 void steam_auth_free(SteamAuth *auth)
 {
     if (G_UNLIKELY(auth == NULL))
@@ -47,6 +58,12 @@ void steam_auth_free(SteamAuth *auth)
     g_free(auth);
 }
 
+/**
+ * Sets the captcha ID and URL of a #SteamAuth.
+ *
+ * @param auth The #SteamAuth.
+ * @param cgid The captcha ID.
+ **/
 void steam_auth_captcha(SteamAuth *auth, const gchar *cgid)
 {
     g_return_if_fail(auth != NULL);
@@ -65,6 +82,12 @@ void steam_auth_captcha(SteamAuth *auth, const gchar *cgid)
                                  STEAM_COM_PATH_CAPTCHA, cgid);
 }
 
+/**
+ * Sets the email ID of a #SteamAuth.
+ *
+ * @param auth The #SteamAuth.
+ * @param esid The email ID.
+ **/
 void steam_auth_email(SteamAuth *auth, const gchar *esid)
 {
     g_return_if_fail(auth != NULL);
@@ -73,6 +96,14 @@ void steam_auth_email(SteamAuth *auth, const gchar *esid)
     auth->esid = g_strdup(esid);
 }
 
+/**
+ * Sets the PKCS key modulus of a #SteamAuth.
+ *
+ * @param auth The #SteamAuth.
+ * @param mod  The modulus string.
+ *
+ * @return TRUE if the modulus was set, or FALSE on error.
+ **/
 gboolean steam_auth_key_mod(SteamAuth *auth, const gchar *mod)
 {
     g_return_val_if_fail(auth != NULL, FALSE);
@@ -81,6 +112,14 @@ gboolean steam_auth_key_mod(SteamAuth *auth, const gchar *mod)
     return (mpz_set_str(auth->mod, mod, 16) == 0);
 }
 
+/**
+ * Sets the PKCS key exponent of a #SteamAuth.
+ *
+ * @param auth The #SteamAuth.
+ * @param exp  The exponent string.
+ *
+ * @return TRUE if the exponent was set, or FALSE on error.
+ **/
 gboolean steam_auth_key_exp(SteamAuth *auth, const gchar *exp)
 {
     g_return_val_if_fail(auth != NULL, FALSE);
@@ -89,7 +128,14 @@ gboolean steam_auth_key_exp(SteamAuth *auth, const gchar *exp)
     return (mpz_set_str(auth->exp, exp, 16) == 0);
 }
 
-static void steam_auth_key_encrypt_pkcs1pad(mpz_t op, SteamAuth *auth,
+/**
+ * Pads a string for PKCS (RSA) processing.
+ *
+ * @param auth The #SteamAuth.
+ * @param op   The output.
+ * @param str  The string.
+ **/
+static void steam_auth_key_encrypt_pkcs1pad(SteamAuth *auth, mpz_t op,
                                             const gchar *str)
 {
     GRand *rand;
@@ -120,6 +166,17 @@ static void steam_auth_key_encrypt_pkcs1pad(mpz_t op, SteamAuth *auth,
     g_rand_free(rand);
 }
 
+/**
+ * Converts a raw PKCS (RSA) string to a hexadecimal string. The
+ * returned string should be freed with #g_free() when no longer
+ * needed.
+ *
+ * @param str The raw string.
+ * @param ssz The size of the string.
+ * @param rsz The return location for the size of the return string.
+ *
+ * @return The converted hexadecimal string or NULL on error.
+ **/
 static gchar *steam_auth_key_encrypt_hexdec(const gchar *str, gsize ssz,
                                             gsize *rsz)
 {
@@ -152,6 +209,16 @@ static gchar *steam_auth_key_encrypt_hexdec(const gchar *str, gsize ssz,
     return g_string_free(ret, FALSE);
 }
 
+/**
+ * Encrypts a string via PKCS (RSA) with the modulus and exponent of
+ * a #SteamAuth. The returned string should be freed with #g_free()
+ * when no longer needed.
+ *
+ * @param auth The #SteamAuth.
+ * @param str  The string to encrypt.
+ *
+ * @return The encrypted string or NULL on error.
+ **/
 gchar *steam_auth_key_encrypt(SteamAuth *auth, const gchar *str)
 {
     gchar *buf;
@@ -166,7 +233,7 @@ gchar *steam_auth_key_encrypt(SteamAuth *auth, const gchar *str)
     mpz_init(op);
     mpz_init(opr);
 
-    steam_auth_key_encrypt_pkcs1pad(op, auth, str);
+    steam_auth_key_encrypt_pkcs1pad(auth, op, str);
 
 #ifdef mpz_powm_sec
     mpz_powm_sec(opr, op, auth->exp, auth->mod);
