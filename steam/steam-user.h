@@ -270,6 +270,7 @@ struct _SteamUserInfo
     gchar *game;          /** The game name or NULL. **/
     gchar *server;        /** The game server or NULL. **/
 
+    gint64 ltime;         /** The last logoff timestamp (UTC). **/
     gint64 mtime;         /** The last message timestamp (UTC). **/
     gint64 vtime;         /** The last view timestamp (UTC). **/
 };

@@ -25,6 +25,9 @@
 /** The structure for holding value/pointer pairs for enumerators. **/
 typedef struct _SteamUtilEnum SteamUtilEnum;
 
+/** The structure for holding name/span pairs for time spans. **/
+typedef struct _SteamUtilTimeSpan SteamUtilTimeSpan;
+
 
 /**
  * The structure for holding value/pointer pairs for enumerators.
@@ -33,6 +36,15 @@ struct _SteamUtilEnum
 {
     guint    val; /** The value. **/
     gpointer ptr; /** The pointer. **/
+};
+
+/**
+ * The structure for holding name/span pairs for time spans.
+ **/
+struct _SteamUtilTimeSpan
+{
+    gchar  *name; /** The name. **/
+    gint64  span; /** The span. **/
 };
 
 
@@ -47,6 +59,11 @@ guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
 gchar *steam_util_rsa_encrypt(const gchar *pkmod, const gchar *pkexp,
                               const gchar *str);
 
+gchar *steam_util_time_span_str(GTimeSpan span);
+
+gchar *steam_util_time_since_utc(gint64 timestamp);
+
 gchar *steam_util_ustrchr(const gchar *str, gchar chr);
+
 
 #endif /* _STEAM_UTIL_H */

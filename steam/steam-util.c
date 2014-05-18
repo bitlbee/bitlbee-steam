@@ -244,6 +244,78 @@ gchar *steam_util_rsa_encrypt(const gchar *pkmod, const gchar *pkexp,
 }
 
 /**
+ * Gets the string representation of a timespan. The returned string
+ * should be freed with #g_free() when no longer needed.
+ *
+ * @param span The #GTimeSpan.
+ *
+ * @return The string representation of a timespan.
+ **/
+gchar *steam_util_time_span_str(GTimeSpan span)
+{
+    gchar *str;
+    guint  i;
+
+    static const SteamUtilTimeSpan spans[] = {
+        {"second", 1},
+        {"minute", 60},
+        {"hour",   60 * 60},
+        {"day",    60 * 60 * 24},
+        {"week",   60 * 60 * 24 * 7},
+        {"month",  60 * 60 * 24 * 30},
+        {"year",   60 * 60 * 24 * 365},
+        {NULL, 0}
+    };
+
+    span /= G_TIME_SPAN_SECOND;
+
+    for (i = 1; spans[i].name != NULL; i++) {
+        if (span < spans[i].span) {
+            span /= spans[--i].span;
+            break;
+        }
+
+        if (G_UNLIKELY(spans[i + 1].name == NULL)) {
+            span /= spans[i].span;
+            break;
+        }
+    }
+
+    str = g_strdup_printf("%" G_GINT64_FORMAT " %s%s", span, spans[i].name,
+                          ((span > 1) ? "s" : ""));
+
+    return str;
+}
+
+/**
+ * Gets the string representation of a timespan since the given
+ * timestamp. The returned string should be freed with #g_free() when
+ * no longer needed.
+ *
+ * @param span The timestamp (UTC).
+ *
+ * @return The string representation of a timespan.
+ **/
+gchar *steam_util_time_since_utc(gint64 timestamp)
+{
+    GDateTime *beg;
+    GDateTime *end;
+    GTimeSpan  spn;
+
+    beg = g_date_time_new_from_unix_utc(timestamp);
+    end = g_date_time_new_now_utc();
+    spn = g_date_time_difference(end, beg);
+
+    g_date_time_unref(beg);
+    g_date_time_unref(end);
+
+    if (G_UNLIKELY(spn < 0))
+        spn = -spn;
+
+    return steam_util_time_span_str(spn);
+}
+
+/**
  * Find the first occurrence of a character in a string not contained
  * inside quotes (single or double).
  *

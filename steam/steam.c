@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include "steam.h"
+#include "steam-util.h"
 
 static void steam_logon(SteamApiReq *req, gpointer data);
 static void steam_relogon(SteamApiReq *req, gpointer data);
@@ -589,6 +590,12 @@ static void steam_user_info(SteamApiReq *req, gpointer data)
         g_free(str);
     } else {
         imcb_log(sata->ic, "Status: %s", ctr);
+    }
+
+    if (info->state == STEAM_USER_STATE_OFFLINE) {
+        str = steam_util_time_since_utc(info->ltime);
+        imcb_log(sata->ic, "Last Online: %s", str);
+        g_free(str);
     }
 
     imcb_log(sata->ic, "Steam ID: %s (%s)", info->id->steam.s,

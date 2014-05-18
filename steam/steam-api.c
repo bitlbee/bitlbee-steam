@@ -257,6 +257,9 @@ static void steam_api_json_user_info(SteamUserInfo *info,
         info->fullname = g_strdup(str);
     }
 
+    if (steam_json_int(json, "lastlogoff", &in))
+        info->ltime = in;
+
     if (steam_json_int(json, "personastate", &in))
         info->state = in;
 
