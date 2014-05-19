@@ -22,7 +22,6 @@
 
 #include <glib.h>
 
-#include "steam-auth.h"
 #include "steam-http.h"
 #include "steam-json.h"
 #include "steam-user.h"
@@ -110,7 +109,11 @@ enum _SteamApiReqFlags
  **/
 struct _SteamApi
 {
-    SteamUserId *id;   /** The #SteamUserId of the user. **/
+    SteamUserId *id;   /** The #SteamFriendId of the user. **/
+    SteamHttp   *http; /** The #SteamHttp for API requests. **/
+    GQueue      *msgs; /** The #GQueue of message based #SteamApiReq. **/
+
+    gboolean online;   /** The online state of the user. **/
 
     gchar *umqid;      /** The unique device identifier. **/
     gchar *token;      /** The session token (mobile requests). **/
@@ -119,10 +122,11 @@ struct _SteamApi
     gint64 lmid;       /** The last message identifier. **/
     gint64 time;       /** The logon timestamp (UTC). **/
 
-    SteamHttp *http;   /** The #SteamHttp for API requests. **/
-    SteamAuth *auth;   /** The #SteamAuth for authorization requests. **/
-    gboolean   online; /** The online state of the user. **/
-    GQueue    *msgs;   /** The #GQueue of message based #SteamApiReq. **/ 
+    gchar *cgid;       /** The captcha GID (authentication). **/
+    gchar *esid;       /** The email SteamID (authentication). **/
+    gchar *pkmod;      /** The PKCS (RSA) modulus (authentication). **/
+    gchar *pkexp;      /** The PKCS (RSA) exponent (authentication). **/
+    gchar *pktime;     /** The PKCS (RSA) key time (authentication). **/
 };
 
 /**
@@ -151,7 +155,11 @@ GQuark steam_api_error_quark(void);
 
 SteamApi *steam_api_new(const gchar *umqid);
 
+void steam_api_free_auth(SteamApi *api);
+
 void steam_api_free(SteamApi *api);
+
+gchar *steam_api_captcha_url(const gchar *cgid);
 
 gchar *steam_api_profile_url(const SteamUserId *id);
 

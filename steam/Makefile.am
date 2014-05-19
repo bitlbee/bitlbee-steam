@@ -6,7 +6,6 @@ steam_la_LDFLAGS = -module -avoid-version @GMP_LIBS@
 steam_la_SOURCES = \
 	steam.c \
 	steam-api.c \
-	steam-auth.c \
 	steam-http.c \
 	steam-json.c \
 	steam-user.c \

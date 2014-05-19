@@ -268,11 +268,12 @@ static void steam_auth(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
     account_t *acc;
+    gchar     *str;
 
     acc = sata->ic->acc;
 
-    set_setstr(&acc->set, "cgid",   req->api->auth->cgid);
-    set_setstr(&acc->set, "esid",   req->api->auth->esid);
+    set_setstr(&acc->set, "cgid",   req->api->cgid);
+    set_setstr(&acc->set, "esid",   req->api->esid);
     set_setstr(&acc->set, "sessid", req->api->sessid);
     set_setstr(&acc->set, "token",  req->api->token);
 
@@ -284,8 +285,10 @@ static void steam_auth(SteamApiReq *req, gpointer data)
 
         switch (req->err->code) {
         case STEAM_API_ERROR_CAPTCHA:
-            imcb_log(sata->ic, "View: %s", req->api->auth->curl);
+            str = steam_api_captcha_url(req->api->cgid);
+            imcb_log(sata->ic, "View: %s", str);
             imcb_log(sata->ic, "Run: account %s set captcha <text>", acc->tag);
+            g_free(str);
             break;
 
         case STEAM_API_ERROR_STEAMGUARD:
@@ -297,8 +300,7 @@ static void steam_auth(SteamApiReq *req, gpointer data)
         return;
     }
 
-    steam_auth_free(req->api->auth);
-    req->api->auth = NULL;
+    steam_api_free_auth(req->api);
 
     imcb_log(sata->ic, "Authentication finished");
     imcb_log(sata->ic, "Sending login request");
@@ -829,13 +831,13 @@ static void steam_login(account_t *acc)
         return;
     }
 
-    sata->api->auth = steam_auth_new();
-
     str = set_getstr(&acc->set, "cgid");
-    steam_auth_captcha(sata->api->auth, str);
+    g_free(sata->api->cgid);
+    sata->api->cgid = g_strdup(str);
 
     str = set_getstr(&acc->set, "esid");
-    steam_auth_email(sata->api->auth, str);
+    g_free(sata->api->esid);
+    sata->api->esid = g_strdup(str);
 
     imcb_log(sata->ic, "Requesting authentication key");
 

@@ -69,6 +69,29 @@ SteamApi *steam_api_new(const gchar *umqid)
 }
 
 /**
+ * Frees all memory used by a #SteamApi for authentication.
+ *
+ * @param api The #SteamApi.
+ **/
+void steam_api_free_auth(SteamApi *api)
+{
+    if (G_UNLIKELY(api == NULL))
+        return;
+
+    g_free(api->pktime);
+    g_free(api->pkexp);
+    g_free(api->pkmod);
+    g_free(api->esid);
+    g_free(api->cgid);
+
+    api->pktime = NULL;
+    api->pkexp  = NULL;
+    api->pkmod  = NULL;
+    api->esid   = NULL;
+    api->cgid   = NULL;
+}
+
+/**
  * Frees all memory used by a #SteamApi.
  *
  * @param api The #SteamApi.
@@ -80,14 +103,30 @@ void steam_api_free(SteamApi *api)
 
     g_queue_free_full(api->msgs, (GDestroyNotify) steam_api_req_free);
 
-    steam_auth_free(api->auth);
     steam_http_free(api->http);
     steam_user_id_free(api->id);
+    steam_api_free_auth(api);
 
     g_free(api->sessid);
     g_free(api->token);
     g_free(api->umqid);
     g_free(api);
+}
+
+/**
+ * Gets the captcha URL of a captcha GID. The returned string should
+ * be freed with #g_free() when no longer needed.
+ *
+ * @param cgid The captcha GID.
+ *
+ * @return The captcha URL, or NULL on error.
+ **/
+gchar *steam_api_captcha_url(const gchar *cgid)
+{
+    g_return_val_if_fail(cgid != NULL, NULL);
+
+    return g_strdup_printf("https://%s%s?gid=%s", STEAM_COM_HOST,
+                           STEAM_COM_PATH_CAPTCHA, cgid);
 }
 
 /**
@@ -438,11 +477,15 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
     const gchar *str;
     GHashTable  *prms;
 
-    if (steam_json_str(json, "captcha_gid", &str))
-        steam_auth_captcha(req->api->auth, str);
+    if (steam_json_str(json, "captcha_gid", &str)) {
+        g_free(req->api->cgid);
+        req->api->cgid = g_strdup(str);
+    }
 
-    if (steam_json_str(json, "emailsteamid", &str))
-        steam_auth_email(req->api->auth, str);
+    if (steam_json_str(json, "emailsteamid", &str)) {
+        g_free(req->api->esid);
+        req->api->esid = g_strdup(str);
+    }
 
     if (!steam_json_val(json, "oauth", json_string, &jv)) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
@@ -492,7 +535,7 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
     g_return_if_fail(user != NULL);
     g_return_if_fail(pass != NULL);
 
-    pswd = steam_auth_key_encrypt(req->api->auth, pass);
+    pswd = steam_util_rsa_encrypt(req->api->pkmod, req->api->pkexp, pass);
 
     if (pswd == NULL) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
@@ -515,10 +558,10 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
         STEAM_HTTP_PAIR("username",        user),
         STEAM_HTTP_PAIR("password",        pswd),
         STEAM_HTTP_PAIR("emailauth",       authcode),
-        STEAM_HTTP_PAIR("emailsteamid",    req->api->auth->esid),
-        STEAM_HTTP_PAIR("captchagid",      req->api->auth->cgid),
+        STEAM_HTTP_PAIR("emailsteamid",    req->api->esid),
+        STEAM_HTTP_PAIR("captchagid",      req->api->cgid),
         STEAM_HTTP_PAIR("captcha_text",    captcha),
-        STEAM_HTTP_PAIR("rsatimestamp",    req->api->auth->time),
+        STEAM_HTTP_PAIR("rsatimestamp",    req->api->pktime),
         STEAM_HTTP_PAIR("oauth_client_id", STEAM_API_CLIENTID),
         STEAM_HTTP_PAIR("donotcache",      ms),
         STEAM_HTTP_PAIR("remember_login",  "true"),
@@ -660,21 +703,22 @@ void steam_api_req_friends(SteamApiReq *req)
  **/
 static void steam_api_cb_key(SteamApiReq *req, const json_value *json)
 {
-    SteamAuth   *auth;
     const gchar *str;
 
-    auth = (req->api->auth != NULL) ? req->api->auth : steam_auth_new();
+    if (steam_json_str(json, "publickey_mod", &str)) {
+        g_free(req->api->pkmod);
+        req->api->pkmod = g_strdup(str);
+    }
 
-    if (steam_json_str(json, "publickey_mod", &str))
-        steam_auth_key_mod(auth, str);
+    if (steam_json_str(json, "publickey_exp", &str)) {
+        g_free(req->api->pkexp);
+        req->api->pkexp = g_strdup(str);
+    }
 
-    if (steam_json_str(json, "publickey_exp", &str))
-        steam_auth_key_exp(auth, str);
-
-    if (steam_json_str(json, "timestamp", &str))
-        auth->time = g_strdup(str);
-
-    req->api->auth = auth;
+    if (steam_json_str(json, "timestamp", &str)) {
+        g_free(req->api->pktime);
+        req->api->pktime = g_strdup(str);
+    }
 }
 
 /**
