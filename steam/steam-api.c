@@ -235,11 +235,16 @@ static void steam_api_json_user_info(SteamUserInfo *info,
                                      const json_value *json)
 {
     const gchar *str;
+    const gchar *tmp;
     gint64       in;
 
     if (steam_json_str(json, "gameextrainfo", &str)) {
         g_free(info->game);
-        info->game = g_strdup(str);
+
+        if (steam_json_str(json, "gameid", &tmp) && (tmp != NULL))
+            info->game = g_strdup(str);
+        else
+            info->game = g_strdup_printf("Non-Steam: %s", str);
     }
 
     if (steam_json_str(json, "gameserverip", &str)) {
@@ -277,11 +282,16 @@ static void steam_api_json_user_info_js(SteamUserInfo *info,
                                         const json_value *json)
 {
     const gchar *str;
+    const gchar *tmp;
     gint64       in;
 
     if (steam_json_str(json, "m_strInGameName", &str)) {
         g_free(info->game);
-        info->game = g_strdup(str);
+
+        if (steam_json_str(json, "m_nInGameAppID", &tmp) && (tmp != NULL))
+            info->game = g_strdup(str);
+        else
+            info->game = g_strdup_printf("Non-Steam: %s", str);
     }
 
     if (steam_json_str(json, "m_strName", &str)) {
