@@ -21,10 +21,10 @@
 #include "steam-http.h"
 #include "steam-json.h"
 
-static void steam_api_auth_rdir(SteamApiData *sata, GTree *params);
-static void steam_api_friends_cinfo(SteamApiData *sata);
-static void steam_api_relogon(SteamApiData *sata);
-static void steam_api_summaries(SteamApiData *sata);
+static void steam_api_auth_rdir(SteamApiReq *req, GTree *params);
+static void steam_api_friends_cinfo(SteamApiReq *req);
+static void steam_api_relogon(SteamApiReq *req);
+static void steam_api_summaries(SteamApiReq *req);
 
 /**
  * Gets the error domain for #SteamApi.
@@ -65,7 +65,7 @@ SteamApi *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
-    api->id   = steam_friend_id_new(0);
+    api->id   = steam_user_id_new(0);
     api->http = steam_http_new(STEAM_API_AGENT);
 
     return api;
@@ -83,7 +83,7 @@ void steam_api_free(SteamApi *api)
 
     steam_auth_free(api->auth);
     steam_http_free(api->http);
-    steam_friend_id_free(api->id);
+    steam_user_id_free(api->id);
 
     g_free(api->sessid);
     g_free(api->token);
@@ -92,14 +92,14 @@ void steam_api_free(SteamApi *api)
 }
 
 /**
- * Gets the profile URL of a #SteamFriendId. The returned string should
+ * Gets the profile URL of a #SteamUserId. The returned string should
  * be freed with #g_free() when no longer needed.
  *
- * @param id The #SteamFriendId.
+ * @param id The #SteamUserId.
  *
  * @return The profile URL, or NULL on error.
  **/
-gchar *steam_api_profile_url(SteamFriendId *id)
+gchar *steam_api_profile_url(const SteamUserId *id)
 {
     g_return_val_if_fail(id != NULL, NULL);
 
@@ -131,130 +131,93 @@ void steam_api_refresh(SteamApi *api)
 }
 
 /**
- * Gets the string representation of a #SteamApiType.
- *
- * @param type The #SteamApiType.
- *
- * @return The string representation of the #SteamApiType.
- **/
-const gchar *steam_api_type_str(SteamApiType type)
-{
-    static const gchar *strs[STEAM_API_TYPE_LAST] = {
-        [STEAM_API_TYPE_AUTH]          = "Authentication",
-        [STEAM_API_TYPE_AUTH_RDIR]     = "Authentication (redirect)",
-        [STEAM_API_TYPE_CHATLOG]       = "ChatLog",
-        [STEAM_API_TYPE_FRIEND_ACCEPT] = "Friend Acceptance",
-        [STEAM_API_TYPE_FRIEND_ADD]    = "Friend Addition",
-        [STEAM_API_TYPE_FRIEND_IGNORE] = "Friend Ignore",
-        [STEAM_API_TYPE_FRIEND_REMOVE] = "Friend Removal",
-        [STEAM_API_TYPE_FRIEND_SEARCH] = "Friend Search",
-        [STEAM_API_TYPE_FRIENDS]       = "Friends",
-        [STEAM_API_TYPE_FRIENDS_CINFO] = "Friends Chat Info",
-        [STEAM_API_TYPE_KEY]           = "Key",
-        [STEAM_API_TYPE_LOGON]         = "Logon",
-        [STEAM_API_TYPE_RELOGON]       = "Relogon",
-        [STEAM_API_TYPE_LOGOFF]        = "Logoff",
-        [STEAM_API_TYPE_MESSAGE]       = "Message",
-        [STEAM_API_TYPE_POLL]          = "Polling",
-        [STEAM_API_TYPE_SUMMARIES]     = "Summaries",
-        [STEAM_API_TYPE_SUMMARY]       = "Summary"
-    };
-
-    if ((type <= STEAM_API_TYPE_NONE) || (type >= STEAM_API_TYPE_LAST))
-        return "Generic";
-
-    return strs[type];
-}
-
-/**
- * Creates a new #SteamApiData. The returned #SteamApiData should be
- * freed with #steam_api_data_free() when no longer needed.
+ * Creates a new #SteamApiReq. The returned #SteamApiReq should be freed
+ * with #steam_api_req_free() when no longer needed.
  *
  * @param api  The #SteamApi.
- * @param type The #SteamApiType.
+ * @param type The #SteamApiReqType.
  * @param func The user callback function or NULL.
  * @param data The user defined data or NULL.
  *
- * @return The #SteamApiData or NULL on error.
+ * @return The #SteamApiReq or NULL on error.
  **/
-SteamApiData *steam_api_data_new(SteamApi *api, SteamApiType type,
-                                 gpointer func, gpointer data)
+SteamApiReq *steam_api_req_new(SteamApi *api, SteamApiReqType type,
+                               gpointer func, gpointer data)
 {
-    SteamApiData *sata;
+    SteamApiReq *req;
 
-    sata = g_new0(SteamApiData, 1);
+    req = g_new0(SteamApiReq, 1);
 
-    sata->type = type;
-    sata->api  = api;
-    sata->func = func;
-    sata->data = data;
+    req->type = type;
+    req->api  = api;
+    req->func = func;
+    req->data = data;
 
-    return sata;
+    return req;
 }
 
 /**
- * Frees all memory used by a #SteamApiData.
+ * Frees all memory used by a #SteamApiReq.
  *
- * @param sata The #SteamApiData.
+ * @param req The #SteamApiReq.
  **/
-void steam_api_data_free(SteamApiData *sata)
+void steam_api_req_free(SteamApiReq *req)
 {
-    if (G_UNLIKELY(sata == NULL))
+    if (G_UNLIKELY(req == NULL))
         return;
 
-    if ((sata->rfunc != NULL) && (sata->rdata != NULL))
-        sata->rfunc(sata->rdata);
+    if ((req->rfunc != NULL) && (req->rdata != NULL))
+        req->rfunc(req->rdata);
 
-    if (sata->sums != NULL)
-        g_list_free(sata->sums);
+    if (req->infos != NULL)
+        g_list_free(req->infos);
 
-    if (sata->err != NULL)
-        g_error_free(sata->err);
+    if (req->err != NULL)
+        g_error_free(req->err);
 
-    g_free(sata);
+    g_free(req);
 }
 
 /**
  * Calls the user callback function.
  *
- * @param sata The #SteamApiData.
+ * @param req The #SteamApiReq.
  **/
-void steam_api_data_func(SteamApiData *sata)
+void steam_api_req_func(SteamApiReq *req)
 {
-    g_return_if_fail(sata != NULL);
+    g_return_if_fail(req != NULL);
 
-    if (sata->func == NULL)
+    if (req->func == NULL)
         return;
 
-    switch (sata->type) {
-    case STEAM_API_TYPE_AUTH:
-    case STEAM_API_TYPE_KEY:
-    case STEAM_API_TYPE_LOGOFF:
-    case STEAM_API_TYPE_LOGON:
-    case STEAM_API_TYPE_RELOGON:
-    case STEAM_API_TYPE_MESSAGE:
-        ((SteamApiFunc) sata->func)(sata->api, sata->err, sata->data);
+    switch (req->type) {
+    case STEAM_API_REQ_TYPE_AUTH:
+    case STEAM_API_REQ_TYPE_KEY:
+    case STEAM_API_REQ_TYPE_LOGOFF:
+    case STEAM_API_REQ_TYPE_LOGON:
+    case STEAM_API_REQ_TYPE_RELOGON:
+    case STEAM_API_REQ_TYPE_MESSAGE:
+        ((SteamApiFunc) req->func)(req->api, req->err, req->data);
         return;
 
-    case STEAM_API_TYPE_FRIEND_ACCEPT:
-    case STEAM_API_TYPE_FRIEND_ADD:
-    case STEAM_API_TYPE_FRIEND_IGNORE:
-    case STEAM_API_TYPE_FRIEND_REMOVE:
-        ((SteamApiIdFunc) sata->func)(sata->api, sata->rdata, sata->err,
-                                      sata->data);
+    case STEAM_API_REQ_TYPE_FRIEND_ACCEPT:
+    case STEAM_API_REQ_TYPE_FRIEND_ADD:
+    case STEAM_API_REQ_TYPE_FRIEND_IGNORE:
+    case STEAM_API_REQ_TYPE_FRIEND_REMOVE:
+        ((SteamApiIdFunc) req->func)(req->api, req->rdata, req->err, req->data);
         return;
 
-    case STEAM_API_TYPE_CHATLOG:
-    case STEAM_API_TYPE_FRIEND_SEARCH:
-    case STEAM_API_TYPE_FRIENDS:
-    case STEAM_API_TYPE_POLL:
-        ((SteamApiListFunc) sata->func)(sata->api, sata->rdata, sata->err,
-                                        sata->data);
+    case STEAM_API_REQ_TYPE_CHATLOG:
+    case STEAM_API_REQ_TYPE_FRIEND_SEARCH:
+    case STEAM_API_REQ_TYPE_FRIENDS:
+    case STEAM_API_REQ_TYPE_POLL:
+        ((SteamApiListFunc) req->func)(req->api, req->rdata, req->err,
+                                       req->data);
         return;
 
-    case STEAM_API_TYPE_SUMMARY:
-        ((SteamApiSummaryFunc) sata->func)(sata->api, sata->rdata, sata->err,
-                                           sata->data);
+    case STEAM_API_REQ_TYPE_SUMMARY:
+        ((SteamApiInfoFunc) req->func)(req->api, req->rdata, req->err,
+                                       req->data);
         return;
 
     default:
@@ -263,153 +226,88 @@ void steam_api_data_func(SteamApiData *sata)
 }
 
 /**
- * Creates a new #SteamApiMessage. The returned #SteamApiMessage should
- * be freed with #steam_api_message_free() when no longer needed.
+ * Gets the string representation of a #SteamApiReqType.
  *
- * @param id The SteamID.
+ * @param type The #SteamApiReqType.
  *
- * @return The #SteamApiMessage or NULL on error.
+ * @return The string representation of the #SteamApiReqType.
  **/
-SteamApiMessage *steam_api_message_new(gint64 id)
+const gchar *steam_api_req_type_str(SteamApiReqType type)
 {
-    SteamApiMessage *mesg;
-
-    mesg = g_new0(SteamApiMessage, 1);
-    mesg->smry = steam_friend_summary_new(id);
-
-    return mesg;
-}
-
-/**
- * Creates a new #SteamApiMessage from a string SteamID. The returned
- * #SteamApiMessage should be freed with #steam_api_message_free() when
- * no longer needed.
- *
- * @param id The string SteamID.
- *
- * @return The #SteamApiMessage or NULL on error.
- **/
-SteamApiMessage *steam_api_message_new_str(const gchar *id)
-{
-    gint64 in;
-
-    g_return_val_if_fail(id != NULL, NULL);
-
-    in = g_ascii_strtoll(id, NULL, 10);
-    return steam_api_message_new(in);
-}
-
-/**
- * Frees all memory used by a #SteamApiMessage.
- *
- * @param mesg The #SteamApiMessage.
- **/
-void steam_api_message_free(SteamApiMessage *mesg)
-{
-    if (G_UNLIKELY(mesg == NULL))
-        return;
-
-    steam_friend_summary_free(mesg->smry);
-
-    g_free(mesg->text);
-    g_free(mesg);
-}
-
-/**
- * Gets the string representation of a #SteamApiMessageType.
- *
- * @param type The #SteamApiMessageType.
- *
- * @return The string representation of the #SteamApiMessageType.
- **/
-const gchar *steam_api_message_type_str(SteamApiMessageType type)
-{
-    static const gchar *strs[STEAM_API_MESSAGE_TYPE_LAST] = {
-        [STEAM_API_MESSAGE_TYPE_SAYTEXT]      = "saytext",
-        [STEAM_API_MESSAGE_TYPE_EMOTE]        = "emote",
-        [STEAM_API_MESSAGE_TYPE_LEFT_CONV]    = "leftconversation",
-        [STEAM_API_MESSAGE_TYPE_RELATIONSHIP] = "personarelationship",
-        [STEAM_API_MESSAGE_TYPE_STATE]        = "personastate",
-        [STEAM_API_MESSAGE_TYPE_TYPING]       = "typing"
+    static const gchar *strs[STEAM_API_REQ_TYPE_LAST] = {
+        [STEAM_API_REQ_TYPE_AUTH]          = "Authentication",
+        [STEAM_API_REQ_TYPE_AUTH_RDIR]     = "Authentication (redirect)",
+        [STEAM_API_REQ_TYPE_CHATLOG]       = "ChatLog",
+        [STEAM_API_REQ_TYPE_FRIEND_ACCEPT] = "Friend Acceptance",
+        [STEAM_API_REQ_TYPE_FRIEND_ADD]    = "Friend Addition",
+        [STEAM_API_REQ_TYPE_FRIEND_IGNORE] = "Friend Ignore",
+        [STEAM_API_REQ_TYPE_FRIEND_REMOVE] = "Friend Removal",
+        [STEAM_API_REQ_TYPE_FRIEND_SEARCH] = "Friend Search",
+        [STEAM_API_REQ_TYPE_FRIENDS]       = "Friends",
+        [STEAM_API_REQ_TYPE_FRIENDS_CINFO] = "Friends Chat Info",
+        [STEAM_API_REQ_TYPE_KEY]           = "Key",
+        [STEAM_API_REQ_TYPE_LOGON]         = "Logon",
+        [STEAM_API_REQ_TYPE_RELOGON]       = "Relogon",
+        [STEAM_API_REQ_TYPE_LOGOFF]        = "Logoff",
+        [STEAM_API_REQ_TYPE_MESSAGE]       = "Message",
+        [STEAM_API_REQ_TYPE_POLL]          = "Polling",
+        [STEAM_API_REQ_TYPE_SUMMARIES]     = "Summaries",
+        [STEAM_API_REQ_TYPE_SUMMARY]       = "Summary"
     };
 
-    if ((type < 0) || (type >= STEAM_API_MESSAGE_TYPE_LAST))
-        return "";
+    if ((type <= STEAM_API_REQ_TYPE_NONE) || (type >= STEAM_API_REQ_TYPE_LAST))
+        return "Generic";
 
     return strs[type];
 }
 
 /**
- * Gets the #SteamApiMessageType value of a string.
+ * Parses and assigns #SteamUserInfo values from a #json_value.
  *
- * @param type The string.
- *
- * @return The #SteamApiMessageType value.
- **/
-SteamApiMessageType steam_api_message_type_from_str(const gchar *type)
-{
-    const gchar *s;
-    guint        i;
-
-    if (type == NULL)
-        return STEAM_API_MESSAGE_TYPE_LAST;
-
-    for (i = 0; i < STEAM_API_MESSAGE_TYPE_LAST; i++) {
-        s = steam_api_message_type_str(i);
-
-        if (g_ascii_strcasecmp(type, s) == 0)
-            return i;
-    }
-
-    return STEAM_API_MESSAGE_TYPE_LAST;
-}
-
-/**
- * Parses and assigns #SteamFriendSummary values from a #json_value.
- *
- * @param smry The #SteamFriendSummary.
+ * @param info The #SteamUserInfo.
  * @param json The #json_value.
  **/
-static void steam_friend_summary_json(SteamFriendSummary *smry,
-                                      json_value *json)
+static void steam_api_user_info_json(SteamUserInfo *info,
+                                     const json_value *json)
 {
     const gchar *str;
     gint64       in;
 
     steam_json_str(json, "gameextrainfo", &str);
-    smry->game = g_strdup(str);
+    info->game = g_strdup(str);
 
     steam_json_str(json, "gameserverip", &str);
-    smry->server = g_strdup(str);
+    info->server = g_strdup(str);
 
     steam_json_str(json, "personaname", &str);
-    smry->nick = g_strdup(str);
+    info->nick = g_strdup(str);
 
     steam_json_str(json, "realname", &str);
-    smry->fullname = g_strdup(str);
+    info->fullname = g_strdup(str);
 
     steam_json_int(json, "personastate", &in);
-    smry->state = in;
+    info->state = in;
 }
 
 /**
  * Implemented #SteamApiParseFunc for authentication replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_auth_cb(SteamApiData *sata, json_value *json)
+static void steam_api_auth_cb(SteamApiReq *req, const json_value *json)
 {
     SteamApiError  err;
+    json_value    *jp;
     json_value    *jv;
     const gchar   *str;
     GTree         *prms;
 
     if (steam_json_str(json, "captcha_gid", &str))
-        steam_auth_captcha(sata->api->auth, str);
+        steam_auth_captcha(req->api->auth, str);
 
     if (steam_json_str(json, "emailsteamid", &str))
-        steam_auth_email(sata->api->auth, str);
+        steam_auth_email(req->api->auth, str);
 
     if (!steam_json_bool(json, "success")) {
         if (steam_json_bool(json, "emailauth_needed"))
@@ -422,85 +320,85 @@ static void steam_api_auth_cb(SteamApiData *sata, json_value *json)
         if (!steam_json_str(json, "message", &str))
             str = "Failed to authenticate";
 
-        g_set_error(&sata->err, STEAM_API_ERROR, err, "%s", str);
+        g_set_error(&req->err, STEAM_API_ERROR, err, "%s", str);
         return;
     }
 
     if (!steam_json_val(json, "oauth", json_string, &jv)) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to obtain OAuth data");
         return;
     }
 
-    json = steam_json_new(jv->u.string.ptr, jv->u.string.length, &sata->err);
+    jp = steam_json_new(jv->u.string.ptr, jv->u.string.length, &req->err);
 
-    if ((json == NULL) || (sata->err != NULL))
+    if ((jp == NULL) || (req->err != NULL))
         return;
 
-    if (!steam_json_str(json, "oauth_token", &str)) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
+    if (!steam_json_str(jp, "oauth_token", &str)) {
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to obtain OAuth token");
         goto finish;
     }
 
-    g_free(sata->api->token);
-    sata->api->token = g_strdup(str);
+    g_free(req->api->token);
+    req->api->token = g_strdup(str);
 
-    prms = steam_json_tree(json);
-    steam_api_auth_rdir(sata, prms);
+    prms = steam_json_tree(jp);
+    steam_api_auth_rdir(req, prms);
     g_tree_destroy(prms);
 
 finish:
-    json_value_free(json);
+    json_value_free(jp);
 }
 
 /**
  * Implemented #SteamApiParseFunc for authentication redirect replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_auth_rdir_cb(SteamApiData *sata, json_value *json)
+static void steam_api_auth_rdir_cb(SteamApiReq *req, const json_value *json)
 {
     const gchar *str;
 
-    steam_http_cookies_parse_req(sata->api->http, sata->req);
-    str = g_tree_lookup(sata->api->http->cookies, "sessionid");
+    steam_http_cookies_parse_req(req->api->http, req->req);
+    str = g_tree_lookup(req->api->http->cookies, "sessionid");
 
     if (str == NULL) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to obtain OAuth session ID");
         return;
     }
 
-    g_free(sata->api->sessid);
-    sata->api->sessid = g_strdup(str);
+    g_free(req->api->sessid);
+    req->api->sessid = g_strdup(str);
 }
 
 /**
  * Implemented #GDestroyNotify for #steam_api_chatlog_cb().
  *
- * @param results The #GSList of items, which are #SteamApiMessage.
+ * @param results The #GSList of items, which are #SteamUserMsg.
  **/
 static void steam_api_chatlog_free(GSList *messages)
 {
-    g_slist_free_full(messages, (GDestroyNotify) steam_api_message_free);
+    g_slist_free_full(messages, (GDestroyNotify) steam_user_msg_free);
 }
 
 /**
  * Implemented #SteamApiParseFunc for chatlog replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_chatlog_cb(SteamApiData *sata, json_value *json)
+static void steam_api_chatlog_cb(SteamApiReq *req, const json_value *json)
 {
-    SteamApiMessage *mesg;
-    json_value      *jv;
-    GSList          *messages;
-    const gchar     *str;
-    gint64           in;
-    gsize            i;
+    SteamUserMsg *msg;
+    json_value   *jv;
+    GSList       *messages;
+    const gchar  *str;
+    gint64        in;
+    gsize         i;
 
     messages = NULL;
 
@@ -508,54 +406,54 @@ static void steam_api_chatlog_cb(SteamApiData *sata, json_value *json)
         jv = json->u.array.values[i];
         steam_json_int(jv, "m_unAccountID", &in);
 
-        if (in == sata->api->id->commu.i)
+        if (in == req->api->id->commu.i)
             continue;
 
-        in = STEAM_FRIEND_ID_NEW(STEAM_FRIEND_ID_UNIVERSE_PUBLIC,
-                                 STEAM_FRIEND_ID_TYPE_INDIVIDUAL,
-                                 1, in);
+        in = STEAM_USER_ID_NEW(STEAM_USER_ID_UNI_PUBLIC,
+                               STEAM_USER_ID_TYPE_INDIVIDUAL,
+                               1, in);
 
-        mesg = steam_api_message_new(in);
-        mesg->type = STEAM_API_MESSAGE_TYPE_SAYTEXT;
+        msg = steam_user_msg_new(in);
+        msg->type = STEAM_USER_MSG_TYPE_SAYTEXT;
 
         steam_json_str(jv, "m_strMessage",  &str);
-        mesg->text = g_strdup(str);
+        msg->text = g_strdup(str);
 
         steam_json_int(jv, "m_tsTimestamp", &in);
-        mesg->tstamp = in;
+        msg->time = in;
 
-        messages = g_slist_prepend(messages, mesg);
+        messages = g_slist_prepend(messages, msg);
     }
 
-    sata->rdata = g_slist_reverse(messages);
-    sata->rfunc = (GDestroyNotify) steam_api_chatlog_free;
+    req->rdata = g_slist_reverse(messages);
+    req->rfunc = (GDestroyNotify) steam_api_chatlog_free;
 }
 
 
 /**
  * Implemented #SteamApiParseFunc for friend accept replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_friend_accept_cb(SteamApiData *sata, json_value *json)
+static void steam_api_friend_accept_cb(SteamApiReq *req, const json_value *json)
 {
     const gchar *str;
 
     if (!steam_json_scmp(json, "error_text", "", &str))
         return;
 
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_ACCEPT,
+    g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_ACCEPT,
                 "%s", str);
 }
 
 /**
  * Implemented #SteamApiParseFunc for friend add replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_friend_add_cb(SteamApiData *sata, json_value *json)
+static void steam_api_friend_add_cb(SteamApiReq *req, const json_value *json)
 {
     json_value *jv;
 
@@ -565,17 +463,17 @@ static void steam_api_friend_add_cb(SteamApiData *sata, json_value *json)
     if (jv->u.array.length < 1)
         return;
 
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_ADD,
+    g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_ADD,
                 "Failed to add friend");
 }
 
 /**
  * Implemented #SteamApiParseFunc for friend ignore replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_friend_ignore_cb(SteamApiData *sata, json_value *json)
+static void steam_api_friend_ignore_cb(SteamApiReq *req, const json_value *json)
 {
 
 }
@@ -583,42 +481,42 @@ static void steam_api_friend_ignore_cb(SteamApiData *sata, json_value *json)
 /**
  * Implemented #SteamApiParseFunc for friend remove replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_friend_remove_cb(SteamApiData *sata, json_value *json)
+static void steam_api_friend_remove_cb(SteamApiReq *req, const json_value *json)
 {
-    if ((sata->req->body_size > 0) && bool2int(sata->req->body))
+    if ((req->req->body_size > 0) && bool2int(req->req->body))
         return;
 
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_REMOVE,
+    g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIEND_REMOVE,
                 "Failed to remove friend");
 }
 
 /**
  * Implemented #GDestroyNotify for #steam_api_friend_search_cb().
  *
- * @param results The #GSList of items, which are #SteamFriendSummary.
+ * @param results The #GSList of items, which are #SteamUserInfo.
  **/
 static void steam_api_friend_search_free(GSList *results)
 {
-    g_slist_free_full(results, (GDestroyNotify) steam_friend_summary_free);
+    g_slist_free_full(results, (GDestroyNotify) steam_user_info_free);
 }
 
 /**
  * Implemented #SteamApiParseFunc for friend search replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_friend_search_cb(SteamApiData *sata, json_value *json)
+static void steam_api_friend_search_cb(SteamApiReq *req, const json_value *json)
 {
-    SteamFriendSummary *smry;
-    json_value         *jv;
-    json_value         *je;
-    GSList             *results;
-    const gchar        *str;
-    guint              i;
+    SteamUserInfo *info;
+    json_value    *jv;
+    json_value    *je;
+    GSList        *results;
+    const gchar   *str;
+    guint          i;
 
     if (!steam_json_val(json, "results", json_array, &jv))
         return;
@@ -634,43 +532,43 @@ static void steam_api_friend_search_cb(SteamApiData *sata, json_value *json)
         if (!steam_json_str(je, "steamid", &str))
             continue;
 
-        smry = steam_friend_summary_new_str(str);
+        info = steam_user_info_new_str(str);
 
         steam_json_str(je, "matchingtext", &str);
-        smry->nick = g_strdup(str);
+        info->nick = g_strdup(str);
 
-        results = g_slist_prepend(results, smry);
+        results = g_slist_prepend(results, info);
     }
 
-    sata->rdata = g_slist_reverse(results);
-    sata->rfunc = (GDestroyNotify) steam_api_friend_search_free;
+    req->rdata = g_slist_reverse(results);
+    req->rfunc = (GDestroyNotify) steam_api_friend_search_free;
 }
 
 /**
  * Implemented #GDestroyNotify for #steam_api_friends_cb().
  *
- * @param friends The #GSList of items, which are #SteamFriendSummary.
+ * @param friends The #GSList of items, which are #SteamUserInfo.
  **/
 static void steam_api_friends_free(GSList *friends)
 {
-    g_slist_free_full(friends, (GDestroyNotify) steam_friend_summary_free);
+    g_slist_free_full(friends, (GDestroyNotify) steam_user_info_free);
 }
 
 /**
  * Implemented #SteamApiParseFunc for friends list replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_friends_cb(SteamApiData *sata, json_value *json)
+static void steam_api_friends_cb(SteamApiReq *req, const json_value *json)
 {
-    SteamFriendSummary *smry;
-    SteamFriendAction   rlat;
-    json_value         *jv;
-    json_value         *je;
-    GSList             *friends;
-    const gchar        *str;
-    guint               i;
+    SteamUserInfo *info;
+    SteamUserRel   rel;
+    json_value    *jv;
+    json_value    *je;
+    GSList        *friends;
+    const gchar   *str;
+    guint          i;
 
     if (!steam_json_val(json, "friends", json_array, &jv))
         return;
@@ -686,27 +584,27 @@ static void steam_api_friends_cb(SteamApiData *sata, json_value *json)
             continue;
 
         if (g_ascii_strcasecmp(str, "friend") == 0)
-            rlat = STEAM_FRIEND_RELATION_FRIEND;
+            rel = STEAM_USER_REL_FRIEND;
         else if (g_ascii_strcasecmp(str, "ignoredfriend") == 0)
-            rlat = STEAM_FRIEND_RELATION_IGNORE;
+            rel = STEAM_USER_REL_IGNORE;
         else
             continue;
 
         if (!steam_json_str(je, "steamid", &str))
             continue;
 
-        smry = steam_friend_summary_new_str(str);
-        smry->relation = rlat;
+        info = steam_user_info_new_str(str);
+        info->rel = rel;
 
-        friends    = g_slist_prepend(friends, smry);
-        sata->sums = g_list_prepend(sata->sums, smry);
+        friends    = g_slist_prepend(friends, info);
+        req->infos = g_list_prepend(req->infos, info);
     }
 
-    sata->rdata = friends;
-    sata->rfunc = (GDestroyNotify) steam_api_friends_free;
+    req->rdata = friends;
+    req->rfunc = (GDestroyNotify) steam_api_friends_free;
 
     if (friends != NULL)
-        steam_api_friends_cinfo(sata);
+        steam_api_friends_cinfo(req);
 }
 
 /**
@@ -749,76 +647,77 @@ static const gchar *unquotechr(const gchar *str, gchar chr)
 /**
  * Implemented #SteamApiParseFunc for friends chat info replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_friends_cinfo_cb(SteamApiData *sata, json_value *json)
+static void steam_api_friends_cinfo_cb(SteamApiReq *req, const json_value *json)
 {
-    SteamFriendSummary *smry;
-    GHashTable         *stbl;
-    json_value         *je;
-    const gchar        *str;
-    const gchar        *end;
-    gchar              *jraw;
-    gsize               size;
-    GSList             *l;
-    guint               i;
+    SteamUserInfo *info;
+    GHashTable    *stbl;
+    json_value    *jp;
+    json_value    *je;
+    const gchar   *str;
+    const gchar   *end;
+    gchar         *jraw;
+    gsize          size;
+    GSList        *l;
+    guint          i;
 
-    str = strstr(sata->req->body, "CWebChat");
+    str = strstr(req->req->body, "CWebChat");
     str = unquotechr(str, '}');
 
     str = unquotechr(str, '[');
     end = unquotechr(str, ']');
 
     if ((str == NULL) || (end == NULL)) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIENDS_CINFO,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_FRIENDS_CINFO,
                     "Failed to obtain friends chat information");
         return;
     }
 
     size = (end - str) + 1;
     jraw = g_strndup(str, size);
-    json = steam_json_new(jraw, size, &sata->err);
+    jp   = steam_json_new(jraw, size, &req->err);
 
-    if ((json == NULL) || (sata->err != NULL)) {
+    if ((jp == NULL) || (req->err != NULL)) {
         g_free(jraw);
         return;
     }
 
     stbl = g_hash_table_new(g_str_hash, g_str_equal);
 
-    for (l = sata->rdata; l != NULL; l = l->next) {
-        smry = l->data;
-        g_hash_table_insert(stbl, smry->id->steam.s, smry);
+    for (l = req->rdata; l != NULL; l = l->next) {
+        info = l->data;
+        g_hash_table_insert(stbl, info->id->steam.s, info);
     }
 
-    for (i = 0; i < json->u.array.length; i++) {
-        je = json->u.array.values[i];
+    for (i = 0; i < jp->u.array.length; i++) {
+        je = jp->u.array.values[i];
 
         if (!steam_json_str(je, "m_ulSteamID", &str))
             continue;
 
-        smry = g_hash_table_lookup(stbl, str);
+        info = g_hash_table_lookup(stbl, str);
 
-        if (smry == NULL)
+        if (info == NULL)
             continue;
 
-        steam_json_int(je, "m_tsLastMessage", &smry->lmesg);
-        steam_json_int(je, "m_tsLastView",    &smry->lview);
+        steam_json_int(je, "m_tsLastMessage", &info->mtime);
+        steam_json_int(je, "m_tsLastView",    &info->vtime);
     }
 
     g_hash_table_destroy(stbl);
-    json_value_free(json);
+    json_value_free(jp);
     g_free(jraw);
 }
 
 /**
  * Implemented #SteamApiParseFunc for PKCS key replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_key_cb(SteamApiData *sata, json_value *json)
+static void steam_api_key_cb(SteamApiReq *req, const json_value *json)
 {
     SteamAuth   *auth;
     const gchar *str;
@@ -826,7 +725,7 @@ static void steam_api_key_cb(SteamApiData *sata, json_value *json)
     if (steam_json_scmp(json, "success", "false", &str))
         goto error;
 
-    auth = (sata->api->auth != NULL) ? sata->api->auth : steam_auth_new();
+    auth = (req->api->auth != NULL) ? req->api->auth : steam_auth_new();
 
     if (!steam_json_str(json, "publickey_mod", &str) ||
         !steam_auth_key_mod(auth, str))
@@ -839,93 +738,93 @@ static void steam_api_key_cb(SteamApiData *sata, json_value *json)
     if (steam_json_str(json, "timestamp", &str))
         auth->time = g_strdup(str);
 
-    sata->api->auth = auth;
+    req->api->auth = auth;
     return;
 
 error:
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_KEY,
+    g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_KEY,
                 "Failed to retrieve authentication key");
 }
 
 /**
  * Implemented #SteamApiParseFunc for logon replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_logon_cb(SteamApiData *sata, json_value *json)
+static void steam_api_logon_cb(SteamApiReq *req, const json_value *json)
 {
     const gchar *str;
     gint64       in;
 
     if (!steam_json_scmp(json, "error", "OK", &str)) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGON,
                     "%s", str);
         return;
     }
 
     steam_json_int(json, "message", &in);
-    sata->api->lmid = in;
+    req->api->lmid = in;
 
     steam_json_int(json, "utc_timestamp", &in);
-    sata->api->tstamp = in;
+    req->api->time = in;
 
-    if (!steam_json_scmp(json, "steamid", sata->api->id->steam.s, &str)) {
-        steam_friend_id_free(sata->api->id);
-        sata->api->id = steam_friend_id_new_str(str);
+    if (!steam_json_scmp(json, "steamid", req->api->id->steam.s, &str)) {
+        steam_user_id_free(req->api->id);
+        req->api->id = steam_user_id_new_str(str);
     }
 
-    if (!steam_json_scmp(json, "umqid", sata->api->umqid, &str)) {
-        g_free(sata->api->umqid);
-        sata->api->umqid = g_strdup(str);
+    if (!steam_json_scmp(json, "umqid", req->api->umqid, &str)) {
+        g_free(req->api->umqid);
+        req->api->umqid = g_strdup(str);
     }
 }
 
 /**
  * Implemented #SteamApiParseFunc for relogon replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_relogon_cb(SteamApiData *sata, json_value *json)
+static void steam_api_relogon_cb(SteamApiReq *req, const json_value *json)
 {
-    const gchar  *str;
+    const gchar *str;
 
-    steam_http_queue_pause(sata->api->http, FALSE);
+    steam_http_queue_pause(req->api->http, FALSE);
 
     if (!steam_json_scmp(json, "error", "OK", &str)) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_RELOGON,
                     "%s", str);
         return;
     }
 
-    sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
+    req->flags |= STEAM_API_REQ_FLAG_NOCALL | STEAM_API_REQ_FLAG_NOFREE;
 }
 
 /**
  * Implemented #SteamApiParseFunc for logoff replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_logoff_cb(SteamApiData *sata, json_value *json)
+static void steam_api_logoff_cb(SteamApiReq *req, const json_value *json)
 {
     const gchar *str;
 
     if (steam_json_scmp(json, "error", "OK", &str))
         return;
 
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
+    g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
                 "%s", str);
 }
 
 /**
  * Implemented #SteamApiParseFunc for message replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_message_cb(SteamApiData *sata, json_value *json)
+static void steam_api_message_cb(SteamApiReq *req, const json_value *json)
 {
     const gchar *str;
 
@@ -933,50 +832,50 @@ static void steam_api_message_cb(SteamApiData *sata, json_value *json)
         return;
 
     if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
-        steam_api_relogon(sata);
+        steam_api_relogon(req);
         return;
     }
 
-    g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
+    g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_LOGOFF,
                 "%s", str);
 }
 
 /**
  * Implemented #GDestroyNotify for #steam_api_poll_free().
  *
- * @param messages The #GSList of items, which are #SteamFriendSummary.
+ * @param messages The #GSList of items, which are #SteamUserInfo.
  **/
 static void steam_api_poll_free(GSList *messages)
 {
-    g_slist_free_full(messages, (GDestroyNotify) steam_api_message_free);
+    g_slist_free_full(messages, (GDestroyNotify) steam_user_msg_free);
 }
 
 /**
  * Implemented #SteamApiParseFunc for poll replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
+static void steam_api_poll_cb(SteamApiReq *req, const json_value *json)
 {
-    SteamApiMessage   *mesg;
-    SteamFriendIdType  type;
-    json_value        *jv;
-    json_value        *je;
-    GSList            *messages;
-    const gchar       *str;
-    gint64             in;
-    guint              i;
+    SteamUserMsg    *msg;
+    SteamUserIdType  type;
+    json_value      *jv;
+    json_value      *je;
+    GSList          *messages;
+    const gchar     *str;
+    gint64           in;
+    guint            i;
 
     if (!steam_json_scmp(json, "error", "OK", &str))
     {
         if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
-            steam_api_relogon(sata);
+            steam_api_relogon(req);
             return;
         }
 
         if (g_ascii_strcasecmp(str, "Timeout") != 0) {
-            g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+            g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
                         "%s", str);
             return;
         }
@@ -984,7 +883,7 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
         steam_json_int(json, "sectimeout", &in);
 
         if (in < STEAM_API_TIMEOUT) {
-            g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
+            g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_POLL,
                         "Timeout of %" G_GINT64_FORMAT " too low", in);
             return;
         }
@@ -992,91 +891,91 @@ static void steam_api_poll_cb(SteamApiData *sata, json_value *json)
 
     if (!steam_json_val(json, "messages", json_array, &jv) ||
         !steam_json_int(json, "messagelast", &in) ||
-        (in == sata->api->lmid))
+        (in == req->api->lmid))
     {
         return;
     }
 
-    sata->api->lmid = in;
-    messages        = NULL;
+    req->api->lmid = in;
+    messages       = NULL;
 
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (steam_json_scmp(je, "steamid_from", sata->api->id->steam.s, &str))
+        if (steam_json_scmp(je, "steamid_from", req->api->id->steam.s, &str))
             continue;
 
         in   = g_ascii_strtoll(str, NULL, 10);
-        type = STEAM_FRIEND_ID_TYPE(in);
+        type = STEAM_USER_ID_TYPE(in);
 
         /* For now, only handle individuals */
-        if (type != STEAM_FRIEND_ID_TYPE_INDIVIDUAL)
+        if (type != STEAM_USER_ID_TYPE_INDIVIDUAL)
             continue;
 
-        mesg = steam_api_message_new_str(str);
+        msg = steam_user_msg_new_str(str);
 
         steam_json_str(je, "type", &str);
         steam_json_int(je, "utc_timestamp", &in);
 
-        mesg->type   = steam_api_message_type_from_str(str);
-        mesg->tstamp = in;
+        msg->type   = steam_user_msg_type_from_str(str);
+        msg->time = in;
 
-        switch (mesg->type) {
-        case STEAM_API_MESSAGE_TYPE_SAYTEXT:
-        case STEAM_API_MESSAGE_TYPE_EMOTE:
+        switch (msg->type) {
+        case STEAM_USER_MSG_TYPE_SAYTEXT:
+        case STEAM_USER_MSG_TYPE_EMOTE:
             steam_json_str(je, "text", &str);
-            mesg->text = g_strdup(str);
+            msg->text = g_strdup(str);
             break;
 
-        case STEAM_API_MESSAGE_TYPE_STATE:
+        case STEAM_USER_MSG_TYPE_STATE:
             steam_json_str(je, "persona_name", &str);
-            mesg->smry->nick = g_strdup(str);
-            sata->sums       = g_list_prepend(sata->sums, mesg->smry);
+            msg->info->nick = g_strdup(str);
+            req->infos = g_list_prepend(req->infos, msg->info);
             break;
 
-        case STEAM_API_MESSAGE_TYPE_RELATIONSHIP:
+        case STEAM_USER_MSG_TYPE_RELATIONSHIP:
             steam_json_int(je, "persona_state", &in);
-            mesg->smry->action = in;
-            sata->sums = g_list_prepend(sata->sums, mesg->smry);
+            msg->info->act = in;
+            req->infos = g_list_prepend(req->infos, msg->info);
             break;
 
-        case STEAM_API_MESSAGE_TYPE_TYPING:
-        case STEAM_API_MESSAGE_TYPE_LEFT_CONV:
+        case STEAM_USER_MSG_TYPE_TYPING:
+        case STEAM_USER_MSG_TYPE_LEFT_CONV:
             break;
 
         default:
-            steam_api_message_free(mesg);
+            steam_user_msg_free(msg);
             continue;
         }
 
-        messages = g_slist_prepend(messages, mesg);
+        messages = g_slist_prepend(messages, msg);
     }
 
-    sata->rdata = g_slist_reverse(messages);
-    sata->rfunc = (GDestroyNotify) steam_api_poll_free;
+    req->rdata = g_slist_reverse(messages);
+    req->rfunc = (GDestroyNotify) steam_api_poll_free;
 }
 
 /**
  * Implemented #SteamApiParseFunc for summaries replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
+static void steam_api_summaries_cb(SteamApiReq *req, const json_value *json)
 {
-    SteamFriendSummary *smry;
-    json_value         *jv;
-    json_value         *je;
-    const gchar        *str;
-    GList              *l;
-    GList              *c;
-    guint               i;
+    SteamUserInfo *info;
+    json_value    *jv;
+    json_value    *je;
+    const gchar   *str;
+    GList         *l;
+    GList         *c;
+    guint          i;
 
     if ((!steam_json_val(json, "players", json_array, &jv) ||
          (jv->u.array.length < 1)) &&
-        (sata->sums != NULL))
+        (req->infos != NULL))
     {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARIES,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARIES,
                     "Failed to retrieve requested friend summaries");
         return;
     }
@@ -1087,10 +986,10 @@ static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
         if (!steam_json_str(je, "steamid", &str))
             continue;
 
-        for (l = sata->sums; l != NULL; ) {
-            smry = l->data;
+        for (l = req->infos; l != NULL; ) {
+            info = l->data;
 
-            if (g_strcmp0(smry->id->steam.s, str) != 0) {
+            if (g_strcmp0(info->id->steam.s, str) != 0) {
                 l = l->next;
                 continue;
             }
@@ -1098,8 +997,8 @@ static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
             c = l;
             l = l->next;
 
-            sata->sums = g_list_delete_link(sata->sums, c);
-            steam_friend_summary_json(smry, je);
+            req->infos = g_list_delete_link(req->infos, c);
+            steam_api_user_info_json(info, je);
         }
     }
 }
@@ -1107,19 +1006,19 @@ static void steam_api_summaries_cb(SteamApiData *sata, json_value *json)
 /**
  * Implemented #SteamApiParseFunc for summary replies.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL.
  **/
-static void steam_api_summary_cb(SteamApiData *sata, json_value *json)
+static void steam_api_summary_cb(SteamApiReq *req, const json_value *json)
 {
-    SteamFriendSummary *smry;
-    json_value         *jv;
-    const gchar        *str;
+    SteamUserInfo *info;
+    json_value    *jv;
+    const gchar   *str;
 
     if (!steam_json_val(json, "players", json_array, &jv) ||
         (jv->u.array.length != 1))
     {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARY,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARY,
                     "Failed to retrieve friend summary");
         return;
     }
@@ -1127,141 +1026,138 @@ static void steam_api_summary_cb(SteamApiData *sata, json_value *json)
     jv = jv->u.array.values[0];
 
     if (!steam_json_str(jv, "steamid", &str)) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARY,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_SUMMARY,
                     "Failed to retrieve friend summary steamid");
         return;
     }
 
-    smry = steam_friend_summary_new_str(str);
-    steam_friend_summary_json(smry, jv);
+    info = steam_user_info_new_str(str);
+    steam_api_user_info_json(info, jv);
 
-    sata->rdata = smry;
-    sata->rfunc = (GDestroyNotify) steam_friend_summary_free;
+    req->rdata = info;
+    req->rfunc = (GDestroyNotify) steam_user_info_free;
 }
 
 /**
- * Implemented #SteamHttpFunc for handling #SteamApiData replies.
+ * Implemented #SteamHttpFunc for handling #SteamApiReq replies.
  *
- * @param req  The #SteamHttpReq.
- * @param data The user defined data, which is #SteamApiData.
+ * @param heq  The #SteamHttpReq.
+ * @param data The user defined data, which is #SteamApiReq.
  **/
-static void steam_api_cb(SteamHttpReq *req, gpointer data)
+static void steam_api_cb(SteamHttpReq *heq, gpointer data)
 {
-    SteamApiData *sata = data;
-    SteamApiData *tata;
-    SteamApiType  type;
-    json_value   *json;
+    SteamApiReq     *req = data;
+    SteamApiReq     *rec;
+    SteamApiReqType  type;
+    json_value      *json;
 
-    static const SteamApiParseFunc pfuncs[STEAM_API_TYPE_LAST] = {
-        [STEAM_API_TYPE_AUTH]          = steam_api_auth_cb,
-        [STEAM_API_TYPE_AUTH_RDIR]     = steam_api_auth_rdir_cb,
-        [STEAM_API_TYPE_CHATLOG]       = steam_api_chatlog_cb,
-        [STEAM_API_TYPE_FRIEND_ACCEPT] = steam_api_friend_accept_cb,
-        [STEAM_API_TYPE_FRIEND_ADD]    = steam_api_friend_add_cb,
-        [STEAM_API_TYPE_FRIEND_IGNORE] = steam_api_friend_ignore_cb,
-        [STEAM_API_TYPE_FRIEND_REMOVE] = steam_api_friend_remove_cb,
-        [STEAM_API_TYPE_FRIEND_SEARCH] = steam_api_friend_search_cb,
-        [STEAM_API_TYPE_FRIENDS]       = steam_api_friends_cb,
-        [STEAM_API_TYPE_FRIENDS_CINFO] = steam_api_friends_cinfo_cb,
-        [STEAM_API_TYPE_KEY]           = steam_api_key_cb,
-        [STEAM_API_TYPE_LOGOFF]        = steam_api_logoff_cb,
-        [STEAM_API_TYPE_LOGON]         = steam_api_logon_cb,
-        [STEAM_API_TYPE_RELOGON]       = steam_api_relogon_cb,
-        [STEAM_API_TYPE_MESSAGE]       = steam_api_message_cb,
-        [STEAM_API_TYPE_POLL]          = steam_api_poll_cb,
-        [STEAM_API_TYPE_SUMMARIES]     = steam_api_summaries_cb,
-        [STEAM_API_TYPE_SUMMARY]       = steam_api_summary_cb
+    static const SteamApiParseFunc pfuncs[STEAM_API_REQ_TYPE_LAST] = {
+        [STEAM_API_REQ_TYPE_AUTH]          = steam_api_auth_cb,
+        [STEAM_API_REQ_TYPE_AUTH_RDIR]     = steam_api_auth_rdir_cb,
+        [STEAM_API_REQ_TYPE_CHATLOG]       = steam_api_chatlog_cb,
+        [STEAM_API_REQ_TYPE_FRIEND_ACCEPT] = steam_api_friend_accept_cb,
+        [STEAM_API_REQ_TYPE_FRIEND_ADD]    = steam_api_friend_add_cb,
+        [STEAM_API_REQ_TYPE_FRIEND_IGNORE] = steam_api_friend_ignore_cb,
+        [STEAM_API_REQ_TYPE_FRIEND_REMOVE] = steam_api_friend_remove_cb,
+        [STEAM_API_REQ_TYPE_FRIEND_SEARCH] = steam_api_friend_search_cb,
+        [STEAM_API_REQ_TYPE_FRIENDS]       = steam_api_friends_cb,
+        [STEAM_API_REQ_TYPE_FRIENDS_CINFO] = steam_api_friends_cinfo_cb,
+        [STEAM_API_REQ_TYPE_KEY]           = steam_api_key_cb,
+        [STEAM_API_REQ_TYPE_LOGOFF]        = steam_api_logoff_cb,
+        [STEAM_API_REQ_TYPE_LOGON]         = steam_api_logon_cb,
+        [STEAM_API_REQ_TYPE_RELOGON]       = steam_api_relogon_cb,
+        [STEAM_API_REQ_TYPE_MESSAGE]       = steam_api_message_cb,
+        [STEAM_API_REQ_TYPE_POLL]          = steam_api_poll_cb,
+        [STEAM_API_REQ_TYPE_SUMMARIES]     = steam_api_summaries_cb,
+        [STEAM_API_REQ_TYPE_SUMMARY]       = steam_api_summary_cb
     };
 
     /* Ensure the active request is defined */
-    sata->req = req;
+    req->req = heq;
 
-    if (sata->typel != STEAM_API_TYPE_NONE) {
-        type = sata->typel;
-        sata->typel = STEAM_API_TYPE_NONE;
+    if (req->typel != STEAM_API_REQ_TYPE_NONE) {
+        type = req->typel;
+        req->typel = STEAM_API_REQ_TYPE_NONE;
     } else {
-        type = sata->type;
+        type = req->type;
     }
 
-    if ((type <= STEAM_API_TYPE_NONE) || (type >= STEAM_API_TYPE_LAST)) {
+    if ((type <= STEAM_API_REQ_TYPE_NONE) || (type >= STEAM_API_REQ_TYPE_LAST))
+    {
         req->flags &= ~STEAM_HTTP_REQ_FLAG_NOFREE;
-        steam_api_data_free(sata);
+        steam_api_req_free(req);
         g_return_if_reached();
     }
 
-    tata = g_memdup(sata, sizeof (SteamApiData));
-    sata->flags = 0;
+    rec = g_memdup(req, sizeof (SteamApiReq));
+    req->flags = 0;
 
     if (req->err != NULL) {
-        g_propagate_error(&sata->err, req->err);
-        req->err = NULL;
+        g_propagate_error(&req->err, heq->err);
+        heq->err = NULL;
     }
 
-    if (sata->err == NULL)
+    if (req->err == NULL)
     {
-        if (!(tata->flags & STEAM_API_FLAG_NOJSON)) {
-            json = steam_json_new(req->body, req->body_size, &sata->err);
+        if (!(rec->flags & STEAM_API_REQ_FLAG_NOJSON)) {
+            json = steam_json_new(heq->body, heq->body_size, &req->err);
 
-            if (sata->err == NULL)
-                pfuncs[type](sata, json);
+            if (req->err == NULL)
+                pfuncs[type](req, json);
 
             if (json != NULL)
                 json_value_free(json);
         } else {
-            pfuncs[type](sata, NULL);
+            pfuncs[type](req, NULL);
         }
     }
 
-    if ((sata->err == NULL) &&
-        (sata->sums != NULL) &&
-        (sata->type == tata->type))
-    {
-        steam_api_summaries(sata);
+    if ((req->err == NULL) && (req->infos != NULL) && (req->type == rec->type))
+        steam_api_summaries(req);
+
+    if (req->type != rec->type) {
+        req->typel = req->type;
+        req->type  = rec->type;
     }
 
-    if (sata->type != tata->type) {
-        sata->typel = sata->type;
-        sata->type  = tata->type;
-    }
+    if (!(req->flags & STEAM_API_REQ_FLAG_NOCALL)) {
+        if (req->err != NULL)
+            g_prefix_error(&req->err, "%s: ", steam_api_req_type_str(type));
 
-    if (!(sata->flags & STEAM_API_FLAG_NOCALL)) {
-        if (sata->err != NULL)
-            g_prefix_error(&sata->err, "%s: ", steam_api_type_str(type));
-
-        steam_api_data_func(sata);
+        steam_api_req_func(req);
     }
 
     if (req->flags & STEAM_HTTP_REQ_FLAG_NOFREE)
-        sata->flags |= STEAM_API_FLAG_NOFREE;
+        req->flags |= STEAM_API_REQ_FLAG_NOFREE;
 
-    if (!(sata->flags & STEAM_API_FLAG_NOFREE)) {
-        sata->req = NULL;
-        steam_api_data_free(sata);
-    } else if (sata->err != NULL) {
-        g_error_free(sata->err);
-        sata->err = NULL;
+    if (!(req->flags & STEAM_API_REQ_FLAG_NOFREE)) {
+        req->req = NULL;
+        steam_api_req_free(req);
+    } else if (req->err != NULL) {
+        g_error_free(req->err);
+        req->err = NULL;
     }
 
-    g_free(tata);
+    g_free(rec);
 }
 
 /**
- * Creates a new SSL based #SteamHttpReq for a #SteamApiData.
+ * Initializes a new SSL based #SteamHttpReq for a #SteamApiReq.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param host The request hostname.
  * @param path The request pathname.
  **/
-static void steam_api_data_req(SteamApiData *sata, const gchar *host,
+static void steam_api_req_init(SteamApiReq *req, const gchar *host,
                                const gchar *path)
 {
-    SteamApi     *api = sata->api;
-    SteamHttpReq *req;
+    SteamApi     *api = req->api;
+    SteamHttpReq *heq;
 
-    req = steam_http_req_new(api->http, host, 443, path, steam_api_cb, sata);
+    heq = steam_http_req_new(api->http, host, 443, path, steam_api_cb, req);
 
-    req->flags = STEAM_HTTP_REQ_FLAG_SSL;
-    sata->req  = req;
+    heq->flags = STEAM_HTTP_REQ_FLAG_SSL;
+    req->req   = heq;
 }
 
 /**
@@ -1283,31 +1179,31 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
                     const gchar *authcode, const gchar *captcha,
                     SteamApiFunc func, gpointer data)
 {
-    SteamApiData *sata;
-    GTimeVal      tv;
-    gchar        *pswd;
-    gchar        *ms;
+    SteamApiReq *req;
+    GTimeVal     tv;
+    gchar       *pswd;
+    gchar       *ms;
 
     g_return_if_fail(api       != NULL);
     g_return_if_fail(api->auth != NULL);
 
     pswd = steam_auth_key_encrypt(api->auth, pass);
-    sata = steam_api_data_new(api, STEAM_API_TYPE_AUTH, func, data);
+    req  = steam_api_req_new(api, STEAM_API_REQ_TYPE_AUTH, func, data);
 
     if (pswd == NULL) {
-        g_set_error(&sata->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_AUTH,
                     "Failed to encrypt password");
 
-        steam_api_data_func(sata);
-        steam_api_data_free(sata);
+        steam_api_req_func(req);
+        steam_api_req_free(req);
         return;
     }
 
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
-    steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_AUTH);
+    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_AUTH);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("username",        user),
         STEAM_HTTP_PAIR("password",        pswd),
         STEAM_HTTP_PAIR("emailauth",       authcode),
@@ -1323,8 +1219,8 @@ void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
         NULL
     );
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 
     g_free(pswd);
     g_free(ms);
@@ -1353,19 +1249,19 @@ static gboolean steam_api_params(gchar *key, gchar *val, SteamHttpReq *req)
  * this will provide session information which is later used by the
  * #SteamApi.
  *
- * @param sata   The #SteamApiData.
+ * @param req    The #SteamApiReq.
  * @param params The #GTree of OAuth parameters.
  **/
-static void steam_api_auth_rdir(SteamApiData *sata, GTree *params)
+static void steam_api_auth_rdir(SteamApiReq *req, GTree *params)
 {
-    steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_AUTH_RDIR);
-    g_tree_foreach(params, (GTraverseFunc) steam_api_params, sata->req);
+    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_AUTH_RDIR);
+    g_tree_foreach(params, (GTraverseFunc) steam_api_params, req->req);
 
-    sata->type        = STEAM_API_TYPE_AUTH_RDIR;
-    sata->flags      |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE |
-                        STEAM_API_FLAG_NOJSON;
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->type        = STEAM_API_REQ_TYPE_AUTH_RDIR;
+    req->flags      |= STEAM_API_REQ_FLAG_NOCALL | STEAM_API_REQ_FLAG_NOFREE |
+                       STEAM_API_REQ_FLAG_NOJSON;
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 }
 
 /**
@@ -1374,31 +1270,31 @@ static void steam_api_auth_rdir(SteamApiData *sata, GTree *params)
  * messages, this will also mark them as read.
  *
  * @param api  The #SteamApi.
- * @param id   The #SteamFriendId.
+ * @param id   The #SteamUserId.
  * @param func The #SteamApiListFunc or NULL.
  * @param data The user defined data or NULL.
  **/
-void steam_api_chatlog(SteamApi *api, SteamFriendId *id,
+void steam_api_chatlog(SteamApi *api, const SteamUserId *id,
                        SteamApiListFunc func, gpointer data)
 {
-    SteamApiData *sata;
-    gchar        *path;
+    SteamApiReq *req;
+    gchar       *path;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(id  != NULL);
 
     path = g_strconcat(STEAM_COM_PATH_CHATLOG, id->commu.s, NULL);
-    sata = steam_api_data_new(api, STEAM_API_TYPE_CHATLOG, func, data);
+    req  = steam_api_req_new(api, STEAM_API_REQ_TYPE_CHATLOG, func, data);
 
-    steam_api_data_req(sata, STEAM_COM_HOST, path);
+    steam_api_req_init(req, STEAM_COM_HOST, path);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionid", api->sessid),
         NULL
     );
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 
     g_free(path);
 }
@@ -1409,26 +1305,26 @@ void steam_api_chatlog(SteamApi *api, SteamFriendId *id,
  * the friendship request.
  *
  * @param api  The #SteamApi.
- * @param id   The #SteamFriendId.
+ * @param id   The #SteamUserId.
  * @param func The #SteamApiIdFunc or NULL.
  * @param data The user defined data or NULL.
  **/
-void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
+void steam_api_friend_accept(SteamApi *api, const SteamUserId *id,
                              const gchar *action, SteamApiIdFunc func,
                              gpointer data)
 {
-    SteamApiData *sata;
-    gchar        *url;
+    SteamApiReq *req;
+    gchar       *url;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(id  != NULL);
 
-    url  = g_strdup_printf("%s%s/home_process", STEAM_COM_PATH_PROFILE,
-                           api->id->steam.s);
-    sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_ACCEPT, func, data);
-    steam_api_data_req(sata, STEAM_COM_HOST, url);
+    url = g_strdup_printf("%s%s/home_process", STEAM_COM_PATH_PROFILE,
+                          api->id->steam.s);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_FRIEND_ACCEPT, func, data);
+    steam_api_req_init(req, STEAM_COM_HOST, url);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionID", api->sessid),
         STEAM_HTTP_PAIR("id",        id->steam.s),
         STEAM_HTTP_PAIR("perform",   action),
@@ -1439,11 +1335,11 @@ void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
         NULL
     );
 
-    sata->rdata = steam_friend_id_dup(id);
-    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
+    req->rdata = steam_user_id_dup(id);
+    req->rfunc = (GDestroyNotify) steam_user_id_free;
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
     g_free(url);
 }
 
@@ -1453,32 +1349,32 @@ void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
  * a friend until they accept the request on their end.
  *
  * @param api  The #SteamApi.
- * @param id   The #SteamFriendId.
+ * @param id   The #SteamUserId.
  * @param func The #SteamApiIdFunc or NULL.
  * @param data The user defined data or NULL.
  **/
-void steam_api_friend_add(SteamApi *api, SteamFriendId *id,
+void steam_api_friend_add(SteamApi *api, const SteamUserId *id,
                           SteamApiIdFunc func, gpointer data)
 {
-    SteamApiData *sata;
+    SteamApiReq *req;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(id  != NULL);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_ADD, func, data);
-    steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_ADD);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_FRIEND_ADD, func, data);
+    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_ADD);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionID", api->sessid),
         STEAM_HTTP_PAIR("steamid",   id->steam.s),
         NULL
     );
 
-    sata->rdata = steam_friend_id_dup(id);
-    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
+    req->rdata = steam_user_id_dup(id);
+    req->rfunc = (GDestroyNotify) steam_user_id_free;
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 }
 
 /**
@@ -1486,46 +1382,47 @@ void steam_api_friend_add(SteamApi *api, SteamFriendId *id,
  * ignore or unignore a Steam user.
  *
  * @param api    The #SteamApi.
- * @param id     The #SteamFriendId.
+ * @param id     The #SteamUserId.
  * @param ignore TRUE to ignore, or FALSE to unignore.
  * @param func   The #SteamApiIdFunc or NULL.
  * @param data   The user defined data or NULL.
  **/
-void steam_api_friend_ignore(SteamApi *api, SteamFriendId *id, gboolean ignore,
+void steam_api_friend_ignore(SteamApi *api, const SteamUserId *id,
+                             gboolean ignore,
                              SteamApiIdFunc func, gpointer data)
 {
-    SteamApiData *sata;
-    const gchar  *act;
-    gchar        *frnd;
-    gchar        *url;
+    SteamApiReq *req;
+    const gchar *act;
+    gchar       *user;
+    gchar       *url;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(id  != NULL);
 
     act  = ignore ? "ignore" : "unignore";
-    frnd = g_strdup_printf("friends[%s]", id->steam.s);
+    user = g_strdup_printf("friends[%s]", id->steam.s);
     url  = g_strdup_printf("%s%s/friends/", STEAM_COM_PATH_PROFILE,
                            api->id->steam.s);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_IGNORE, func, data);
-    steam_api_data_req(sata, STEAM_COM_HOST, url);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_FRIEND_IGNORE, func, data);
+    steam_api_req_init(req, STEAM_COM_HOST, url);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionID", api->sessid),
         STEAM_HTTP_PAIR("action",    act),
-        STEAM_HTTP_PAIR(frnd,        "1"),
+        STEAM_HTTP_PAIR(user,        "1"),
         NULL
     );
 
-    sata->rdata = steam_friend_id_dup(id);
-    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
+    req->rdata = steam_user_id_dup(id);
+    req->rfunc = (GDestroyNotify) steam_user_id_free;
 
-    sata->flags      |= STEAM_API_FLAG_NOJSON;
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->flags      |= STEAM_API_REQ_FLAG_NOJSON;
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 
     g_free(url);
-    g_free(frnd);
+    g_free(user);
 }
 
 /**
@@ -1534,33 +1431,33 @@ void steam_api_friend_ignore(SteamApi *api, SteamFriendId *id, gboolean ignore,
  * This does not block the user, see: #steam_api_friend_ignore().
  *
  * @param api  The #SteamApi.
- * @param id   The #SteamFriendId.
+ * @param id   The #SteamUserId.
  * @param func The #SteamApiIdFunc or NULL.
  * @param data The user defined data or NULL.
  **/
-void steam_api_friend_remove(SteamApi *api, SteamFriendId *id,
+void steam_api_friend_remove(SteamApi *api, const SteamUserId *id,
                              SteamApiIdFunc func, gpointer data)
 {
-    SteamApiData *sata;
+    SteamApiReq *req;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(id  != NULL);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_REMOVE, func, data);
-    steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_REMOVE);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_FRIEND_REMOVE, func, data);
+    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_REMOVE);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionID", api->sessid),
         STEAM_HTTP_PAIR("steamid",   id->steam.s),
         NULL
     );
 
-    sata->rdata = steam_friend_id_dup(id);
-    sata->rfunc = (GDestroyNotify) steam_friend_id_free;
+    req->rdata = steam_user_id_dup(id);
+    req->rfunc = (GDestroyNotify) steam_user_id_free;
 
-    sata->flags      |= STEAM_API_FLAG_NOJSON;
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->flags      |= STEAM_API_REQ_FLAG_NOJSON;
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 }
 
 /**
@@ -1577,18 +1474,18 @@ void steam_api_friend_remove(SteamApi *api, SteamFriendId *id,
 void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
                              SteamApiListFunc func, gpointer data)
 {
-    SteamApiData *sata;
-    gchar        *scnt;
-    gchar        *str;
+    SteamApiReq *req;
+    gchar       *scnt;
+    gchar       *str;
 
     g_return_if_fail(api != NULL);
 
     str  = g_strdup_printf("\"%s\"", search);
     scnt = g_strdup_printf("%u", count);
-    sata = steam_api_data_new(api, STEAM_API_TYPE_FRIEND_SEARCH, func, data);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_FRIEND_SEARCH);
+    req  = steam_api_req_new(api, STEAM_API_REQ_TYPE_FRIEND_SEARCH, func, data);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_FRIEND_SEARCH);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("keywords",     str),
         STEAM_HTTP_PAIR("count",        scnt),
@@ -1598,7 +1495,7 @@ void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
         NULL
     );
 
-    steam_http_req_send(sata->req);
+    steam_http_req_send(req->req);
     g_free(scnt);
     g_free(str);
 }
@@ -1614,21 +1511,21 @@ void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
  **/
 void steam_api_friends(SteamApi *api, SteamApiListFunc func, gpointer data)
 {
-    SteamApiData *sata;
+    SteamApiReq *req;
 
     g_return_if_fail(api != NULL);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_FRIENDS, func, data);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_FRIENDS);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_FRIENDS, func, data);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_FRIENDS);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("steamid",      api->id->steam.s),
         STEAM_HTTP_PAIR("relationship", "friend,ignoredfriend"),
         NULL
     );
 
-    steam_http_req_send(sata->req);
+    steam_http_req_send(req->req);
 }
 
 /**
@@ -1637,16 +1534,16 @@ void steam_api_friends(SteamApi *api, SteamApiListFunc func, gpointer data)
  * Information such as last viewed times, which can be used with
  * #steam_api_chatlog() for displaying unread messages.
  *
- * @param sata The #SteamApiData.
+ * @param req The #SteamApiReq.
  **/
-static void steam_api_friends_cinfo(SteamApiData *sata)
+static void steam_api_friends_cinfo(SteamApiReq *req)
 {
-    steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_CHAT);
+    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_CHAT);
 
-    sata->type   = STEAM_API_TYPE_FRIENDS_CINFO;
-    sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE |
-                   STEAM_API_FLAG_NOJSON;
-    steam_http_req_send(sata->req);
+    req->type   = STEAM_API_REQ_TYPE_FRIENDS_CINFO;
+    req->flags |= STEAM_API_REQ_FLAG_NOCALL | STEAM_API_REQ_FLAG_NOFREE |
+                  STEAM_API_REQ_FLAG_NOJSON;
+    steam_http_req_send(req->req);
 }
 
 /**
@@ -1662,26 +1559,26 @@ static void steam_api_friends_cinfo(SteamApiData *sata)
 void steam_api_key(SteamApi *api, const gchar *user,
                    SteamApiFunc func, gpointer data)
 {
-    SteamApiData *sata;
-    gchar        *ms;
-    GTimeVal      tv;
+    SteamApiReq *req;
+    gchar       *ms;
+    GTimeVal     tv;
 
     g_return_if_fail(api != NULL);
 
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_KEY, func, data);
-    steam_api_data_req(sata, STEAM_COM_HOST, STEAM_COM_PATH_KEY);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_KEY, func, data);
+    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_KEY);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("username",   user),
         STEAM_HTTP_PAIR("donotcache", ms),
         NULL
     );
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
     g_free(ms);
 }
 
@@ -1695,21 +1592,21 @@ void steam_api_key(SteamApi *api, const gchar *user,
  **/
 void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data)
 {
-    SteamApiData *sata;
+    SteamApiReq *req;
 
     g_return_if_fail(api != NULL);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_LOGOFF, func, data);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_LOGOFF);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_LOGOFF, func, data);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_LOGOFF);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
         NULL
     );
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 }
 
 /**
@@ -1723,98 +1620,98 @@ void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data)
  **/
 void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data)
 {
-    SteamApiData *sata;
+    SteamApiReq *req;
 
     g_return_if_fail(api != NULL);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_LOGON, func, data);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_LOGON);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_LOGON, func, data);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
         STEAM_HTTP_PAIR("ui_mode",      "web"),
         NULL
     );
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 }
 
 /**
  * Creates a new logon request for the #SteamApi user. This simply
  * relogs the #SteamApi user after the session has gone stale.
  *
- * @param sata The #SteamApiData.
+ * @param req The #SteamApiReq.
  **/
-static void steam_api_relogon(SteamApiData *sata)
+static void steam_api_relogon(SteamApiReq *req)
 {
-    steam_http_queue_pause(sata->api->http, TRUE);
-    steam_http_req_resend(sata->req);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_LOGON);
+    steam_http_queue_pause(req->api->http, TRUE);
+    steam_http_req_resend(req->req);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_LOGON);
 
-    steam_http_req_params_set(sata->req,
-        STEAM_HTTP_PAIR("access_token", sata->api->token),
-        STEAM_HTTP_PAIR("umqid",        sata->api->umqid),
+    steam_http_req_params_set(req->req,
+        STEAM_HTTP_PAIR("access_token", req->api->token),
+        STEAM_HTTP_PAIR("umqid",        req->api->umqid),
         STEAM_HTTP_PAIR("ui_mode",      "web"),
         NULL
     );
 
-    sata->type        = STEAM_API_TYPE_RELOGON;
-    sata->flags      |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_NOWAIT;
-    steam_http_req_send(sata->req);
+    req->type        = STEAM_API_REQ_TYPE_RELOGON;
+    req->flags      |= STEAM_API_REQ_FLAG_NOCALL | STEAM_API_REQ_FLAG_NOFREE;
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST | STEAM_HTTP_REQ_FLAG_NOWAIT;
+    steam_http_req_send(req->req);
 }
 
 /**
- * Creates a new message request. This sends a #SteamApiMessage to
+ * Creates a new message request. This sends a #SteamUserMsg to
  * a Steam friend.
  *
  * @param api  The #SteamApi.
- * @param mesg The #SteamApiMessage.
+ * @param msg  The #SteamUserMsg.
  * @param func The #SteamApiFunc or NULL.
  * @param data The user defined data or NULL.
  **/
-void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
+void steam_api_message(SteamApi *api, const SteamUserMsg *msg,
                        SteamApiFunc func, gpointer data)
 {
-    SteamApiData *sata;
-    const gchar  *type;
+    SteamApiReq *req;
+    const gchar *type;
 
-    g_return_if_fail(api  != NULL);
-    g_return_if_fail(mesg != NULL);
+    g_return_if_fail(api != NULL);
+    g_return_if_fail(msg != NULL);
 
-    type = steam_api_message_type_str(mesg->type);
-    sata = steam_api_data_new(api, STEAM_API_TYPE_MESSAGE, func, data);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_MESSAGE);
+    type = steam_user_msg_type_str(msg->type);
+    req  = steam_api_req_new(api, STEAM_API_REQ_TYPE_MESSAGE, func, data);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_MESSAGE);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
-        STEAM_HTTP_PAIR("steamid_dst",  mesg->smry->id->steam.s),
+        STEAM_HTTP_PAIR("steamid_dst",  msg->info->id->steam.s),
         STEAM_HTTP_PAIR("type",         type),
         NULL
     );
 
-    switch (mesg->type) {
-    case STEAM_API_MESSAGE_TYPE_SAYTEXT:
-    case STEAM_API_MESSAGE_TYPE_EMOTE:
-        steam_http_req_params_set(sata->req,
-            STEAM_HTTP_PAIR("text", mesg->text),
+    switch (msg->type) {
+    case STEAM_USER_MSG_TYPE_SAYTEXT:
+    case STEAM_USER_MSG_TYPE_EMOTE:
+        steam_http_req_params_set(req->req,
+            STEAM_HTTP_PAIR("text", msg->text),
             NULL
         );
         break;
 
-    case STEAM_API_MESSAGE_TYPE_TYPING:
+    case STEAM_USER_MSG_TYPE_TYPING:
         break;
 
     default:
-        steam_http_req_free(sata->req);
+        steam_http_req_free(req->req);
         return;
     }
 
-    sata->req->flags |= STEAM_HTTP_REQ_FLAG_QUEUED | STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_QUEUED | STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 }
 
 /**
@@ -1829,24 +1726,24 @@ void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
  **/
 void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
 {
-    SteamApiData *sata;
-    gchar        *lmid;
-    gchar        *tout;
+    SteamApiReq *req;
+    gchar       *lmid;
+    gchar       *tout;
 
     g_return_if_fail(api != NULL);
 
     lmid = g_strdup_printf("%" G_GINT64_FORMAT, api->lmid);
     tout = g_strdup_printf("%" G_GINT32_FORMAT, STEAM_API_TIMEOUT);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_POLL, func, data);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_POLL);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_POLL, func, data);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_POLL);
 
-    steam_http_req_headers_set(sata->req,
+    steam_http_req_headers_set(req->req,
         STEAM_HTTP_PAIR("Connection", "Keep-Alive"),
         NULL
     );
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("umqid",        api->umqid),
         STEAM_HTTP_PAIR("message",      lmid),
@@ -1854,9 +1751,9 @@ void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
         NULL
     );
 
-    sata->req->timeout  = (STEAM_API_TIMEOUT + 5) * 1000;
-    sata->req->flags   |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(sata->req);
+    req->req->timeout  = (STEAM_API_TIMEOUT + 5) * 1000;
+    req->req->flags   |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
 
     g_free(tout);
     g_free(lmid);
@@ -1864,32 +1761,32 @@ void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data)
 
 /**
  * Creates a new summary request. This retrieves the summaries of
- * all users in the #SteamApiData->sums list.
+ * all users in the #SteamApiReq->infos list.
  *
- * @param sata The #SteamApiData.
+ * @param req The #SteamApiReq.
  **/
-static void steam_api_summaries(SteamApiData *sata)
+static void steam_api_summaries(SteamApiReq *req)
 {
-    SteamFriendSummary *smry;
-    GHashTable         *tbl;
-    GString            *gstr;
-    GList              *l;
-    gsize               i;
+    SteamUserInfo *info;
+    GHashTable    *tbl;
+    GString       *gstr;
+    GList         *l;
+    gsize          i;
 
-    if (G_UNLIKELY(sata->sums == NULL))
+    if (G_UNLIKELY(req->infos == NULL))
         return;
 
     tbl  = g_hash_table_new(g_int64_hash, g_int64_equal);
     gstr = g_string_sized_new(2048);
 
-    for (l = sata->sums, i = 0; l != NULL; l = l->next) {
-        smry = l->data;
+    for (l = req->infos, i = 0; l != NULL; l = l->next) {
+        info = l->data;
 
-        if (g_hash_table_contains(tbl, &smry->id->steam.i))
+        if (g_hash_table_contains(tbl, &info->id->steam.i))
             continue;
 
-        g_hash_table_add(tbl, &smry->id->steam.i);
-        g_string_append_printf(gstr, "%s,", smry->id->steam.s);
+        g_hash_table_add(tbl, &info->id->steam.i);
+        g_string_append_printf(gstr, "%s,", info->id->steam.s);
 
         if ((++i % 100) == 0)
             break;
@@ -1897,17 +1794,17 @@ static void steam_api_summaries(SteamApiData *sata)
 
     /* Remove trailing comma */
     gstr->str[gstr->len - 1] = 0;
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-    steam_http_req_params_set(sata->req,
-        STEAM_HTTP_PAIR("access_token", sata->api->token),
+    steam_http_req_params_set(req->req,
+        STEAM_HTTP_PAIR("access_token", req->api->token),
         STEAM_HTTP_PAIR("steamids",     gstr->str),
         NULL
     );
 
-    sata->type   = STEAM_API_TYPE_SUMMARIES;
-    sata->flags |= STEAM_API_FLAG_NOCALL | STEAM_API_FLAG_NOFREE;
-    steam_http_req_send(sata->req);
+    req->type   = STEAM_API_REQ_TYPE_SUMMARIES;
+    req->flags |= STEAM_API_REQ_FLAG_NOCALL | STEAM_API_REQ_FLAG_NOFREE;
+    steam_http_req_send(req->req);
 
     g_string_free(gstr, TRUE);
     g_hash_table_destroy(tbl);
@@ -1918,26 +1815,26 @@ static void steam_api_summaries(SteamApiData *sata)
  * friend.
  *
  * @param api  The #SteamApi.
- * @param id   The #SteamFriendId.
- * @param func The #SteamApiSummaryFunc or NULL.
+ * @param id   The #SteamUserId.
+ * @param func The #SteamApiInfoFunc or NULL.
  * @param data The user defined data or NULL.
  **/
-void steam_api_summary(SteamApi *api, SteamFriendId *id,
-                       SteamApiSummaryFunc func, gpointer data)
+void steam_api_summary(SteamApi *api, const SteamUserId *id,
+                       SteamApiInfoFunc func, gpointer data)
 {
-    SteamApiData *sata;
+    SteamApiReq *req;
 
     g_return_if_fail(api != NULL);
     g_return_if_fail(id  != NULL);
 
-    sata = steam_api_data_new(api, STEAM_API_TYPE_SUMMARY, func, data);
-    steam_api_data_req(sata, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
+    req = steam_api_req_new(api, STEAM_API_REQ_TYPE_SUMMARY, func, data);
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_SUMMARIES);
 
-    steam_http_req_params_set(sata->req,
+    steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", api->token),
         STEAM_HTTP_PAIR("steamids",     id->steam.s),
         NULL
     );
 
-    steam_http_req_send(sata->req);
+    steam_http_req_send(req->req);
 }

@@ -23,9 +23,9 @@
 #include <glib.h>
 
 #include "steam-auth.h"
-#include "steam-friend.h"
 #include "steam-http.h"
 #include "steam-json.h"
+#include "steam-user.h"
 
 
 #define STEAM_API_HOST     "api.steampowered.com"
@@ -54,26 +54,20 @@
 #define STEAM_COM_PATH_PROFILE       "/profiles/"
 
 
-/** The #GError codes of #SteamApiData. **/
+/** The #GError codes of #SteamApi. **/
 typedef enum _SteamApiError SteamApiError;
 
-/** The flags of #SteamApiData. **/
-typedef enum _SteamApiFlags SteamApiFlags;
+/** The flags of #SteamApiReq. **/
+typedef enum _SteamApiReqFlags SteamApiReqFlags;
 
-/** The type of #SteamApiMessage. **/
-typedef enum _SteamApiMessageType SteamApiMessageType;
-
-/** The type of #SteamApiData. **/
-typedef enum _SteamApiType SteamApiType;
+/** The type of #SteamApiReq. **/
+typedef enum _SteamApiReqType SteamApiReqType;
 
 /** The structure for interacting with the Steam API. **/
 typedef struct _SteamApi SteamApi;
 
 /** The structure for #SteamAPI requests. **/
-typedef struct _SteamApiData SteamApiData;
-
-/** The structure for #SteamAPI messages. **/
-typedef struct _SteamApiMessage SteamApiMessage;
+typedef struct _SteamApiReq SteamApiReq;
 
 
 /**
@@ -83,18 +77,18 @@ typedef struct _SteamApiMessage SteamApiMessage;
  * @param err  The #GError upon an error, otherwise NULL.
  * @param data The user defined data or NULL. 
  **/
-typedef void (*SteamApiFunc) (SteamApi *api, GError *err, gpointer data);
+typedef void (*SteamApiFunc) (SteamApi *api, const GError *err, gpointer data);
 
 /**
- * The type of callback for #SteamFriendId based #SteamApi operations.
+ * The type of callback for #SteamUserId based #SteamApi operations.
  *
  * @param api  The #SteamApi.
- * @param id   The #SteamFriendId.
+ * @param id   The #SteamUserId.
  * @param err  The #GError upon an error, otherwise NULL.
  * @param data The user defined data or NULL. 
  **/
-typedef void (*SteamApiIdFunc) (SteamApi *api, SteamFriendId *id, GError *err,
-                                gpointer data);
+typedef void (*SteamApiIdFunc) (SteamApi *api, const SteamUserId *id,
+                                const GError *err, gpointer data);
 
 /**
  * The type of callback for #GSList based #SteamApi operations.
@@ -104,32 +98,32 @@ typedef void (*SteamApiIdFunc) (SteamApi *api, SteamFriendId *id, GError *err,
  * @param err  The #GError upon an error, otherwise NULL.
  * @param data The user defined data or NULL. 
  **/
-typedef void (*SteamApiListFunc) (SteamApi *api, GSList *list, GError *err,
-                                  gpointer data);
+typedef void (*SteamApiListFunc) (SteamApi *api, const GSList *list,
+                                  const GError *err, gpointer data);
 
 /**
- * The type of callback for parser based #SteamApiData operations.
+ * The type of callback for parser based #SteamApiReq operations.
  *
- * @param sata The #SteamApiData.
+ * @param req  The #SteamApiReq.
  * @param json The #json_value or NULL or NULL.
  **/
-typedef void (*SteamApiParseFunc) (SteamApiData *sata, json_value *json);
+typedef void (*SteamApiParseFunc) (SteamApiReq *req, const json_value *json);
 
 /**
- * The type of callback for #SteamFriendSummary based #SteamApi
+ * The type of callback for #SteamUserInfo based #SteamApi
  * operations.
  *
  * @param api  The #SteamApi.
- * @param smry The #SteamFriendSummary.
+ * @param info The #SteamUserInfo.
  * @param err  The #GError upon an error, otherwise NULL.
  * @param data The user defined data or NULL. 
  **/
-typedef void (*SteamApiSummaryFunc) (SteamApi *api, SteamFriendSummary *smry,
-                                     GError *err, gpointer data);
+typedef void (*SteamApiInfoFunc) (SteamApi *api, const SteamUserInfo *info,
+                                  const GError *err, gpointer data);
 
 
 /**
- * The #GError codes of #SteamApiData.
+ * The #GError codes of #SteamApi.
  **/
 enum _SteamApiError
 {
@@ -157,57 +151,42 @@ enum _SteamApiError
 };
 
 /**
- * The flags of #SteamApiData.
+ * The flags of #SteamApiReq.
  **/
-enum _SteamApiFlags
+enum _SteamApiReqFlags
 {
-    STEAM_API_FLAG_NOCALL = 1 << 0, /** Skip calling back **/
-    STEAM_API_FLAG_NOFREE = 1 << 1, /** Skip freeing the #SteamApiData **/
-    STEAM_API_FLAG_NOJSON = 1 << 2  /** Skip JSON parsing **/
+    STEAM_API_REQ_FLAG_NOCALL = 1 << 0, /** Skip calling back **/
+    STEAM_API_REQ_FLAG_NOFREE = 1 << 1, /** Skip freeing the #SteamApiReq **/
+    STEAM_API_REQ_FLAG_NOJSON = 1 << 2  /** Skip JSON parsing **/
 };
 
 /**
- * The type of #SteamApiMessage.
+ * The type of #SteamApiReq.
  **/
-enum _SteamApiMessageType
+enum _SteamApiReqType
 {
-    STEAM_API_MESSAGE_TYPE_SAYTEXT = 0,  /** Say text (default) **/
-    STEAM_API_MESSAGE_TYPE_EMOTE,        /** Emote **/
-    STEAM_API_MESSAGE_TYPE_LEFT_CONV,    /** Left conversation **/
-    STEAM_API_MESSAGE_TYPE_RELATIONSHIP, /** Relationship **/
-    STEAM_API_MESSAGE_TYPE_STATE,        /** State **/
-    STEAM_API_MESSAGE_TYPE_TYPING,       /** Typing **/
+    STEAM_API_REQ_TYPE_NONE = 0,      /** None (default) **/
 
-    STEAM_API_MESSAGE_TYPE_LAST          /** Last **/
-};
+    STEAM_API_REQ_TYPE_AUTH,          /** Authentication **/
+    STEAM_API_REQ_TYPE_AUTH_RDIR,     /** Authentication redirect **/
+    STEAM_API_REQ_TYPE_CHATLOG,       /** Chatlog **/
+    STEAM_API_REQ_TYPE_FRIEND_ACCEPT, /** Friend accept **/
+    STEAM_API_REQ_TYPE_FRIEND_ADD,    /** Friend add **/
+    STEAM_API_REQ_TYPE_FRIEND_IGNORE, /** Friend ignore **/
+    STEAM_API_REQ_TYPE_FRIEND_REMOVE, /** Friend remove **/
+    STEAM_API_REQ_TYPE_FRIEND_SEARCH, /** Friend search **/
+    STEAM_API_REQ_TYPE_FRIENDS,       /** Friends list **/
+    STEAM_API_REQ_TYPE_FRIENDS_CINFO, /** Friends chat info **/
+    STEAM_API_REQ_TYPE_KEY,           /** PKCS key **/
+    STEAM_API_REQ_TYPE_LOGOFF,        /** Logoff **/
+    STEAM_API_REQ_TYPE_LOGON,         /** Logon **/
+    STEAM_API_REQ_TYPE_RELOGON,       /** Relogon **/
+    STEAM_API_REQ_TYPE_MESSAGE,       /** Message **/
+    STEAM_API_REQ_TYPE_POLL,          /** Poll **/
+    STEAM_API_REQ_TYPE_SUMMARIES,     /** Summaries **/
+    STEAM_API_REQ_TYPE_SUMMARY,       /** Summary **/
 
-/**
- * The type of #SteamApiData.
- **/
-enum _SteamApiType
-{
-    STEAM_API_TYPE_NONE = 0,      /** None (default) **/
-
-    STEAM_API_TYPE_AUTH,          /** Authentication **/
-    STEAM_API_TYPE_AUTH_RDIR,     /** Authentication redirect **/
-    STEAM_API_TYPE_CHATLOG,       /** Chatlog **/
-    STEAM_API_TYPE_FRIEND_ACCEPT, /** Friend accept **/
-    STEAM_API_TYPE_FRIEND_ADD,    /** Friend add **/
-    STEAM_API_TYPE_FRIEND_IGNORE, /** Friend ignore **/
-    STEAM_API_TYPE_FRIEND_REMOVE, /** Friend remove **/
-    STEAM_API_TYPE_FRIEND_SEARCH, /** Friend search **/
-    STEAM_API_TYPE_FRIENDS,       /** Friends list **/
-    STEAM_API_TYPE_FRIENDS_CINFO, /** Friends chat info **/
-    STEAM_API_TYPE_KEY,           /** PKCS key **/
-    STEAM_API_TYPE_LOGOFF,        /** Logoff **/
-    STEAM_API_TYPE_LOGON,         /** Logon **/
-    STEAM_API_TYPE_RELOGON,       /** Relogon **/
-    STEAM_API_TYPE_MESSAGE,       /** Message **/
-    STEAM_API_TYPE_POLL,          /** Poll **/
-    STEAM_API_TYPE_SUMMARIES,     /** Summaries **/
-    STEAM_API_TYPE_SUMMARY,       /** Summary **/
-
-    STEAM_API_TYPE_LAST           /** Last **/
+    STEAM_API_REQ_TYPE_LAST           /** Last **/
 };
 
 /**
@@ -215,51 +194,39 @@ enum _SteamApiType
  **/
 struct _SteamApi
 {
-    SteamFriendId *id; /** The #SteamFriendId of the user. **/
+    SteamUserId *id; /** The #SteamUserId of the user. **/
 
-    gchar *umqid;      /** The unique device identifier. **/
-    gchar *token;      /** The session token (mobile requests). **/
-    gchar *sessid;     /** The session identifier (community requests). **/
+    gchar *umqid;    /** The unique device identifier. **/
+    gchar *token;    /** The session token (mobile requests). **/
+    gchar *sessid;   /** The session identifier (community requests). **/
 
-    gint64 lmid;       /** The last message identifier. **/
-    gint64 tstamp;     /** The logon timestamp (UTC). **/
+    gint64 lmid;     /** The last message identifier. **/
+    gint64 time;     /** The logon timestamp (UTC). **/
 
-    SteamHttp *http;   /** The #SteamHttp for API requests. **/
-    SteamAuth *auth;   /** The #SteamAuth for authorization requests. **/
+    SteamHttp *http; /** The #SteamHttp for API requests. **/
+    SteamAuth *auth; /** The #SteamAuth for authorization requests. **/
 };
 
 /**
  * The structure for #SteamAPI requests.
  **/
-struct _SteamApiData
+struct _SteamApiReq
 {
-    SteamApiType  type;   /** The #SteamApiType. **/
-    SteamApiFlags flags;  /** The #SteamApiFlags. **/
+    SteamApiReqType  type;  /** The #SteamApiReqType. **/
+    SteamApiReqFlags flags; /** The #SteamApiReqFlags. **/
 
-    SteamApi     *api;    /** The #SteamAPI. **/
-    SteamHttpReq *req;    /** The #SteamHttpReq. **/
-    GError       *err;    /** The #GError or NULL. **/
-    GList        *sums;   /** The #GList of #SteamFriendSummary. **/
+    SteamApi     *api;      /** The #SteamAPI. **/
+    SteamHttpReq *req;      /** The #SteamHttpReq. **/
+    GError       *err;      /** The #GError or NULL. **/
+    GList        *infos;    /** The #GList of #SteamUserInfo. **/
 
-    gpointer func;        /** The user callback function or NULL. **/
-    gpointer data;        /** The user define data or NULL **/
+    gpointer func;          /** The user callback function or NULL. **/
+    gpointer data;          /** The user define data or NULL **/
 
-    gpointer       rdata; /** The return data or NULL. **/
-    GDestroyNotify rfunc; /** The free function for #rdata or NULL. **/
+    gpointer       rdata;   /** The return data or NULL. **/
+    GDestroyNotify rfunc;   /** The free function for #rdata or NULL. **/
 
-    SteamApiType typel;   /** The last #SteamApiType. **/
-};
-
-/**
- * The structure for #SteamAPI messages.
- **/
-struct _SteamApiMessage
-{
-    SteamApiMessageType  type; /** The #SteamApiMessageType. **/
-    SteamFriendSummary  *smry; /** The #SteamFriendSummary. **/
-
-    gchar  *text;              /** The message text or NULL. **/
-    gint64  tstamp;            /** The message timestamp (UTC) or NULL **/
+    SteamApiReqType typel;  /** The last #SteamApiReqType. **/
 };
 
 
@@ -271,47 +238,38 @@ SteamApi *steam_api_new(const gchar *umqid);
 
 void steam_api_free(SteamApi *api);
 
-gchar *steam_api_profile_url(SteamFriendId *id);
+gchar *steam_api_profile_url(const SteamUserId *id);
 
 void steam_api_refresh(SteamApi *api);
 
-const gchar *steam_api_type_str(SteamApiType type);
+SteamApiReq *steam_api_req_new(SteamApi *api, SteamApiReqType type,
+                               gpointer func, gpointer data);
 
-SteamApiData *steam_api_data_new(SteamApi *api, SteamApiType type,
-                                 gpointer func, gpointer data);
+void steam_api_req_free(SteamApiReq *req);
 
-void steam_api_data_free(SteamApiData *data);
+void steam_api_req_func(SteamApiReq *req);
 
-void steam_api_data_func(SteamApiData *data);
-
-SteamApiMessage *steam_api_message_new(gint64 id);
-
-SteamApiMessage *steam_api_message_new_str(const gchar *id);
-
-void steam_api_message_free(SteamApiMessage *mesg);
-
-const gchar *steam_api_message_type_str(SteamApiMessageType type);
-
-SteamApiMessageType steam_api_message_type_from_str(const gchar *type);
+const gchar *steam_api_req_type_str(SteamApiReqType type);
 
 void steam_api_auth(SteamApi *api, const gchar *user, const gchar *pass,
                     const gchar *authcode, const gchar *captcha,
                     SteamApiFunc func, gpointer data);
 
-void steam_api_chatlog(SteamApi *api, SteamFriendId *id,
+void steam_api_chatlog(SteamApi *api, const SteamUserId *id,
                        SteamApiListFunc func, gpointer data);
 
-void steam_api_friend_accept(SteamApi *api, SteamFriendId *id,
-                             const gchar *action, SteamApiIdFunc func,
-                             gpointer data);
-
-void steam_api_friend_add(SteamApi *api, SteamFriendId *id,
-                          SteamApiIdFunc func, gpointer data);
-
-void steam_api_friend_ignore(SteamApi *api, SteamFriendId *id, gboolean ignore,
+void steam_api_friend_accept(SteamApi *api, const SteamUserId *id,
+                             const gchar *action,
                              SteamApiIdFunc func, gpointer data);
 
-void steam_api_friend_remove(SteamApi *api, SteamFriendId *id,
+void steam_api_friend_add(SteamApi *api, const SteamUserId *id,
+                          SteamApiIdFunc func, gpointer data);
+
+void steam_api_friend_ignore(SteamApi *api, const SteamUserId *id,
+                             gboolean ignore,
+                             SteamApiIdFunc func, gpointer data);
+
+void steam_api_friend_remove(SteamApi *api, const SteamUserId *id,
                              SteamApiIdFunc func, gpointer data);
 
 void steam_api_friend_search(SteamApi *api, const gchar *search, guint count,
@@ -326,12 +284,12 @@ void steam_api_logoff(SteamApi *api, SteamApiFunc func, gpointer data);
 
 void steam_api_logon(SteamApi *api, SteamApiFunc func, gpointer data);
 
-void steam_api_message(SteamApi *api, const SteamApiMessage *mesg,
+void steam_api_message(SteamApi *api, const SteamUserMsg *msg,
                        SteamApiFunc func, gpointer data);
 
 void steam_api_poll(SteamApi *api, SteamApiListFunc func, gpointer data);
 
-void steam_api_summary(SteamApi *api, SteamFriendId *id,
-                       SteamApiSummaryFunc func, gpointer data);
+void steam_api_summary(SteamApi *api, const SteamUserId *id,
+                       SteamApiInfoFunc func, gpointer data);
 
 #endif /* _STEAM_API_H */

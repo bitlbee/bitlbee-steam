@@ -137,11 +137,12 @@ void steam_http_queue_pause(SteamHttp *http, gboolean pause)
  * @param pair The first #SteamHttpPair.
  * @param ap   The #va_list.
  **/
-static void steam_http_tree_ins(GTree *tree, SteamHttpPair *pair, va_list ap)
+static void steam_http_tree_ins(GTree *tree, const SteamHttpPair *pair,
+                                va_list ap)
 {
-    SteamHttpPair *p;
-    gchar         *key;
-    gchar         *val;
+    const SteamHttpPair *p;
+    gchar *key;
+    gchar *val;
 
     for (p = pair; p != NULL; ) {
         if (p->key == NULL)
@@ -151,7 +152,7 @@ static void steam_http_tree_ins(GTree *tree, SteamHttpPair *pair, va_list ap)
         val = g_strdup(p->val);
 
         g_tree_replace(tree, key, val);
-        p = va_arg(ap, SteamHttpPair*);
+        p = va_arg(ap, const SteamHttpPair*);
     }
 }
 
@@ -163,7 +164,7 @@ static void steam_http_tree_ins(GTree *tree, SteamHttpPair *pair, va_list ap)
  * @param pair The first #SteamHttpPair.
  * @param ...  The additional #SteamHttpPair.
  **/
-void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
+void steam_http_cookies_set(SteamHttp *http, const SteamHttpPair *pair, ...)
 {
     va_list ap;
 
@@ -181,7 +182,7 @@ void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
  * @param http The #SteamHttp.
  * @param req  The #SteamHttpReq.
  **/
-void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req)
+void steam_http_cookies_parse_req(SteamHttp *http, const SteamHttpReq *req)
 {
     gchar **hdrs;
     gchar **kv;
@@ -429,7 +430,8 @@ void steam_http_req_free(SteamHttpReq *req)
  * @param pair The first #SteamHttpPair.
  * @param ...  The additional #SteamHttpPair.
  **/
-void steam_http_req_headers_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
+void steam_http_req_headers_set(SteamHttpReq *req, const SteamHttpPair *pair,
+                                ...)
 {
     va_list ap;
 
@@ -448,7 +450,8 @@ void steam_http_req_headers_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
  * @param pair The first #SteamHttpPair.
  * @param ...  The additional #SteamHttpPair.
  **/
-void steam_http_req_params_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
+void steam_http_req_params_set(SteamHttpReq *req, const SteamHttpPair *pair,
+                               ...)
 {
     va_list ap;
 

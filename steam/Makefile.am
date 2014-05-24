@@ -7,6 +7,6 @@ steam_la_SOURCES = \
 	steam.c \
 	steam-api.c \
 	steam-auth.c \
-	steam-friend.c \
 	steam-http.c \
-	steam-json.c
+	steam-json.c \
+	steam-user.c

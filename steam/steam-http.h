@@ -153,10 +153,10 @@ void steam_http_free(SteamHttp *http);
 
 void steam_http_queue_pause(SteamHttp *http, gboolean puase);
 
-void steam_http_cookies_set(SteamHttp *http, SteamHttpPair *pair, ...)
+void steam_http_cookies_set(SteamHttp *http, const SteamHttpPair *pair, ...)
     G_GNUC_NULL_TERMINATED;
 
-void steam_http_cookies_parse_req(SteamHttp *http, SteamHttpReq *req);
+void steam_http_cookies_parse_req(SteamHttp *http, const SteamHttpReq *req);
 
 void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data);
 
@@ -170,11 +170,11 @@ void steam_http_req_close(SteamHttpReq *req);
 
 void steam_http_req_free(SteamHttpReq *req);
 
-void steam_http_req_headers_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
-    G_GNUC_NULL_TERMINATED;
+void steam_http_req_headers_set(SteamHttpReq *req, const SteamHttpPair *pair,
+                                ...) G_GNUC_NULL_TERMINATED;
 
-void steam_http_req_params_set(SteamHttpReq *req, SteamHttpPair *pair, ...)
-    G_GNUC_NULL_TERMINATED;
+void steam_http_req_params_set(SteamHttpReq *req, const SteamHttpPair *pair,
+                               ...) G_GNUC_NULL_TERMINATED;
 
 void steam_http_req_resend(SteamHttpReq *req);
 
