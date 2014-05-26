@@ -40,8 +40,8 @@
 #define STEAM_HTTP_PAIR(k, v) ((SteamHttpPair *) &((SteamHttpPair) {k, v}))
 
 
-/** The flags of #SteamHttp. **/
-typedef enum _SteamHttpFlags SteamHttpFlags;
+/** The #GError codes of #SteamHttp. **/
+typedef enum _SteamHttpError SteamHttpError;
 
 /** The flags of #SteamHttpReq. **/
 typedef enum _SteamHttpReqFlags SteamHttpReqFlags;
@@ -66,12 +66,13 @@ typedef void (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
 
 
 /**
- * The flags of #SteamHttp.
+ * The #GError codes of #SteamHttp.
  **/
-enum _SteamHttpFlags
+enum _SteamHttpError
 {
-    STEAM_HTTP_FLAG_PAUSED = 1 << 0, /** The queue is paused **/
-    STEAM_HTTP_FLAG_QUEUED = 1 << 1  /** The queue is queued **/
+    STEAM_HTTP_ERROR_CLOSED = 1, /** Closed **/
+    STEAM_HTTP_ERROR_INIT,       /** Initializing **/
+    STEAM_HTTP_ERROR_TIMEOUT,    /** Timeout **/
 };
 
 /**
@@ -81,12 +82,7 @@ enum _SteamHttpReqFlags
 {
     STEAM_HTTP_REQ_FLAG_GET    = 1 << 0, /** Use the GET method **/
     STEAM_HTTP_REQ_FLAG_POST   = 1 << 1, /** Use the POST method **/
-    STEAM_HTTP_REQ_FLAG_SSL    = 1 << 2, /** Use encryption via SSL **/
-
-    STEAM_HTTP_REQ_FLAG_NOFREE = 1 << 3, /** Skip freeing the #SteamHttpReq **/
-    STEAM_HTTP_REQ_FLAG_NOWAIT = 1 << 4, /** Skip the queue blockade **/
-    STEAM_HTTP_REQ_FLAG_QUEUED = 1 << 5, /** Wait on the queue **/
-    STEAM_HTTP_REQ_FLAG_RESEND = 1 << 6  /** Resend the #SteamHttpReq **/
+    STEAM_HTTP_REQ_FLAG_SSL    = 1 << 2  /** Use encryption via SSL **/
 };
 
 /**
@@ -94,11 +90,9 @@ enum _SteamHttpReqFlags
  **/
 struct _SteamHttp
 {
-    SteamHttpFlags flags; /** The #SteamHttpFlags. **/
-
-    gchar  *agent;        /** The agent. **/
-    GTree  *cookies;      /** The #GTree of cookies. **/
-    GQueue *queue;        /** The #GQueue of #SteamHttpReq. **/
+    gchar      *agent;   /** The agent. **/
+    GHashTable *cookies; /** The #GHashTable of cookies. **/
+    GHashTable *reqs;    /** The #GHashTable of #SteamHttpReq. **/
 };
 
 /**
@@ -123,8 +117,8 @@ struct _SteamHttpReq
     gchar *path;                  /** The pathname. **/
     gint   timeout;               /** The timeout. **/
 
-    GTree *headers;               /** The #GTree of headers. **/
-    GTree *params;                /** The #GTree of parameters. **/
+    GHashTable *headers;          /** The #GHashTable of headers. **/
+    GHashTable *params;           /** The #GHashTable of parameters. **/
 
     SteamHttpFunc func;           /** The user callback function or NULL. **/
     gpointer      data;           /** The user define data or NULL. **/
@@ -151,8 +145,6 @@ void steam_http_free_reqs(SteamHttp *http);
 
 void steam_http_free(SteamHttp *http);
 
-void steam_http_queue_pause(SteamHttp *http, gboolean puase);
-
 void steam_http_cookies_set(SteamHttp *http, const SteamHttpPair *pair, ...)
     G_GNUC_NULL_TERMINATED;
 
@@ -166,8 +158,6 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
                                  gint port, const gchar *path,
                                  SteamHttpFunc func, gpointer data);
 
-void steam_http_req_close(SteamHttpReq *req);
-
 void steam_http_req_free(SteamHttpReq *req);
 
 void steam_http_req_headers_set(SteamHttpReq *req, const SteamHttpPair *pair,
@@ -175,8 +165,6 @@ void steam_http_req_headers_set(SteamHttpReq *req, const SteamHttpPair *pair,
 
 void steam_http_req_params_set(SteamHttpReq *req, const SteamHttpPair *pair,
                                ...) G_GNUC_NULL_TERMINATED;
-
-void steam_http_req_resend(SteamHttpReq *req);
 
 void steam_http_req_send(SteamHttpReq *req);
 

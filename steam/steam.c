@@ -20,11 +20,10 @@
 
 #include "steam.h"
 
-static void steam_logon(SteamApi *api, const GError *err, gpointer data);
-static void steam_poll(SteamApi *api, const GSList *messages,
-                       const GError *err, gpointer data);
-static void steam_summary_u(SteamApi *api, const SteamUserInfo *info,
-                            const GError *err, gpointer data);
+static void steam_logon(SteamApiReq *req, gpointer data);
+static void steam_relogon(SteamApiReq *req, gpointer data);
+static void steam_poll(SteamApiReq *req, gpointer data);
+static void steam_user_chatlog(SteamApiReq *req, gpointer data);
 
 /**
  * Creates a new #SteamData with an #account_t. The returned #SteamData
@@ -74,14 +73,50 @@ void steam_data_free(SteamData *sata)
 }
 
 /**
+ * Processes the error of a #SteamApiReq.
+ *
+ * @param sata   The #SteamData.
+ * @param req    The #SteamApiReq.
+ * @param logout TRUE to logout, otherwise FALSE.
+ *
+ * @return TRUE if an error exists, otherwise FALSE.
+ **/
+static gboolean steam_req_error(SteamData *sata, SteamApiReq *req,
+                                gboolean logout)
+{
+    if (req->err == NULL)
+        return FALSE;
+
+    if (g_error_matches(req->err, STEAM_API_ERROR, STEAM_API_ERROR_EXPRIED)) {
+        steam_http_free_reqs(req->api->http);
+        req = steam_api_req_new(req->api, steam_relogon, sata);
+        steam_api_req_logon(req);
+        return TRUE;
+    }
+
+    if (g_error_matches(req->err, STEAM_HTTP_ERROR, STEAM_HTTP_ERROR_CLOSED)) {
+        /* Ignore closed HTTP connections */
+        return TRUE;
+    }
+
+    imcb_error(sata->ic, "%s", req->err->message);
+
+    if (logout)
+        imc_logout(sata->ic, logout);
+
+    return TRUE;
+}
+
+
+/**
  * Updates the status of a #bee_user_t based on a #SteamUserInfo.
  *
  * @param sata The #SteamData.
  * @param info The #SteamUserInfo.
  * @param bu   The #bee_user_t.
  **/
-static void steam_buddy_status(SteamData *sata, const SteamUserInfo *info,
-                               bee_user_t *bu)
+static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
+                              bee_user_t *bu)
 {
     SteamUser   *user;
     const gchar *m;
@@ -141,13 +176,13 @@ static void steam_buddy_status(SteamData *sata, const SteamUserInfo *info,
 }
 
 /**
- * Propagates a #SteamUserMsg through bitlbee.
+ * Processes a #SteamApiMsg.
  *
  * @param sata The #SteamData.
  * @param msg  The #SteamUserMsg.
  * @param time The timestamp (UTC) of the message, or 0 for now.
  **/
-static void steam_poll_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
+static void steam_user_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
 {
     SteamUserInfo *info = msg->info;
     bee_user_t    *bu;
@@ -194,7 +229,7 @@ static void steam_poll_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
         if (G_UNLIKELY(bu == NULL))
             return;
 
-        steam_buddy_status(sata, info, bu);
+        steam_user_status(sata, info, bu);
         return;
     }
 
@@ -215,7 +250,7 @@ relationship:
         imcb_rename_buddy(sata->ic, info->id->steam.s, info->fullname);
 
         bu = imcb_buddy_by_handle(sata->ic, info->id->steam.s);
-        steam_buddy_status(sata, info, bu);
+        steam_user_status(sata, info, bu);
         return;
 
     default:
@@ -224,76 +259,273 @@ relationship:
 }
 
 /**
- * Implemented #SteamApiFunc for #steam_api_auth().
+ * Implemented #SteamApiFunc for #steam_api_req_auth().
  *
- * @param api  The #SteamApi.
- * @param err  The #GError upon an error, otherwise NULL.
+ * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_auth(SteamApi *api, const GError *err, gpointer data)
+static void steam_auth(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
     account_t *acc;
 
     acc = sata->ic->acc;
 
-    if (err == NULL) {
-        set_setstr(&acc->set, "token",   api->token);
-        set_setstr(&acc->set, "sessid",  api->sessid);
+    set_setstr(&acc->set, "cgid",   req->api->auth->cgid);
+    set_setstr(&acc->set, "esid",   req->api->auth->esid);
+    set_setstr(&acc->set, "sessid", req->api->sessid);
+    set_setstr(&acc->set, "token",  req->api->token);
 
-        steam_auth_free(api->auth);
-        api->auth = NULL;
+    if (steam_req_error(sata, req, FALSE)) {
+        if (req->err->domain != STEAM_API_ERROR) {
+            imc_logout(sata->ic, FALSE);
+            return;
+        }
 
-        imcb_log(sata->ic, "Authentication finished");
-        imcb_log(sata->ic, "Sending login request");
-        steam_api_logon(api, steam_logon, sata);
-        return;
-    }
-
-    set_setstr(&acc->set, "esid", api->auth->esid);
-    set_setstr(&acc->set, "cgid", api->auth->cgid);
-    imcb_log(sata->ic, "%s", err->message);
-
-    if (err->domain == STEAM_API_ERROR) {
-        switch (err->code) {
-        case STEAM_API_ERROR_AUTH_CAPTCHA:
-            imcb_log(sata->ic, "View: %s", api->auth->curl);
+        switch (req->err->code) {
+        case STEAM_API_ERROR_CAPTCHA:
+            imcb_log(sata->ic, "View: %s", req->api->auth->curl);
             imcb_log(sata->ic, "Run: account %s set captcha <text>", acc->tag);
             break;
 
-        case STEAM_API_ERROR_AUTH_GUARD:
+        case STEAM_API_ERROR_STEAMGUARD:
             imcb_log(sata->ic, "Run: account %s set authcode <code>", acc->tag);
             break;
         }
+
+        imc_logout(sata->ic, FALSE);
+        return;
     }
 
-    imc_logout(sata->ic, FALSE);
+    steam_auth_free(req->api->auth);
+    req->api->auth = NULL;
+
+    imcb_log(sata->ic, "Authentication finished");
+    imcb_log(sata->ic, "Sending login request");
+
+    req = steam_api_req_new(req->api, steam_logon, sata);
+    steam_api_req_logon(req);
 }
 
 /**
- * Implemented #SteamApiListFunc for #steam_api_chatlog().
+ * Implemented #SteamApiFunc for #steam_api_req_friends().
  *
- * @param api      The #SteamApi.
- * @param messages The #GSList of items, which are #SteamUserMsg.
- * @param err      The #GError upon an error, otherwise NULL.
- * @param data     The user defined data, which is #SteamData.
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
  **/
-static void steam_chatlog(SteamApi *api, const GSList *messages,
-                          const GError *err, gpointer data)
+static void steam_friends(SteamApiReq *req, gpointer data)
+{
+    SteamData            *sata = data;
+    SteamUserInfo        *info;
+    SteamUser            *user;
+    struct im_connection *ic;
+    GList                *l;
+    bee_user_t           *bu;
+
+    if (steam_req_error(sata, req, TRUE))
+        return;
+
+    ic = sata->ic;
+
+    if (!(ic->flags & OPT_LOGGED_IN))
+        imcb_connected(ic);
+
+    for (l = req->infs->head; l != NULL; l = l->next) {
+        info = l->data;
+
+        /* Attempt to grab the buddy before adding */
+        bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
+
+        if (bu == NULL) {
+            imcb_add_buddy(sata->ic, info->id->steam.s, NULL);
+            imcb_buddy_nick_hint(sata->ic, info->id->steam.s, info->nick);
+            imcb_rename_buddy(sata->ic, info->id->steam.s, info->fullname);
+        }
+
+        bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
+
+        if (G_UNLIKELY(bu == NULL))
+            continue;
+
+        user = bu->data;
+        user->vtime = info->vtime;
+
+        switch (info->rel) {
+        case STEAM_USER_REL_FRIEND:
+            steam_user_status(sata, info, bu);
+            break;
+
+        case STEAM_USER_REL_IGNORE:
+            ic->deny = g_slist_prepend(ic->deny, g_strdup(bu->handle));
+            break;
+        }
+
+        if (info->mtime > info->vtime) {
+            req = steam_api_req_new(req->api, steam_user_chatlog, sata);
+            steam_api_req_user_chatlog(req, info->id);
+        }
+    }
+
+    req = steam_api_req_new(req->api, steam_poll, sata);
+    steam_api_req_poll(req);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_key().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_key(SteamApiReq *req, gpointer data)
+{
+    SteamData *sata = data;
+    account_t *acc;
+    gchar     *ac;
+    gchar     *cc;
+
+    if (steam_req_error(sata, req, TRUE))
+        return;
+
+    acc = sata->ic->acc;
+    ac  = set_getstr(&acc->set, "authcode");
+    cc  = set_getstr(&acc->set, "captcha");
+
+    imcb_log(sata->ic, "Requesting authentication token");
+
+    req = steam_api_req_new(req->api, steam_auth, sata);
+    steam_api_req_auth(req, acc->user, acc->pass, ac, cc);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_logoff().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_logoff(SteamApiReq *req, gpointer data)
+{
+    SteamData *sata = data;
+
+    steam_data_free(sata);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_logon().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_logon(SteamApiReq *req, gpointer data)
+{
+    SteamData *sata = data;
+
+    if (steam_req_error(sata, req, TRUE))
+        return;
+
+    set_setstr(&sata->ic->acc->set, "umqid", req->api->umqid);
+    imcb_log(sata->ic, "Requesting friends list");
+
+    steam_api_refresh(req->api);
+
+    req = steam_api_req_new(req->api, steam_friends, sata);
+    steam_api_req_friends(req);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_logon() for relogging.
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_relogon(SteamApiReq *req, gpointer data)
+{
+    SteamData *sata = data;
+
+    if (steam_req_error(sata, req, TRUE))
+        return;
+
+    steam_api_refresh(req->api);
+
+    /* Update the friend list for good measures */
+    req = steam_api_req_new(req->api, steam_friends, sata);
+    steam_api_req_friends(req);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_msg().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_msg(SteamApiReq *req, gpointer data)
+{
+    SteamData *sata = data;
+
+    if (steam_req_error(sata, req, TRUE))
+        return;
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_poll().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_poll(SteamApiReq *req, gpointer data)
+{
+    SteamData *sata = data;
+    GList     *l;
+
+    if (steam_req_error(sata, req, TRUE))
+        return;
+
+    for (l = req->msgs->head; l != NULL; l = l->next)
+        steam_user_msg(sata, l->data, 0);
+
+    req = steam_api_req_new(req->api, steam_poll, sata);
+    steam_api_req_poll(req);
+}
+
+/**
+ * Implemented #SteamApiFunc for generic users actions.
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_user_action(SteamApiReq *req, gpointer data)
+{
+    SteamData     *sata = data;
+    SteamUserInfo *info = req->infs->head->data;
+    bee_user_t    *bu;
+
+    if (steam_req_error(sata, req, TRUE))
+        return;
+
+    bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
+
+    if (bu != NULL)
+        steam_user_status(sata, info, bu);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_user_chatlog().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_user_chatlog(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
     SteamUser     *user;
     SteamUserInfo *info;
     SteamUserMsg  *msg;
     bee_user_t    *bu;
-    const GSList  *l;
+    GList         *l;
 
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
+    if (steam_req_error(sata, req, TRUE))
         return;
-    }
 
-    for (bu = NULL, l = messages; l != NULL; l = l->next) {
+    for (bu = NULL, l = req->msgs->head; l != NULL; l = l->next) {
         msg  = l->data;
         info = msg->info;
 
@@ -307,282 +539,30 @@ static void steam_chatlog(SteamApi *api, const GSList *messages,
         }
 
         if (msg->time > user->vtime)
-            steam_poll_msg(sata, msg, msg->time);
+            steam_user_msg(sata, msg, msg->time);
     }
 }
 
 /**
- * Implemented #SteamApiIdFunc for steam_friend_() calls.
+ * Implemented #SteamApiFunc for #steam_api_req_user_info().
  *
- * @param api  The #SteamApi.
- * @param id   The #SteamUserId.
- * @param err  The #GError upon an error, otherwise NULL.
+ * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_friend_action(SteamApi *api, const SteamUserId *id,
-                                const GError *err, gpointer data)
-{
-    SteamData *sata = data;
-
-    if (err != NULL)
-        imcb_error(sata->ic, "%s", err->message);
-}
-
-/**
- * Implemented #SteamApiIdFunc for steam_friend_() calls which updates.
- *
- * @param api  The #SteamApi.
- * @param id   The #SteamUserId.
- * @param err  The #GError upon an error, otherwise NULL.
- * @param data The user defined data, which is #SteamData.
- **/
-static void steam_friend_action_u(SteamApi *api, const SteamUserId *id,
-                                  const GError *err, gpointer data)
-{
-    SteamData *sata = data;
-
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
-        return;
-    }
-
-    steam_api_summary(api, id, steam_summary_u, sata);
-}
-
-/**
- * Implemented #SteamApiListFunc for #steam_api_friend_search().
- *
- * @param api      The #SteamApi.
- * @param messages The #GSList of items, which are #SteamUserInfo.
- * @param err      The #GError upon an error, otherwise NULL.
- * @param data     The user defined data, which is #SteamData.
- **/
-static void steam_friend_search(SteamApi *api, const GSList *results,
-                                const GError *err, gpointer data)
+static void steam_user_info(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
-    SteamUserInfo *info;
-    const GSList  *l;
-    const gchar   *tag;
+    SteamUserInfo *info = req->infs->head->data;
+    bee_user_t    *bu;
     gchar         *str;
-    guint          i;
 
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
-        return;
-    }
-
-    for (l = results, i = 0; (l != NULL) && (i < 2); l = l->next, i++);
-
-    switch (i) {
-    case 0:
-        imcb_error(sata->ic, "Failed to find any friend(s)");
+    if (steam_req_error(sata, req, TRUE))
         return;
 
-    case 1:
-        info = results->data;
-        steam_api_friend_add(api, info->id, steam_friend_action, sata);
-        return;
-    }
+    bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
 
-    imcb_log(sata->ic, "Select from one of the following Steam Friends:");
-    tag = sata->ic->acc->tag;
-
-    for (l = results, i = 1; l != NULL; l = l->next, i++) {
-        info = l->data;
-        str  = steam_api_profile_url(info->id);
-
-        imcb_log(sata->ic, "%u. `%s' %s", i, info->nick, str);
-        imcb_log(sata->ic, "-- add %s steamid:%s", tag, info->id->steam.s);
-
-        g_free(str);
-    }
-}
-
-/**
- * Implemented #SteamApiListFunc for #steam_api_friends().
- *
- * @param api      The #SteamApi.
- * @param messages The #GSList of items, which are #SteamUserInfo.
- * @param err      The #GError upon an error, otherwise NULL.
- * @param data     The user defined data, which is #SteamData.
- **/
-static void steam_friends(SteamApi *api, const GSList *friends,
-                          const GError *err, gpointer data)
-{
-    SteamData            *sata = data;
-    SteamUserInfo        *info;
-    SteamUser            *user;
-    struct im_connection *ic;
-    const GSList         *l;
-    bee_user_t           *bu;
-
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
-        imc_logout(sata->ic, TRUE);
-        return;
-    }
-
-    imcb_connected(sata->ic);
-
-    for (l = friends; l != NULL; l = l->next) {
-        info = l->data;
-
-        imcb_add_buddy(sata->ic, info->id->steam.s, NULL);
-        imcb_buddy_nick_hint(sata->ic, info->id->steam.s, info->nick);
-        imcb_rename_buddy(sata->ic, info->id->steam.s, info->fullname);
-
-        bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
-
-        if (G_UNLIKELY(bu == NULL))
-            continue;
-
-        user = bu->data;
-        user->vtime = info->vtime;
-
-        switch (info->rel) {
-        case STEAM_USER_REL_FRIEND:
-            steam_buddy_status(sata, info, bu);
-            break;
-
-        case STEAM_USER_REL_IGNORE:
-            ic = sata->ic;
-            ic->deny = g_slist_prepend(ic->deny, g_strdup(bu->handle));
-            break;
-        }
-
-        if (info->mtime > info->vtime)
-            steam_api_chatlog(api, info->id, steam_chatlog, sata);
-    }
-
-    steam_api_poll(api, steam_poll, sata);
-}
-
-/**
- * Implemented #SteamApiFunc for #steam_api_key().
- *
- * @param api  The #SteamApi.
- * @param err  The #GError upon an error, otherwise NULL.
- * @param data The user defined data, which is #SteamData.
- **/
-static void steam_key(SteamApi *api, const GError *err, gpointer data)
-{
-    SteamData *sata = data;
-    account_t *acc;
-    gchar     *ac;
-    gchar     *cc;
-
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
-        imc_logout(sata->ic, FALSE);
-        return;
-    }
-
-    acc = sata->ic->acc;
-    ac  = set_getstr(&acc->set, "authcode");
-    cc  = set_getstr(&acc->set, "captcha");
-
-    imcb_log(sata->ic, "Requesting authentication token");
-    steam_api_auth(api, acc->user, acc->pass, ac, cc, steam_auth, sata);
-}
-
-/**
- * Implemented #SteamApiFunc for #steam_api_logoff().
- *
- * @param api  The #SteamApi.
- * @param err  The #GError upon an error, otherwise NULL.
- * @param data The user defined data, which is #SteamData.
- **/
-static void steam_logoff(SteamApi *api, const GError *err, gpointer data)
-{
-    SteamData *sata = data;
-
-    steam_data_free(sata);
-}
-
-/**
- * Implemented #SteamApiFunc for #steam_api_logon().
- *
- * @param api  The #SteamApi.
- * @param err  The #GError upon an error, otherwise NULL.
- * @param data The user defined data, which is #SteamData.
- **/
-static void steam_logon(SteamApi *api, const GError *err, gpointer data)
-{
-    SteamData *sata = data;
-
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
-        imc_logout(sata->ic, TRUE);
-        return;
-    }
-
-    set_setstr(&sata->ic->acc->set, "umqid", api->umqid);
-    imcb_log(sata->ic, "Requesting friends list");
-
-    steam_api_refresh(api);
-    steam_api_friends(api, steam_friends, sata);
-}
-
-/**
- * Implemented #SteamApiFunc for #steam_api_message().
- *
- * @param api  The #SteamApi.
- * @param err  The #GError upon an error, otherwise NULL.
- * @param data The user defined data, which is #SteamData.
- **/
-static void steam_message(SteamApi *api, const GError *err, gpointer data)
-{
-    SteamData *sata = data;
-
-    if (err != NULL)
-        imcb_error(sata->ic, "%s", err->message);
-}
-
-/**
- * Implemented #SteamApiListFunc for #steam_api_poll().
- *
- * @param api      The #SteamApi.
- * @param messages The #GSList of items, which are #SteamUserInfo.
- * @param err      The #GError upon an error, otherwise NULL.
- * @param data     The user defined data, which is #SteamData.
- **/
-static void steam_poll(SteamApi *api, const GSList *messages,
-                       const GError *err, gpointer data)
-{
-    SteamData    *sata = data;
-    const GSList *l;
-
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
-        imc_logout(sata->ic, TRUE);
-        return;
-    }
-
-    for (l = messages; l != NULL; l = l->next)
-        steam_poll_msg(sata, l->data, 0);
-
-    steam_api_poll(api, steam_poll, sata);
-}
-
-/**
- * Implemented #SteamApiInfoFunc for #steam_api_summary().
- *
- * @param api  The #SteamApi.
- * @param info The #SteamUserInfo.
- * @param err  The #GError upon an error, otherwise NULL.
- * @param data The user defined data, which is #SteamData.
- **/
-static void steam_summary(SteamApi *api, const SteamUserInfo *info,
-                          const GError *err, gpointer data)
-{
-    SteamData *sata = data;
-    gchar     *str;
-
-    if (err != NULL) {
-        imcb_error(sata->ic, "%s", err->message);
-        return;
-    }
+    if (G_LIKELY(bu == NULL))
+        steam_user_status(sata, info, bu);
 
     if (info->nick != NULL)
         imcb_log(sata->ic, "Name:       %s", info->nick);
@@ -608,23 +588,49 @@ static void steam_summary(SteamApi *api, const SteamUserInfo *info,
 }
 
 /**
- * Implemented #SteamApiInfoFunc for #steam_api_summary() which updates.
+ * Implemented #SteamApiFunc for #steam_api_req_user_search().
  *
- * @param api  The #SteamApi.
- * @param info The #SteamUserInfo.
- * @param err  The #GError upon an error, otherwise NULL.
+ * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_summary_u(SteamApi *api, const SteamUserInfo *info,
-                            const GError *err, gpointer data)
+static void steam_user_search(SteamApiReq *req, gpointer data)
 {
-    SteamData  *sata = data;
-    bee_user_t *bu;
+    SteamData     *sata = data;
+    SteamUserInfo *info;
+    const gchar   *tag;
+    GList         *l;
+    gchar         *str;
+    guint          i;
 
-    bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
+    if (steam_req_error(sata, req, TRUE))
+        return;
 
-    if (G_LIKELY(bu != NULL))
-        steam_buddy_status(sata, info, bu);
+    for (l = req->infs->head, i = 0; (l != NULL) && (i < 2); l = l->next, i++);
+
+    switch (i) {
+    case 0:
+        imcb_error(sata->ic, "Failed to find any friend(s)");
+        return;
+
+    case 1:
+        info = req->infs->head->data;
+        req  = steam_api_req_new(req->api, steam_user_action, sata);
+        steam_api_req_user_add(req, info->id);
+        return;
+    }
+
+    imcb_log(sata->ic, "Select from one of the following Steam Friends:");
+    tag = sata->ic->acc->tag;
+
+    for (l = req->infs->head, i = 1; l != NULL; l = l->next, i++) {
+        info = l->data;
+        str  = steam_api_profile_url(info->id);
+
+        imcb_log(sata->ic, "%u. `%s' %s", i, info->nick, str);
+        imcb_log(sata->ic, "-- add %s steamid:%s", tag, info->id->steam.s);
+
+        g_free(str);
+    }
 }
 
 /**
@@ -808,15 +814,18 @@ static void steam_init(account_t *acc)
  **/
 static void steam_login(account_t *acc)
 {
-    SteamData *sata;
-    gchar     *str;
+    SteamData   *sata;
+    SteamApiReq *req;
+    gchar       *str;
 
     sata = steam_data_new(acc);
     imcb_log(sata->ic, "Connecting");
 
     if ((sata->api->token != NULL) && (sata->api->sessid != NULL)) {
         imcb_log(sata->ic, "Sending logon request");
-        steam_api_logon(sata->api, steam_logon, sata);
+
+        req = steam_api_req_new(sata->api, steam_logon, sata);
+        steam_api_req_logon(req);
         return;
     }
 
@@ -829,7 +838,9 @@ static void steam_login(account_t *acc)
     steam_auth_email(sata->api->auth, str);
 
     imcb_log(sata->ic, "Requesting authentication key");
-    steam_api_key(sata->api, acc->user, steam_key, sata);
+
+    req = steam_api_req_new(sata->api, steam_key, sata);
+    steam_api_req_key(req, acc->user);
 }
 
 /**
@@ -839,14 +850,17 @@ static void steam_login(account_t *acc)
  **/
 static void steam_logout(struct im_connection *ic)
 {
-    SteamData *sata = ic->proto_data;
+    SteamData   *sata = ic->proto_data;
+    SteamApiReq *req;
 
     steam_http_free_reqs(sata->api->http);
 
-    if (ic->flags & OPT_LOGGED_IN)
-        steam_api_logoff(sata->api, steam_logoff, sata);
-    else
+    if (ic->flags & OPT_LOGGED_IN) {
+        req = steam_api_req_new(sata->api, steam_logoff, sata);
+        steam_api_req_logoff(req);
+    } else {
         steam_data_free(sata);
+    }
 }
 
 /**
@@ -863,6 +877,7 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
                            int flags)
 {
     SteamData    *sata = ic->proto_data;
+    SteamApiReq  *req;
     SteamUserMsg *msg;
 
     msg = steam_user_msg_new_str(to);
@@ -889,7 +904,9 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
     }
     */
 
-    steam_api_message(sata->api, msg, steam_message, sata);
+    req = steam_api_req_new(sata->api, steam_msg, sata);
+    steam_api_req_msg(req, msg);
+
     steam_user_msg_free(msg);
     return 0;
 }
@@ -906,12 +923,15 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
 static int steam_send_typing(struct im_connection *ic, char *who, int flags)
 {
     SteamData    *sata = ic->proto_data;
+    SteamApiReq  *req;
     SteamUserMsg *msg;
 
     msg = steam_user_msg_new_str(who);
     msg->type = STEAM_USER_MSG_TYPE_TYPING;
 
-    steam_api_message(sata->api, msg, steam_message, sata);
+    req = steam_api_req_new(sata->api, steam_msg, sata);
+    steam_api_req_msg(req, msg);
+
     steam_user_msg_free(msg);
     return 0;
 }
@@ -926,19 +946,23 @@ static int steam_send_typing(struct im_connection *ic, char *who, int flags)
 static void steam_add_buddy(struct im_connection *ic, char *name, char *group)
 {
     SteamData   *sata = ic->proto_data;
+    SteamApiReq *req;
     SteamUserId *id;
     gchar       *str;
 
     if (g_ascii_strncasecmp(name, "steamid:", 8) != 0) {
-        steam_api_friend_search(sata->api, name, 5, steam_friend_search, sata);
+        req = steam_api_req_new(sata->api, steam_user_search, sata);
+        steam_api_req_user_search(req, name, 5);
         return;
     }
 
     str = strchr(name, ':');
 
     if ((++str)[0] != 0) {
-        id = steam_user_id_new_str(str);
-        steam_api_friend_add(sata->api, id, steam_friend_action, sata);
+        id  = steam_user_id_new_str(str);
+        req = steam_api_req_new(sata->api, steam_user_action, sata);
+
+        steam_api_req_user_add(req, id);
         steam_user_id_free(id);
     } else {
         imcb_error(sata->ic, "No Steam ID specified");
@@ -956,10 +980,13 @@ static void steam_remove_buddy(struct im_connection *ic, char *name,
                                char *group)
 {
     SteamData   *sata = ic->proto_data;
+    SteamApiReq *req;
     SteamUserId *id;
 
-    id = steam_user_id_new_str(name);
-    steam_api_friend_remove(sata->api, id, steam_friend_action, sata);
+    id  = steam_user_id_new_str(name);
+    req = steam_api_req_new(sata->api, steam_user_action, sata);;
+
+    steam_api_req_user_remove(req, id);
     steam_user_id_free(id);
 }
 
@@ -983,12 +1010,15 @@ static void steam_add_permit(struct im_connection *ic, char *who)
 static void steam_add_deny(struct im_connection *ic, char *who)
 {
     SteamData   *sata = ic->proto_data;
+    SteamApiReq *req;
     SteamUserId *id;
 
     imcb_buddy_status(ic, who, 0, NULL, NULL);
 
-    id = steam_user_id_new_str(who);
-    steam_api_friend_ignore(sata->api, id, TRUE, steam_friend_action, sata);
+    id  = steam_user_id_new_str(who);
+    req = steam_api_req_new(sata->api, steam_user_action, sata);
+
+    steam_api_req_user_ignore(req, id, TRUE);
     steam_user_id_free(id);
 }
 
@@ -1012,10 +1042,13 @@ static void steam_rem_permit(struct im_connection *ic, char *who)
 static void steam_rem_deny(struct im_connection *ic, char *who)
 {
     SteamData   *sata = ic->proto_data;
+    SteamApiReq *req;
     SteamUserId *id;
 
-    id = steam_user_id_new_str(who);
-    steam_api_friend_ignore(sata->api, id, FALSE, steam_friend_action_u, sata);
+    id  = steam_user_id_new_str(who);
+    req = steam_api_req_new(sata->api, steam_user_action, sata);
+
+    steam_api_req_user_ignore(req, id, FALSE);
     steam_user_id_free(id);
 }
 
@@ -1027,12 +1060,15 @@ static void steam_rem_deny(struct im_connection *ic, char *who)
  **/
 static void steam_get_info(struct im_connection *ic, char *who)
 {
-    SteamData   *sata = ic->proto_data;
-    SteamUserId *id;
+    SteamData     *sata = ic->proto_data;
+    SteamApiReq   *req;
+    SteamUserInfo *info;
 
-    id = steam_user_id_new_str(who);
-    steam_api_summary(sata->api, id, steam_summary, sata);
-    steam_user_id_free(id);
+    info = steam_user_info_new_str(who);
+    req  = steam_api_req_new(sata->api, steam_user_info, sata);
+
+    g_queue_push_head(req->infs, info);
+    steam_api_req_user_info(req);
 }
 
 /**
@@ -1044,10 +1080,13 @@ static void steam_get_info(struct im_connection *ic, char *who)
 static void steam_auth_allow(struct im_connection *ic, const char *who)
 {
     SteamData   *sata = ic->proto_data;
+    SteamApiReq *req;
     SteamUserId *id;
 
-    id = steam_user_id_new_str(who);
-    steam_api_friend_accept(sata->api, id, "accept", steam_friend_action, sata);
+    id  = steam_user_id_new_str(who);
+    req = steam_api_req_new(sata->api, steam_user_action, sata);
+
+    steam_api_req_user_accept(req, id, "accept");
     steam_user_id_free(id);
 }
 
@@ -1060,10 +1099,13 @@ static void steam_auth_allow(struct im_connection *ic, const char *who)
 static void steam_auth_deny(struct im_connection *ic, const char *who)
 {
     SteamData   *sata = ic->proto_data;
+    SteamApiReq *req;
     SteamUserId *id;
 
-    id = steam_user_id_new_str(who);
-    steam_api_friend_accept(sata->api, id, "ignore", steam_friend_action, sata);
+    id  = steam_user_id_new_str(who);
+    req = steam_api_req_new(sata->api, steam_user_action, sata);
+
+    steam_api_req_user_accept(req, id, "ignore");
     steam_user_id_free(id);
 }
 

@@ -185,19 +185,19 @@ gboolean steam_json_scmp(const json_value *json, const gchar *name,
 }
 
 /**
- * Propagates a #GTree of key/value pairs from a #json_value
+ * Fills a #GHashTable with key/value pairs from a #json_value
  * recursively.
  *
- * @param tree The #GTree.
- * @param key  The key name or NULL.
- * @param json The #json_value.
+ * @param table The #GHashTable.
+ * @param key   The key name or NULL.
+ * @param json  The #json_value.
  **/
-static void steam_json_tree_prop(GTree *tree, gchar *key,
-                                 const json_value *json)
+static void steam_json_table_fill(GHashTable *table, gchar *key,
+                                  const json_value *json)
 {
     json_value *jv;
     gchar      *val;
-    gchar      *cval;
+    gchar      *lval;
     gsize       i;
 
     switch (json->type) {
@@ -205,14 +205,14 @@ static void steam_json_tree_prop(GTree *tree, gchar *key,
         for (i = 0; i < json->u.object.length; i++) {
             key = json->u.object.values[i].name;
             jv  = json->u.object.values[i].value;
-            steam_json_tree_prop(tree, key, jv);
+            steam_json_table_fill(table, key, jv);
         }
         return;
 
     case json_array:
         for (i = 0; i < json->u.array.length; i++) {
             jv = json->u.array.values[i];
-            steam_json_tree_prop(tree, key, jv);
+            steam_json_table_fill(table, key, jv);
         }
         return;
 
@@ -247,36 +247,36 @@ static void steam_json_tree_prop(GTree *tree, gchar *key,
     if (key == NULL)
         return;
 
-    cval = g_tree_lookup(tree, key);
+    lval = g_hash_table_lookup(table, key);
 
-    if (cval != NULL) {
-        cval = g_strdup_printf("%s,%s", cval, val);
+    if (lval != NULL) {
+        lval = g_strdup_printf("%s,%s", lval, val);
         g_free(val);
-        val = cval;
+        val = lval;
     }
 
     key = g_strdup(key);
-    g_tree_replace(tree, key, val);
+    g_hash_table_replace(table, key, val);
 }
 
 /**
- * Gets a #GTree of key/value pairs from a #json_value recursively.
+ * Gets a #GHashTable of key/value pairs from a #json_value recursively.
  *
  * @param json The #json_value.
  *
- * @return The #GTree of key/value pairs, or NULL on error.
+ * @return The #GHashTable of key/value pairs, or NULL on error.
  **/
-GTree *steam_json_tree(const json_value *json)
+GHashTable *steam_json_table(const json_value *json)
 {
-    GTree *tree;
+    GHashTable *table;
 
     g_return_val_if_fail(json != NULL, NULL);
 
-    tree = g_tree_new_full((GCompareDataFunc) g_ascii_strcasecmp,
-                           NULL, g_free, g_free);
+    table = g_hash_table_new_full(g_str_hash, (GEqualFunc) g_ascii_strcasecmp,
+                                  g_free, g_free);;
 
     if (json->type == json_object)
-        steam_json_tree_prop(tree, NULL, json);
+        steam_json_table_fill(table, NULL, json);
 
-    return tree;
+    return table;
 }

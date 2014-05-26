@@ -9,4 +9,5 @@ steam_la_SOURCES = \
 	steam-auth.c \
 	steam-http.c \
 	steam-json.c \
-	steam-user.c
+	steam-user.c \
+	steam-util.c
