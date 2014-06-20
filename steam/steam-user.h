@@ -259,6 +259,7 @@ struct _SteamUserId
 struct _SteamUserInfo
 {
     SteamUserId *id;      /** The #SteamUserId. **/
+    GSList      *nicks;   /** The #GSList of prior nicknames. */
 
     SteamUserState state; /** The #SteamUserState. **/
     SteamUserFlags flags; /** The #SteamUserFlags. **/
@@ -269,6 +270,7 @@ struct _SteamUserInfo
     gchar *fullname;      /** The full name. **/
     gchar *game;          /** The game name or NULL. **/
     gchar *server;        /** The game server or NULL. **/
+    gchar *profile;       /** The profile URL or NULL. **/
 
     gint64 ltime;         /** The last logoff timestamp (UTC). **/
     gint64 mtime;         /** The last message timestamp (UTC). **/

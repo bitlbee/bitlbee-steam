@@ -161,8 +161,6 @@ void steam_api_free(SteamApi *api);
 
 gchar *steam_api_captcha_url(const gchar *cgid);
 
-gchar *steam_api_profile_url(const SteamUserId *id);
-
 void steam_api_refresh(SteamApi *api);
 
 SteamApiReq *steam_api_req_new(SteamApi *api, SteamApiFunc func, gpointer data);
@@ -203,6 +201,8 @@ void steam_api_req_user_ignore(SteamApiReq *req, const SteamUserId *id,
 void steam_api_req_user_info(SteamApiReq *req);
 
 void steam_api_req_user_info_extra(SteamApiReq *req);
+
+void steam_api_req_user_info_nicks(SteamApiReq *req);
 
 void steam_api_req_user_remove(SteamApiReq *req, const SteamUserId *id);
 

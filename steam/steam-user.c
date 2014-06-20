@@ -321,7 +321,9 @@ void steam_user_info_free(SteamUserInfo *info)
         return;
 
     steam_user_id_free(info->id);
+    g_slist_free_full(info->nicks, g_free);
 
+    g_free(info->profile);
     g_free(info->server);
     g_free(info->game);
     g_free(info->fullname);

@@ -16,6 +16,7 @@
  */
 
 #include <string.h>
+#include <url.h>
 
 #include "steam-api.h"
 #include "steam-http.h"
@@ -130,22 +131,6 @@ gchar *steam_api_captcha_url(const gchar *cgid)
 }
 
 /**
- * Gets the profile URL of a #SteamUserId. The returned string should
- * be freed with #g_free() when no longer needed.
- *
- * @param id The #SteamUserId.
- *
- * @return The profile URL, or NULL on error.
- **/
-gchar *steam_api_profile_url(const SteamUserId *id)
-{
-    g_return_val_if_fail(id != NULL, NULL);
-
-    return g_strdup_printf("https://%s%s%s/", STEAM_COM_HOST,
-                           STEAM_COM_PATH_PROFILE, id->steam.s);
-}
-
-/**
  * Refreshes the #SteamApi after the modification of session
  * information.
  *
@@ -255,6 +240,11 @@ static void steam_api_json_user_info(SteamUserInfo *info,
     if (steam_json_str(json, "personaname", &str)) {
         g_free(info->nick);
         info->nick = g_strdup(str);
+    }
+
+    if (steam_json_str(json, "profileurl", &str)) {
+        g_free(info->profile);
+        info->profile = g_strdup(str);
     }
 
     if (steam_json_str(json, "realname", &str)) {
@@ -1432,6 +1422,81 @@ void steam_api_req_user_info_extra(SteamApiReq *req)
 
     req->flags |= STEAM_API_REQ_FLAG_NOJSON;
     steam_http_req_send(req->req);
+}
+
+/**
+ * Implemented #SteamApiParser for #steam_api_req_user_info_nicks().
+ *
+ * @param req  The #SteamApiReq.
+ * @param json The #json_value or NULL.
+ **/
+static void steam_api_cb_user_info_nicks(SteamApiReq *req,
+                                         const json_value *json)
+{
+    SteamUserInfo *info;
+    json_value    *je;
+    const gchar   *str;
+    guint          i;
+
+    info = g_queue_pop_head(req->infr);
+
+    for (i = 0; i < json->u.array.length; i++) {
+        je = json->u.array.values[i];
+
+        if (!steam_json_str(je, "newname", &str))
+            continue;
+
+        if (g_strcmp0(str, info->nick) != 0)
+            info->nicks = g_slist_prepend(info->nicks, g_strdup(str));
+    }
+
+    info->nicks = g_slist_reverse(info->nicks);
+
+    if (!g_queue_is_empty(req->infr)) {
+        req = steam_api_req_fwd(req);
+        steam_api_req_user_info_nicks(req);
+    }
+}
+
+/**
+ * Sends a user nickname information request. This retrieves the user
+ * nicname information for all users in the #SteamApiReq->infos list.
+ *
+ * @param req The #SteamApiReq.
+ **/
+void steam_api_req_user_info_nicks(SteamApiReq *req)
+{
+    SteamUserInfo *info;
+    gchar         *srl;
+    url_t          url;
+
+    g_return_if_fail(req != NULL);
+
+    if (G_UNLIKELY(g_queue_is_empty(req->infs))) {
+        if (req->func != NULL)
+            req->func(req, req->data);
+
+        steam_api_req_free(req);
+        return;
+    }
+
+    if (g_queue_is_empty(req->infr)) {
+        g_queue_free(req->infr);
+        req->infr = g_queue_copy(req->infs);
+    }
+
+    info = g_queue_peek_head(req->infr);
+    srl  = g_strconcat(info->profile, "/ajaxaliases/", NULL);
+
+    url_set(&url, srl);
+
+    req->punc = steam_api_cb_user_info_nicks;
+    steam_api_req_init(req, url.host, url.file);
+
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
+
+    g_free(srl);
 }
 
 /**

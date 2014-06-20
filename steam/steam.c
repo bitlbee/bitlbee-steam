@@ -25,6 +25,7 @@ static void steam_logon(SteamApiReq *req, gpointer data);
 static void steam_relogon(SteamApiReq *req, gpointer data);
 static void steam_poll(SteamApiReq *req, gpointer data);
 static void steam_user_chatlog(SteamApiReq *req, gpointer data);
+static void steam_user_info_nicks(SteamApiReq *req, gpointer data);
 
 /**
  * Creates a new #SteamData with an #account_t. The returned #SteamData
@@ -554,11 +555,27 @@ static void steam_user_chatlog(SteamApiReq *req, gpointer data)
  **/
 static void steam_user_info(SteamApiReq *req, gpointer data)
 {
+    req = steam_api_req_fwd(req);
+
+    req->func = steam_user_info_nicks;
+    steam_api_req_user_info_nicks(req);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_user_info_nicks().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_user_info_nicks(SteamApiReq *req, gpointer data)
+{
     SteamData     *sata = data;
     SteamUserInfo *info = req->infs->head->data;
     bee_user_t    *bu;
     const gchar   *ctr;
     gchar         *str;
+    GSList        *l;
+    guint          i;
 
     if (steam_req_error(sata, req, TRUE))
         return;
@@ -601,9 +618,15 @@ static void steam_user_info(SteamApiReq *req, gpointer data)
     imcb_log(sata->ic, "Steam ID: %s (%s)", info->id->steam.s,
              info->id->commu.s);
 
-    str = steam_api_profile_url(info->id);
-    imcb_log(sata->ic, "Profile: %s", str);
-    g_free(str);
+    if (info->profile != NULL)
+        imcb_log(sata->ic, "Profile: %s", info->profile);
+
+    if (info->nicks != NULL) {
+        imcb_log(sata->ic, "Nicknames:");
+
+        for (l = info->nicks, i = 1; l != NULL; l = l->next, i++)
+            imcb_log(sata->ic, "%u. `%s'", i, (gchar*) l->data);
+    }
 }
 
 /**
@@ -618,7 +641,6 @@ static void steam_user_search(SteamApiReq *req, gpointer data)
     SteamUserInfo *info;
     const gchar   *tag;
     GList         *l;
-    gchar         *str;
     guint          i;
 
     if (steam_req_error(sata, req, TRUE))
@@ -643,12 +665,9 @@ static void steam_user_search(SteamApiReq *req, gpointer data)
 
     for (l = req->infs->head, i = 1; l != NULL; l = l->next, i++) {
         info = l->data;
-        str  = steam_api_profile_url(info->id);
 
-        imcb_log(sata->ic, "%u. `%s' %s", i, info->nick, str);
+        imcb_log(sata->ic, "%u. `%s' %s", i, info->nick, info->profile);
         imcb_log(sata->ic, "-- add %s steamid:%s", tag, info->id->steam.s);
-
-        g_free(str);
     }
 }
 
