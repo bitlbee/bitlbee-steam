@@ -170,7 +170,7 @@ void steam_http_cookies_parse_req(SteamHttp *http, const SteamHttpReq *req)
 
         str = strchr(hdrs[i], ';');
 
-        if (str != NULL);
+        if (str != NULL)
             str[0] = 0;
 
         str = strchr(hdrs[i], ':');

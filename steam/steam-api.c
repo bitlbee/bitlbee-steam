@@ -957,19 +957,21 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
         case STEAM_USER_MSG_TYPE_EMOTE:
             steam_json_str(je, "text", &str);
             msg->text = g_strdup(str);
+            break;
 
         case STEAM_USER_MSG_TYPE_STATE:
         case STEAM_USER_MSG_TYPE_RELATIONSHIP:
         case STEAM_USER_MSG_TYPE_TYPING:
         case STEAM_USER_MSG_TYPE_LEFT_CONV:
-            g_queue_push_tail(req->msgs, msg);
-            g_queue_push_tail(req->infs, msg->info);
             break;
 
         default:
             steam_user_msg_free(msg);
-            break;
+            continue;
         }
+
+        g_queue_push_tail(req->msgs, msg);
+        g_queue_push_tail(req->infs, msg->info);
     }
 
     steam_api_cb_user_info_req(req, json);

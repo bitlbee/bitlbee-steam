@@ -125,37 +125,40 @@ void steam_user_chans_umode(SteamUser *user, gint mode, gboolean override)
     irc_channel_t            *ic;
     irc_user_t               *iu;
     irc_channel_user_t       *icu;
-    irc_channel_user_flags_t  flags;
-    irc_channel_user_flags_t  flag;
+    irc_channel_user_flags_t  fgs;
     GSList                   *l;
     guint                     i;
 
     g_return_if_fail(user != NULL);
 
+    static guint modes[] = {
+        IRC_CHANNEL_USER_NONE,
+        IRC_CHANNEL_USER_VOICE,
+        IRC_CHANNEL_USER_HALFOP,
+        IRC_CHANNEL_USER_OP
+    };
+
+    static gsize mize = G_N_ELEMENTS(modes);
     iu = user->buser->ui_data;
 
     for (l = iu->irc->channels; l != NULL; l = l->next) {
         ic  = l->data;
         icu = irc_channel_has_user(ic, iu);
+        fgs = mode;
 
         if (icu == NULL)
             continue;
 
         if (override) {
-            for (flags = mode, i = 3; i >= 0; i--) {
-                flag = 1 << i;
-
-                if (mode & flag)
-                    break;
-
-                if (icu->flags & flag)
-                    flags |= flag;
+            for (i = 0; (i < mize) && !(mode & modes[i]); i++) {
+                if (icu->flags & modes[i])
+                    fgs |= modes[i];
             }
         } else {
-            flags = icu->flags | mode;
+            fgs |= icu->flags;
         }
 
-        irc_channel_user_set_mode(ic, iu, flags);
+        irc_channel_user_set_mode(ic, iu, fgs);
     }
 }
 
