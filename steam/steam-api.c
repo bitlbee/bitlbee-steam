@@ -163,12 +163,12 @@ void steam_api_refresh(SteamApi *api)
  **/
 static void steam_api_json_error(SteamApiReq *req, const json_value *json)
 {
-    json_value  *jv;
     const gchar *str;
+    gboolean     bool;
     gint64       in;
     gint         code;
 
-    if (steam_json_str(json, "error", &str)) {
+    if (steam_json_str_chk(json, "error", &str)) {
         if (g_ascii_strcasecmp(str, "OK") == 0)
             return;
 
@@ -188,22 +188,24 @@ static void steam_api_json_error(SteamApiReq *req, const json_value *json)
         return;
     }
 
-    if (steam_json_val(json, "success", json_boolean, &jv) && !jv->u.boolean) {
-        if (steam_json_bool(json, "captcha_needed"))
+    if (steam_json_bool_chk(json, "success", &bool) && !bool) {
+        if (steam_json_bool_chk(json, "captcha_needed", &bool) && bool)
             code = STEAM_API_ERROR_CAPTCHA;
-        else if (steam_json_bool(json, "emailauth_needed"))
+        else if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool)
             code = STEAM_API_ERROR_STEAMGUARD;
         else
             code = STEAM_API_ERROR_UNKNOWN;
 
-        if (!steam_json_str(json, "message", &str))
+        if (!steam_json_str_chk(json, "message", &str))
             str = "Unknown error";
 
         g_set_error(&req->err, STEAM_API_ERROR, code, "%s", str);
         return;
     }
 
-    if (steam_json_int(json, "sectimeout", &in) && (in < STEAM_API_TIMEOUT)) {
+    if (steam_json_int_chk(json, "sectimeout", &in) &&
+        (in < STEAM_API_TIMEOUT))
+    {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
                     "Timeout of %" G_GINT64_FORMAT " too low", in);
         return;
@@ -223,42 +225,42 @@ static void steam_api_json_user_info(SteamUserInfo *info,
     const gchar *tmp;
     gint64       in;
 
-    if (steam_json_str(json, "gameextrainfo", &str)) {
+    if (steam_json_str_chk(json, "gameextrainfo", &str)) {
         g_free(info->game);
 
-        if (steam_json_str(json, "gameid", &tmp) && (tmp != NULL))
+        if (steam_json_str_chk(json, "gameid", &tmp) && (tmp != NULL))
             info->game = g_strdup(str);
         else
             info->game = g_strdup_printf("Non-Steam: %s", str);
     }
 
-    if (steam_json_str(json, "gameserverip", &str)) {
+    if (steam_json_str_chk(json, "gameserverip", &str)) {
         g_free(info->server);
         info->server = g_strdup(str);
     }
 
-    if (steam_json_str(json, "personaname", &str)) {
+    if (steam_json_str_chk(json, "personaname", &str)) {
         g_free(info->nick);
         info->nick = g_strdup(str);
     }
 
-    if (steam_json_str(json, "profileurl", &str)) {
+    if (steam_json_str_chk(json, "profileurl", &str)) {
         g_free(info->profile);
         info->profile = g_strdup(str);
     }
 
-    if (steam_json_str(json, "realname", &str)) {
+    if (steam_json_str_chk(json, "realname", &str)) {
         g_free(info->fullname);
         info->fullname = g_strdup(str);
     }
 
-    if (steam_json_int(json, "lastlogoff", &in))
+    if (steam_json_int_chk(json, "lastlogoff", &in))
         info->ltime = in;
 
-    if (steam_json_int(json, "personastate", &in))
+    if (steam_json_int_chk(json, "personastate", &in))
         info->state = in;
 
-    if (steam_json_int(json, "personastateflags", &in))
+    if (steam_json_int_chk(json, "personastateflags", &in))
         info->flags = in;
 }
 
@@ -275,27 +277,27 @@ static void steam_api_json_user_info_js(SteamUserInfo *info,
     const gchar *tmp;
     gint64       in;
 
-    if (steam_json_str(json, "m_strInGameName", &str)) {
+    if (steam_json_str_chk(json, "m_strInGameName", &str)) {
         g_free(info->game);
 
-        if (steam_json_str(json, "m_nInGameAppID", &tmp) && (tmp != NULL))
+        if (steam_json_str_chk(json, "m_nInGameAppID", &tmp) && (tmp != NULL))
             info->game = g_strdup(str);
         else
             info->game = g_strdup_printf("Non-Steam: %s", str);
     }
 
-    if (steam_json_str(json, "m_strName", &str)) {
+    if (steam_json_str_chk(json, "m_strName", &str)) {
         g_free(info->nick);
         info->nick = g_strdup(str);
     }
 
-    if (steam_json_int(json, "m_ePersonaState", &in))
+    if (steam_json_int_chk(json, "m_ePersonaState", &in))
         info->state = in;
 
-    if (steam_json_int(json, "m_tsLastMessage", &in))
+    if (steam_json_int_chk(json, "m_tsLastMessage", &in))
         info->mtime = in;
 
-    if (steam_json_int(json, "m_tsLastView", &in))
+    if (steam_json_int_chk(json, "m_tsLastView", &in))
         info->vtime = in;
 }
 
@@ -483,17 +485,17 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
     const gchar *str;
     GHashTable  *prms;
 
-    if (steam_json_str(json, "captcha_gid", &str)) {
+    if (steam_json_str_chk(json, "captcha_gid", &str)) {
         g_free(req->api->cgid);
         req->api->cgid = g_strdup(str);
     }
 
-    if (steam_json_str(json, "emailsteamid", &str)) {
+    if (steam_json_str_chk(json, "emailsteamid", &str)) {
         g_free(req->api->esid);
         req->api->esid = g_strdup(str);
     }
 
-    if (!steam_json_val(json, "oauth", json_string, &jv)) {
+    if (!steam_json_val_chk(json, "oauth", json_string, &jv)) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
                     "Failed to obtain OAuth data");
         return;
@@ -504,7 +506,7 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
     if ((jp == NULL) || (req->err != NULL))
         return;
 
-    if (steam_json_str(jp, "oauth_token", &str)) {
+    if (steam_json_str_chk(jp, "oauth_token", &str)) {
         g_free(req->api->token);
         req->api->token = g_strdup(str);
     }
@@ -648,15 +650,13 @@ static void steam_api_cb_friends(SteamApiReq *req, const json_value *json)
     const gchar   *str;
     guint          i;
 
-    if (!steam_json_val(json, "friends", json_array, &jv))
+    if (!steam_json_array_chk(json, "friends", &jv))
         return;
 
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        steam_json_str(je, "relationship", &str);
-
-        if (str == NULL)
+        if (!steam_json_str_chk(je, "relationship", &str))
             continue;
 
         if (g_ascii_strcasecmp(str, "friend") == 0)
@@ -666,7 +666,7 @@ static void steam_api_cb_friends(SteamApiReq *req, const json_value *json)
         else
             continue;
 
-        if (!steam_json_str(je, "steamid", &str))
+        if (!steam_json_str_chk(je, "steamid", &str))
             continue;
 
         info = steam_user_info_new_str(str);
@@ -711,17 +711,17 @@ static void steam_api_cb_key(SteamApiReq *req, const json_value *json)
 {
     const gchar *str;
 
-    if (steam_json_str(json, "publickey_mod", &str)) {
+    if (steam_json_str_chk(json, "publickey_mod", &str)) {
         g_free(req->api->pkmod);
         req->api->pkmod = g_strdup(str);
     }
 
-    if (steam_json_str(json, "publickey_exp", &str)) {
+    if (steam_json_str_chk(json, "publickey_exp", &str)) {
         g_free(req->api->pkexp);
         req->api->pkexp = g_strdup(str);
     }
 
-    if (steam_json_str(json, "timestamp", &str)) {
+    if (steam_json_str_chk(json, "timestamp", &str)) {
         g_free(req->api->pktime);
         req->api->pktime = g_strdup(str);
     }
@@ -789,23 +789,19 @@ void steam_api_req_logoff(SteamApiReq *req)
 static void steam_api_cb_logon(SteamApiReq *req, const json_value *json)
 {
     const gchar *str;
-    gint64       in;
 
-    if (!steam_json_scmp(json, "steamid", req->api->id->steam.s, &str)) {
+    if (steam_json_str_chk(json, "steamid", &str)) {
         steam_user_id_free(req->api->id);
         req->api->id = steam_user_id_new_str(str);
     }
 
-    if (!steam_json_scmp(json, "umqid", req->api->umqid, &str)) {
+    if (steam_json_str_chk(json, "umqid", &str)) {
         g_free(req->api->umqid);
         req->api->umqid = g_strdup(str);
     }
 
-    steam_json_int(json, "message", &in);
-    req->api->lmid = in;
-
-    steam_json_int(json, "utc_timestamp", &in);
-    req->api->time = in;
+    req->api->lmid = steam_json_int(json, "message");
+    req->api->time = steam_json_int(json, "utc_timestamp");
 
     /* Ensure the #SteamApi online state */
     req->api->online = TRUE;
@@ -923,19 +919,22 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
     gint64           in;
     guint            i;
 
-    if (steam_json_int(json, "messagelast", &in) && (in == req->api->lmid))
+    if (!steam_json_int_chk(json, "messagelast", &in) || (in == req->api->lmid))
         return;
 
     req->api->lmid = in;
 
-    if (!steam_json_val(json, "messages", json_array, &jv))
+    if (!steam_json_array_chk(json, "messages", &jv))
         return;
 
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (steam_json_scmp(je, "steamid_from", req->api->id->steam.s, &str))
+        if (!steam_json_str_chk(je, "steamid_from", &str) ||
+            (g_strcmp0(str, req->api->id->steam.s) == 0))
+        {
             continue;
+        }
 
         in   = g_ascii_strtoll(str, NULL, 10);
         type = STEAM_USER_ID_TYPE(in);
@@ -945,17 +944,15 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
             continue;
 
         msg = steam_user_msg_new_str(str);
-
-        steam_json_str(je, "type", &str);
-        steam_json_int(je, "utc_timestamp", &in);
+        str = steam_json_str(je, "type");
 
         msg->type = steam_user_msg_type_from_str(str);
-        msg->time = in;
+        msg->time = steam_json_int(je, "utc_timestamp");
 
         switch (msg->type) {
         case STEAM_USER_MSG_TYPE_SAYTEXT:
         case STEAM_USER_MSG_TYPE_EMOTE:
-            steam_json_str(je, "text", &str);
+            str = steam_json_str(je, "text");
             msg->text = g_strdup(str);
             break;
 
@@ -1070,9 +1067,9 @@ static void steam_api_cb_user_add(SteamApiReq *req, const json_value *json)
 {
     json_value *jv;
 
-    steam_json_val(json, "failed_invites_result", json_array, &jv);
+    jv = steam_json_array(json, "failed_invites_result");
 
-    if (jv->u.array.length > 0) {
+    if ((jv == NULL) || (jv->u.array.length > 0)) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
                     "Failed to add friend");
         return;
@@ -1128,7 +1125,7 @@ static void steam_api_cb_user_chatlog(SteamApiReq *req, const json_value *json)
 
     for (i = 0; i < json->u.array.length; i++) {
         jv = json->u.array.values[i];
-        steam_json_int(jv, "m_unAccountID", &in);
+        in = steam_json_int(jv, "m_unAccountID");
 
         if (in == req->api->id->commu.i)
             continue;
@@ -1139,12 +1136,10 @@ static void steam_api_cb_user_chatlog(SteamApiReq *req, const json_value *json)
 
         msg = steam_user_msg_new(in);
         msg->type = STEAM_USER_MSG_TYPE_SAYTEXT;
+        msg->time = steam_json_int(jv, "m_tsTimestamp");
 
-        steam_json_str(jv, "m_strMessage",  &str);
+        str = steam_json_str(jv, "m_strMessage");
         msg->text = g_strdup(str);
-
-        steam_json_int(jv, "m_tsTimestamp", &in);
-        msg->time = in;
 
         g_queue_push_tail(req->msgs, msg);
         g_queue_push_tail(req->infs, msg->info);
@@ -1245,7 +1240,7 @@ static void steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
     GList         *n;
     guint          i;
 
-    if ((!steam_json_val(json, "players", json_array, &jv) ||
+    if ((!steam_json_array_chk(json, "players", &jv) ||
          (jv->u.array.length < 1)) && (req->infs != NULL))
     {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
@@ -1256,7 +1251,7 @@ static void steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (!steam_json_str(je, "steamid", &str))
+        if (!steam_json_str_chk(je, "steamid", &str))
             continue;
 
         for (l = req->infr->head; l != NULL; l = n) {
@@ -1394,7 +1389,7 @@ static void steam_api_cb_user_info_extra(SteamApiReq *req,
     for (i = 0; i < jp->u.array.length; i++) {
         je = jp->u.array.values[i];
 
-        if (!steam_json_int(je, "m_unAccountID", &in))
+        if (!steam_json_int_chk(je, "m_unAccountID", &in))
             continue;
 
         info = g_hash_table_lookup(ght, &in);
@@ -1445,7 +1440,7 @@ static void steam_api_cb_user_info_nicks(SteamApiReq *req,
     for (i = 0; i < json->u.array.length; i++) {
         je = json->u.array.values[i];
 
-        if (!steam_json_str(je, "newname", &str))
+        if (!steam_json_str_chk(je, "newname", &str))
             continue;
 
         if (g_strcmp0(str, info->nick) != 0)
@@ -1564,21 +1559,24 @@ static void steam_api_cb_user_search(SteamApiReq *req, const json_value *json)
     const gchar   *str;
     guint          i;
 
-    if (!steam_json_val(json, "results", json_array, &jv))
+    if (!steam_json_array_chk(json, "results", &jv))
         return;
 
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (!steam_json_scmp(je, "type", "user", &str))
+        if (!steam_json_str_chk(je, "type", &str) ||
+            (g_strcmp0(str, "user") != 0))
+        {
             continue;
+        }
 
-        if (!steam_json_str(je, "steamid", &str))
+        if (!steam_json_str_chk(je, "steamid", &str))
             continue;
 
         info = steam_user_info_new_str(str);
 
-        steam_json_str(je, "matchingtext", &str);
+        str = steam_json_str(je, "matchingtext");
         info->nick = g_strdup(str);
 
         g_queue_push_tail(req->infs, info);

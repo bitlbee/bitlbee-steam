@@ -43,18 +43,31 @@ GQuark steam_json_error_quark(void);
 
 json_value *steam_json_new(const gchar *data, gsize length, GError **err);
 
-gboolean steam_json_val(const json_value *json, const gchar *name,
-                        json_type type, json_value **val);
+json_value *steam_json_val(const json_value *json, const gchar *name,
+                           json_type type);
+
+gboolean steam_json_val_chk(const json_value *json, const gchar *name,
+                            json_type type, json_value **val);
+
+json_value *steam_json_array(const json_value *json, const gchar *name);
+
+gboolean steam_json_array_chk(const json_value *json, const gchar *name,
+                              json_value **val);
 
 gboolean steam_json_bool(const json_value *json, const gchar *name);
 
-gboolean steam_json_int(const json_value *json, const gchar *name, gint64 *i);
+gboolean steam_json_bool_chk(const json_value *json, const gchar *name,
+                             gboolean *val);
 
-gboolean steam_json_str(const json_value *json, const gchar *name,
-                        const gchar **str);
+gint64 steam_json_int(const json_value *json, const gchar *name);
 
-gboolean steam_json_scmp(const json_value *json, const gchar *name,
-                         const gchar *match, const gchar **str);
+gboolean steam_json_int_chk(const json_value *json, const gchar *name,
+                            gint64 *val);
+
+const gchar *steam_json_str(const json_value *json, const gchar *name);
+
+gboolean steam_json_str_chk(const json_value *json, const gchar *name,
+                            const gchar **val);
 
 GHashTable *steam_json_table(const json_value *json);
 

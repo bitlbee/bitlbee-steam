@@ -78,12 +78,33 @@ json_value *steam_json_new(const gchar *data, gsize length, GError **err)
  * @param json The #json_value.
  * @param name The name.
  * @param type The #json_type.
+ *
+ * @return The json_value if found, otherwise NULL.
+ **/
+json_value *steam_json_val(const json_value *json, const gchar *name,
+                           json_type type)
+{
+    json_value *val;
+
+    if (!steam_json_val_chk(json, name, type, &val))
+        return NULL;
+
+    return val;
+}
+
+/**
+ * Gets a #json_value by name from a parent #json_value, and checks
+ * for its existence and type.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ * @param type The #json_type.
  * @param val  The return location for the value.
  *
  * @return TRUE if the value was found, or FALSE on error.
  **/
-gboolean steam_json_val(const json_value *json, const gchar *name,
-                        json_type type, json_value **val)
+gboolean steam_json_val_chk(const json_value *json, const gchar *name,
+                            json_type type, json_value **val)
 {
     g_return_val_if_fail(json != NULL, FALSE);
     g_return_val_if_fail(name != NULL, FALSE);
@@ -91,7 +112,47 @@ gboolean steam_json_val(const json_value *json, const gchar *name,
 
     *val = json_o_get(json, name);
 
-    return ((*val != NULL) && ((*val)->type == type));
+    if ((*val == NULL) || ((*val)->type != type)) {
+        *val = NULL;
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+/**
+ * Gets an array by name from a parent #json_value.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ *
+ * @return The #json_value if found, otherwise NULL.
+ **/
+json_value *steam_json_array(const json_value *json, const gchar *name)
+{
+    json_value *val;
+
+    if (!steam_json_array_chk(json, name, &val))
+        return NULL;
+
+    return val;
+}
+
+/**
+ * Gets an array by name from a parent #json_value, and checks for its
+ * existence and type.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ * @param type The #json_type.
+ * @param val  The return location for the value.
+ *
+ * @return TRUE if the value was found, or FALSE on error.
+ **/
+gboolean steam_json_array_chk(const json_value *json, const gchar *name,
+                              json_value **val)
+{
+    return steam_json_val_chk(json, name, json_array, val);
 }
 
 /**
@@ -100,16 +161,42 @@ gboolean steam_json_val(const json_value *json, const gchar *name,
  * @param json The #json_value.
  * @param name The name.
  *
- * @return TRUE if the value was found, or FALSE on error.
+ * @return The boolean value if found, otherwise FALSE.
  **/
 gboolean steam_json_bool(const json_value *json, const gchar *name)
 {
-    json_value *jv;
+    gboolean val;
 
-    if (!steam_json_val(json, name, json_boolean, &jv))
+    if (!steam_json_bool_chk(json, name, &val))
         return FALSE;
 
-    return jv->u.boolean;
+    return val;
+}
+
+/**
+ * Gets a boolean value by name from a parent #json_value, and checks
+ * for its existence and type.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ * @param val  The return location for the value.
+ *
+ * @return The boolean value if found, otherwise FALSE.
+ **/
+gboolean steam_json_bool_chk(const json_value *json, const gchar *name,
+                             gboolean *val)
+{
+    json_value *jv;
+
+    g_return_val_if_fail(val != NULL, FALSE);
+
+    if (!steam_json_val_chk(json, name, json_boolean, &jv)) {
+        *val = FALSE;
+        return FALSE;
+    }
+
+    *val = jv->u.boolean;
+    return TRUE;
 }
 
 /**
@@ -117,22 +204,42 @@ gboolean steam_json_bool(const json_value *json, const gchar *name)
  *
  * @param json The #json_value.
  * @param name The name.
- * @param i    The return location for the value.
+ *
+ * @return The integer value if found, otherwise 0.
+ **/
+gint64 steam_json_int(const json_value *json, const gchar *name)
+{
+    gint64 val;
+
+    if (!steam_json_int_chk(json, name, &val))
+        return 0;
+
+    return val;
+}
+
+/**
+ * Gets a integer value by name from a parent #json_value, and checks
+ * for its existence and type.
+ *
+ * @param json The #json_value.
+ * @param name The name.
+ * @param val  The return location for the value.
  *
  * @return TRUE if the value was found, or FALSE on error.
  **/
-gboolean steam_json_int(const json_value *json, const gchar *name, gint64 *i)
+gboolean steam_json_int_chk(const json_value *json, const gchar *name,
+                            gint64 *val)
 {
     json_value *jv;
 
-    g_return_val_if_fail(i != NULL, FALSE);
+    g_return_val_if_fail(val != NULL, FALSE);
 
-    *i = 0;
-
-    if (!steam_json_val(json, name, json_integer, &jv))
+    if (!steam_json_val_chk(json, name, json_integer, &jv)) {
+        *val = 0;
         return FALSE;
+    }
 
-    *i = jv->u.integer;
+    *val = jv->u.integer;
     return TRUE;
 }
 
@@ -141,47 +248,43 @@ gboolean steam_json_int(const json_value *json, const gchar *name, gint64 *i)
  *
  * @param json The #json_value.
  * @param name The name.
- * @param str  The return location for the value.
  *
- * @return TRUE if the value was found, or FALSE on error.
+ * @return The string value if found, otherwise NULL.
  **/
-gboolean steam_json_str(const json_value *json, const gchar *name,
-                        const gchar **str)
+const gchar *steam_json_str(const json_value *json, const gchar *name)
 {
-    json_value *jv;
+    const gchar *val;
 
-    g_return_val_if_fail(str != NULL, FALSE);
+    if (!steam_json_str_chk(json, name, &val))
+        return NULL;
 
-    *str = NULL;
-
-    if (!steam_json_val(json, name, json_string, &jv) ||
-        (jv->u.string.length < 1))
-    {
-        return FALSE;
-    }
-
-    *str = jv->u.string.ptr;
-    return TRUE;
+    return val;
 }
 
 /**
- * Gets a string value by name from a parent #json_value, and compares
- * the value. This matches case insensitively.
+ * Gets a string value by name from a parent #json_value, and checks
+ * for its existence and type.
  *
- * @param json  The #json_value.
- * @param name  The name.
- * @param match The string to compare.
- * @param str   The return location for the value.
+ * @param json The #json_value.
+ * @param name The name.
+ * @param val  The return location for the value.
  *
- * @return TRUE if the value was found and matches, or FALSE on error.
+ * @return TRUE if the value was found, or FALSE on error.
  **/
-gboolean steam_json_scmp(const json_value *json, const gchar *name,
-                         const gchar *match, const gchar **str)
+gboolean steam_json_str_chk(const json_value *json, const gchar *name,
+                            const gchar **val)
 {
-    if (!steam_json_str(json, name, str))
-        return FALSE;
+    json_value *jv;
 
-    return ((match != NULL) && (g_ascii_strcasecmp(match, *str) == 0));
+    g_return_val_if_fail(val != NULL, FALSE);
+
+    if (!steam_json_val_chk(json, name, json_string, &jv)) {
+        *val = NULL;
+        return FALSE;
+    }
+
+    *val = jv->u.string.ptr;
+    return TRUE;
 }
 
 /**
@@ -272,8 +375,7 @@ GHashTable *steam_json_table(const json_value *json)
 
     g_return_val_if_fail(json != NULL, NULL);
 
-    table = g_hash_table_new_full(g_str_hash, (GEqualFunc) g_ascii_strcasecmp,
-                                  g_free, g_free);;
+    table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 
     if (json->type == json_object)
         steam_json_table_fill(table, NULL, json);
