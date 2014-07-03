@@ -59,6 +59,9 @@ typedef enum _SteamApiError SteamApiError;
 /** The flags of #SteamApiReq. **/
 typedef enum _SteamApiReqFlags SteamApiReqFlags;
 
+/** The accept type of a #SteamUser. **/
+typedef enum _SteamApiAcceptType SteamApiAcceptType;
+
 /** The structure for interacting with the Steam API. **/
 typedef struct _SteamApi SteamApi;
 
@@ -102,6 +105,16 @@ enum _SteamApiError
 enum _SteamApiReqFlags
 {
     STEAM_API_REQ_FLAG_NOJSON = 1 << 0 /** Skip JSON parsing **/
+};
+
+/**
+ * The accept type of a Steam friend.
+ **/
+enum _SteamApiAcceptType
+{
+    STEAM_API_ACCEPT_TYPE_DEFAULT = 0, /** Accept **/
+    STEAM_API_ACCEPT_TYPE_BLOCK,       /** Block **/
+    STEAM_API_ACCEPT_TYPE_IGNORE       /** Ignore **/
 };
 
 /**
@@ -189,7 +202,7 @@ void steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg);
 void steam_api_req_poll(SteamApiReq *req);
 
 void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
-                               const gchar *action);
+                               SteamApiAcceptType type);
 
 void steam_api_req_user_add(SteamApiReq *req, const SteamUserId *id);
 

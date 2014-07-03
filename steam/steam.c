@@ -1124,7 +1124,7 @@ static void steam_auth_allow(struct im_connection *ic, const char *who)
     id  = steam_user_id_new_str(who);
     req = steam_api_req_new(sata->api, steam_user_action, sata);
 
-    steam_api_req_user_accept(req, id, "accept");
+    steam_api_req_user_accept(req, id, STEAM_API_ACCEPT_TYPE_DEFAULT);
     steam_user_id_free(id);
 }
 
@@ -1143,7 +1143,7 @@ static void steam_auth_deny(struct im_connection *ic, const char *who)
     id  = steam_user_id_new_str(who);
     req = steam_api_req_new(sata->api, steam_user_action, sata);
 
-    steam_api_req_user_accept(req, id, "ignore");
+    steam_api_req_user_accept(req, id, STEAM_API_ACCEPT_TYPE_IGNORE);
     steam_user_id_free(id);
 }
 

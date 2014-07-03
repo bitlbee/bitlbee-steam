@@ -956,8 +956,11 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
             msg->text = g_strdup(str);
             break;
 
-        case STEAM_USER_MSG_TYPE_STATE:
         case STEAM_USER_MSG_TYPE_RELATIONSHIP:
+            msg->info->act = steam_json_int(je, "persona_state");
+            break;
+
+        case STEAM_USER_MSG_TYPE_STATE:
         case STEAM_USER_MSG_TYPE_TYPING:
         case STEAM_USER_MSG_TYPE_LEFT_CONV:
             break;
@@ -1019,18 +1022,28 @@ void steam_api_req_poll(SteamApiReq *req)
  * Sends a friend accept request. If someone has requested friendship
  * with the #SteamApi user, this will accept the friendship request.
  *
- * @param req The #SteamApiReq.
- * @param id  The #SteamUserId.
+ * @param req  The #SteamApiReq.
+ * @param id   The #SteamUserId.
+ * @param type The #SteamApiAcceptType.
  **/
 void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
-                               const gchar *action)
+                               SteamApiAcceptType type)
 {
     SteamUserInfo *info;
+    const gchar   *sct;
     gchar         *url;
 
     g_return_if_fail(req != NULL);
     g_return_if_fail(id  != NULL);
 
+    static const SteamUtilEnum enums[] = {
+        {STEAM_API_ACCEPT_TYPE_DEFAULT, "accept"},
+        {STEAM_API_ACCEPT_TYPE_BLOCK,   "block"},
+        {STEAM_API_ACCEPT_TYPE_IGNORE,  "ignore"},
+        {0, NULL}
+    };
+
+    sct = steam_util_enum_ptr(enums, NULL, type);
     url = g_strdup_printf("%s%s/home_process", STEAM_COM_PATH_PROFILE,
                           req->api->id->steam.s);
 
@@ -1043,7 +1056,7 @@ void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionID", req->api->sessid),
         STEAM_HTTP_PAIR("id",        id->steam.s),
-        STEAM_HTTP_PAIR("perform",   action),
+        STEAM_HTTP_PAIR("perform",   sct),
         STEAM_HTTP_PAIR("action",    "approvePending"),
         STEAM_HTTP_PAIR("itype",     "friend"),
         STEAM_HTTP_PAIR("json",      "1"),
@@ -1065,11 +1078,9 @@ void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
  **/
 static void steam_api_cb_user_add(SteamApiReq *req, const json_value *json)
 {
-    json_value *jv;
+    gint64 in;
 
-    jv = steam_json_array(json, "failed_invites_result");
-
-    if ((jv == NULL) || (jv->u.array.length > 0)) {
+    if (!steam_json_int_chk(json, "success", &in) || (in == 0)) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
                     "Failed to add friend");
         return;
@@ -1100,8 +1111,9 @@ void steam_api_req_user_add(SteamApiReq *req, const SteamUserId *id)
     steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_FRIEND_ADD);
 
     steam_http_req_params_set(req->req,
-        STEAM_HTTP_PAIR("sessionID", req->api->sessid),
-        STEAM_HTTP_PAIR("steamid",   id->steam.s),
+        STEAM_HTTP_PAIR("sessionID",     req->api->sessid),
+        STEAM_HTTP_PAIR("steamid",       id->steam.s),
+        STEAM_HTTP_PAIR("accept_invite", "0"),
         NULL
     );
 
@@ -1504,7 +1516,7 @@ void steam_api_req_user_info_nicks(SteamApiReq *req)
  **/
 static void steam_api_cb_user_remove(SteamApiReq *req, const json_value *json)
 {
-    if ((req->req->body_size > 0) && bool2int(req->req->body)) {
+    if ((req->req->body_size < 1) || !bool2int(req->req->body)) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
                     "Failed to remove user");
         return;
