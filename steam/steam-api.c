@@ -166,7 +166,7 @@ static void steam_api_json_error(SteamApiReq *req, const json_value *json)
     const gchar *str;
     gboolean     bool;
     gint64       in;
-    gint         code;
+    guint        errc;
 
     if (steam_json_str_chk(json, "error", &str)) {
         if (g_ascii_strcasecmp(str, "OK") == 0)
@@ -178,28 +178,28 @@ static void steam_api_json_error(SteamApiReq *req, const json_value *json)
         if (g_ascii_strcasecmp(str, "Not Logged On") == 0) {
             req->api->online = FALSE;
 
-            code = STEAM_API_ERROR_EXPRIED;
+            errc = STEAM_API_ERROR_EXPRIED;
             str  = "Session expired";
         } else {
-            code = STEAM_API_ERROR_GENERAL;
+            errc = STEAM_API_ERROR_GENERAL;
         }
 
-        g_set_error(&req->err, STEAM_API_ERROR, code, "%s", str);
+        g_set_error(&req->err, STEAM_API_ERROR, errc, "%s", str);
         return;
     }
 
     if (steam_json_bool_chk(json, "success", &bool) && !bool) {
         if (steam_json_bool_chk(json, "captcha_needed", &bool) && bool)
-            code = STEAM_API_ERROR_CAPTCHA;
-        else if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool)
-            code = STEAM_API_ERROR_STEAMGUARD;
-        else
-            code = STEAM_API_ERROR_UNKNOWN;
+            return;
+
+        if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool)
+            return;
 
         if (!steam_json_str_chk(json, "message", &str))
             str = "Unknown error";
 
-        g_set_error(&req->err, STEAM_API_ERROR, code, "%s", str);
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_UNKNOWN,
+                    "%s", str);
         return;
     }
 
@@ -484,15 +484,31 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
     json_value  *jv;
     const gchar *str;
     GHashTable  *prms;
+    gboolean     bool;
+    guint        errc;
 
-    if (steam_json_str_chk(json, "captcha_gid", &str)) {
-        g_free(req->api->cgid);
-        req->api->cgid = g_strdup(str);
-    }
+    if (steam_json_bool_chk(json, "success", &bool) && !bool) {
+        if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool) {
+            errc = STEAM_API_ERROR_STEAMGUARD;
+            str  = steam_json_str(json, "emailsteamid");
 
-    if (steam_json_str_chk(json, "emailsteamid", &str)) {
-        g_free(req->api->esid);
-        req->api->esid = g_strdup(str);
+            g_free(req->api->esid);
+            req->api->esid = g_strdup(str);
+        } else if (steam_json_bool_chk(json, "captcha_needed", &bool) && bool) {
+            errc = STEAM_API_ERROR_CAPTCHA;
+            str  = steam_json_str(json, "captcha_gid");
+
+            g_free(req->api->cgid);
+            req->api->cgid = g_strdup(str);
+        } else {
+            errc = STEAM_API_ERROR_UNKNOWN;
+        }
+
+        if (G_LIKELY(errc != STEAM_API_ERROR_UNKNOWN)) {
+            str = steam_json_str(json, "message");
+            g_set_error(&req->err, STEAM_API_ERROR, errc, str);
+            return;
+        }
     }
 
     if (!steam_json_val_chk(json, "oauth", json_string, &jv)) {
