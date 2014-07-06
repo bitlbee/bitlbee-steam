@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include "steam-http.h"
+#include "steam-util.h"
 
 /**
  * Gets the error domain for #SteamHttp.
@@ -52,7 +53,7 @@ SteamHttp *steam_http_new(const gchar *agent)
     http->agent   = g_strdup(agent);
     http->reqs    = g_hash_table_new(g_direct_hash, g_direct_equal);
     http->cookies = g_hash_table_new_full(g_str_hash,
-                                          (GEqualFunc) g_ascii_strcasecmp,
+                                          (GEqualFunc) steam_util_str_iequal,
                                           g_free, g_free);
     return http;
 }
@@ -306,10 +307,10 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     req->data = data;
 
     req->headers = g_hash_table_new_full(g_str_hash,
-                                         (GEqualFunc) g_ascii_strcasecmp,
+                                         (GEqualFunc) steam_util_str_iequal,
                                          g_free, g_free);
     req->params  = g_hash_table_new_full(g_str_hash,
-                                         (GEqualFunc) g_ascii_strcasecmp,
+                                         (GEqualFunc) steam_util_str_iequal,
                                          g_free, g_free);
 
     steam_http_req_headers_set(req,

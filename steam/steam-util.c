@@ -244,6 +244,20 @@ gchar *steam_util_rsa_encrypt(const gchar *pkmod, const gchar *pkexp,
 }
 
 /**
+ * Compare two strings case insensitively. This is useful for where
+ * the return value must be a boolean, such as with a #GEqualFunc.
+ *
+ * @param s1 The first string.
+ * @param s2 The second string.
+ *
+ * @return TRUE if the strings are equal, otherwise FALSE.
+ **/
+gboolean steam_util_str_iequal(const gchar *s1, const gchar *s2)
+{
+    return g_ascii_strcasecmp(s1, s2) == 0;
+}
+
+/**
  * Gets the string representation of a timespan. The returned string
  * should be freed with #g_free() when no longer needed.
  *

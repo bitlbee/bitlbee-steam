@@ -59,6 +59,8 @@ guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
 gchar *steam_util_rsa_encrypt(const gchar *pkmod, const gchar *pkexp,
                               const gchar *str);
 
+gboolean steam_util_str_iequal(const gchar *s1, const gchar *s2);
+
 gchar *steam_util_time_span_str(GTimeSpan span);
 
 gchar *steam_util_time_since_utc(gint64 timestamp);
