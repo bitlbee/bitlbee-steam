@@ -105,6 +105,85 @@ guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
 }
 
 /**
+ * Unescapes text that has been escaped with XML entities. This has been
+ * implemented as there is no g_markup_unescape_text(). The returned
+ * string should be freed with #g_free() when no longer needed.
+ *
+ * @param text The text.
+ *
+ * @return The unescaped string or NULL on error.
+ **/
+gchar *steam_util_markup_unescape_text(const gchar *text)
+{
+    gchar   *head;
+    gchar   *tail;
+    gchar   *amp;
+    gchar   *col;
+    gchar   *val;
+    gchar   *end;
+    gsize    size;
+    gsize    len;
+    guint32  chr;
+    guint    i;
+
+    static const gchar *ents[][2] = {
+        {"amp",  "&"},
+        {"apos", "'"},
+        {"gt",   ">"},
+        {"lt",   "<"},
+        {"quot", "\""}
+    };
+
+    g_return_val_if_fail(text != NULL, NULL);
+
+    head = g_strdup(text);
+    size = strlen(head) + 1;
+    tail = size + head;
+
+    for (amp = strchr(head, '&'); amp != NULL; amp = strchr(++amp, '&')) {
+        val = amp + 1;
+        col = strchr(val, ';');
+        chr = 0;
+        end = NULL;
+
+        if ((val[0] == 0) || (col == NULL))
+            break;
+
+        if (val[0] != '#') {
+            for (i = 0; i < G_N_ELEMENTS(ents); i++) {
+                len = strlen(ents[i][0]);
+
+                if (strncmp(val, ents[i][0], len) == 0) {
+                    chr = ents[i][1][0];
+                    end = val + len;
+                    break;
+                }
+            }
+        } else {
+            if (g_ascii_tolower(val[1]) == 'x')
+                chr = g_ascii_strtoull(val + 2, &end, 16);
+            else
+                chr = g_ascii_strtoull(val + 1, &end, 10);
+        }
+
+        /* Ignore Unicode as nothing internal uses it. */
+        if ((end == col) && (chr <= 127)) {
+            g_strlcpy(amp + 1, col + 1, tail - col);
+
+            amp[0]  = chr;
+            tail   -= (col - val) + 1;
+        }
+    }
+
+    len = tail - head;
+
+    if (len < size)
+        head = g_realloc(head, len);
+
+    return head;
+}
+
+/**
  * Pads a string for PKCS (RSA) processing.
  *
  * @param op  The output integer.

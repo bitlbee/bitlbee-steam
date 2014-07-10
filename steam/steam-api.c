@@ -228,7 +228,7 @@ static void steam_api_json_user_info(SteamUserInfo *info,
     if (steam_json_str_chk(json, "gameextrainfo", &str)) {
         g_free(info->game);
 
-        if (steam_json_str_chk(json, "gameid", &tmp) && (tmp != NULL))
+        if (steam_json_str_chk(json, "gameid", &tmp))
             info->game = g_strdup(str);
         else
             info->game = g_strdup_printf("Non-Steam: %s", str);
@@ -275,20 +275,24 @@ static void steam_api_json_user_info_js(SteamUserInfo *info,
 {
     const gchar *str;
     const gchar *tmp;
+    gchar       *dtr;
     gint64       in;
 
     if (steam_json_str_chk(json, "m_strInGameName", &str)) {
         g_free(info->game);
 
-        if (steam_json_str_chk(json, "m_nInGameAppID", &tmp) && (tmp != NULL))
-            info->game = g_strdup(str);
-        else
-            info->game = g_strdup_printf("Non-Steam: %s", str);
+        if (steam_json_str_chk(json, "m_nInGameAppID", &tmp)) {
+            info->game = steam_util_markup_unescape_text(str);
+        } else {
+            dtr = steam_util_markup_unescape_text(str);
+            info->game = g_strdup_printf("Non-Steam: %s", dtr);
+            g_free(dtr);
+        }
     }
 
     if (steam_json_str_chk(json, "m_strName", &str)) {
         g_free(info->nick);
-        info->nick = g_strdup(str);
+        info->nick = steam_util_markup_unescape_text(str);
     }
 
     if (steam_json_int_chk(json, "m_ePersonaState", &in))

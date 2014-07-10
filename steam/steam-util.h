@@ -56,6 +56,8 @@ gpointer *steam_util_enum_ptrs(const SteamUtilEnum *enums, guint vals);
 guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
                           gconstpointer ptr, GCompareFunc cmpfunc);
 
+gchar *steam_util_markup_unescape_text(const gchar *text);
+
 gchar *steam_util_rsa_encrypt(const gchar *pkmod, const gchar *pkexp,
                               const gchar *str);
 
