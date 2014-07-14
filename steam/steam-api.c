@@ -62,7 +62,7 @@ SteamApi *steam_api_new(const gchar *umqid)
         api->umqid = g_strdup(umqid);
     }
 
-    api->id   = steam_user_id_new(0);
+    api->info = steam_user_info_new(0);
     api->http = steam_http_new(STEAM_API_AGENT);
     api->msgs = g_queue_new();
 
@@ -105,7 +105,7 @@ void steam_api_free(SteamApi *api)
     g_queue_free_full(api->msgs, (GDestroyNotify) steam_api_req_free);
 
     steam_http_free(api->http);
-    steam_user_id_free(api->id);
+    steam_user_info_free(api->info);
     steam_api_free_auth(api);
 
     g_free(api->sessid);
@@ -142,7 +142,7 @@ void steam_api_refresh(SteamApi *api)
 
     g_return_if_fail(api != NULL);
 
-    str = g_strdup_printf("%s||oauth:%s", api->id->steam.s, api->token);
+    str = g_strdup_printf("%s||oauth:%s", api->info->id->steam.s, api->token);
 
     steam_http_cookies_set(api->http,
         STEAM_HTTP_PAIR("steamLogin", str),
@@ -435,8 +435,10 @@ static void steam_api_req_cb(SteamHttpReq *heq, gpointer data)
             json_value_free(json);
     }
 
-    if (req->func != NULL)
+    if (req->func != NULL) {
+        g_queue_remove(req->infs, req->api->info);
         req->func(req, req->data);
+    }
 
     steam_api_req_free(req);
 }
@@ -714,7 +716,7 @@ void steam_api_req_friends(SteamApiReq *req)
 
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("access_token", req->api->token),
-        STEAM_HTTP_PAIR("steamid",      req->api->id->steam.s),
+        STEAM_HTTP_PAIR("steamid",      req->api->info->id->steam.s),
         STEAM_HTTP_PAIR("relationship", "friend,ignoredfriend"),
         NULL
     );
@@ -812,8 +814,9 @@ static void steam_api_cb_logon(SteamApiReq *req, const json_value *json)
     const gchar *str;
 
     if (steam_json_str_chk(json, "steamid", &str)) {
-        steam_user_id_free(req->api->id);
-        req->api->id = steam_user_id_new_str(str);
+        steam_user_info_free(req->api->info);
+        req->api->info = steam_user_info_new_str(str);
+        g_queue_push_tail(req->infs, req->api->info);
     }
 
     if (steam_json_str_chk(json, "umqid", &str)) {
@@ -832,6 +835,9 @@ static void steam_api_cb_logon(SteamApiReq *req, const json_value *json)
         req = g_queue_pop_head(req->api->msgs);
         steam_http_req_send(req->req);
     }
+
+    steam_api_refresh(req->api);
+    steam_api_cb_user_info_req(req, json);
 }
 
 /**
@@ -937,6 +943,7 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
     json_value      *jv;
     json_value      *je;
     const gchar     *str;
+    gboolean         selfie;
     gint64           in;
     guint            i;
 
@@ -944,6 +951,7 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
         return;
 
     req->api->lmid = in;
+    selfie = FALSE;
 
     if (!steam_json_array_chk(json, "messages", &jv))
         return;
@@ -951,9 +959,11 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (!steam_json_str_chk(je, "steamid_from", &str) ||
-            (g_strcmp0(str, req->api->id->steam.s) == 0))
-        {
+        if (!steam_json_str_chk(je, "steamid_from", &str))
+            continue;
+
+        if (g_strcmp0(str, req->api->info->id->steam.s) == 0) {
+            selfie = TRUE;
             continue;
         }
 
@@ -994,6 +1004,9 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
         g_queue_push_tail(req->msgs, msg);
         g_queue_push_tail(req->infs, msg->info);
     }
+
+    if (selfie)
+        g_queue_push_tail(req->infs, req->api->info);
 
     steam_api_cb_user_info_req(req, json);
 }
@@ -1052,7 +1065,8 @@ void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
 {
     SteamUserInfo *info;
     const gchar   *sct;
-    gchar         *url;
+    gchar         *srl;
+    url_t          url;
 
     g_return_if_fail(req != NULL);
     g_return_if_fail(id  != NULL);
@@ -1065,14 +1079,15 @@ void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
     };
 
     sct = steam_util_enum_ptr(enums, NULL, type);
-    url = g_strdup_printf("%s%s/home_process", STEAM_COM_PATH_PROFILE,
-                          req->api->id->steam.s);
+    srl = g_strconcat(req->api->info->profile, "/home_process/", NULL);
+
+    url_set(&url, srl);
 
     info = steam_user_info_new(id->steam.i);
     g_queue_push_head(req->infs, info);
 
     req->punc = steam_api_cb_user_info_req;
-    steam_api_req_init(req, STEAM_COM_HOST, url);
+    steam_api_req_init(req, url.host, url.file);
 
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionID", req->api->sessid),
@@ -1088,7 +1103,7 @@ void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(req->req);
 
-    g_free(url);
+    g_free(srl);
 }
 
 /**
@@ -1160,7 +1175,7 @@ static void steam_api_cb_user_chatlog(SteamApiReq *req, const json_value *json)
         jv = json->u.array.values[i];
         in = steam_json_int(jv, "m_unAccountID");
 
-        if (in == req->api->id->commu.i)
+        if (in == req->api->info->id->commu.i)
             continue;
 
         in = STEAM_USER_ID_NEW(STEAM_USER_ID_UNI_PUBLIC,
@@ -1226,21 +1241,23 @@ void steam_api_req_user_ignore(SteamApiReq *req, const SteamUserId *id,
     SteamUserInfo *info;
     const gchar   *act;
     gchar         *user;
-    gchar         *url;
+    gchar         *srl;
+    url_t          url;
 
     g_return_if_fail(req != NULL);
     g_return_if_fail(id  != NULL);
 
     act  = ignore ? "ignore" : "unignore";
     user = g_strdup_printf("friends[%s]", id->steam.s);
-    url  = g_strdup_printf("%s%s/friends/", STEAM_COM_PATH_PROFILE,
-                           req->api->id->steam.s);
+    srl  = g_strconcat(req->api->info->profile, "/friends/", NULL);
+
+    url_set(&url, srl);
 
     info = steam_user_info_new(id->steam.i);
     g_queue_push_head(req->infs, info);
 
     req->punc = steam_api_cb_user_info_req;
-    steam_api_req_init(req, STEAM_COM_HOST, url);
+    steam_api_req_init(req, url.host, url.file);
 
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("sessionID", req->api->sessid),
@@ -1253,7 +1270,7 @@ void steam_api_req_user_ignore(SteamApiReq *req, const SteamUserId *id,
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(req->req);
 
-    g_free(url);
+    g_free(srl);
     g_free(user);
 }
 

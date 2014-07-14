@@ -56,6 +56,8 @@ SteamData *steam_data_new(account_t *acc)
     str = set_getstr(&acc->set, "show_playing");
     sata->show_playing = steam_user_chan_mode(str);
 
+    steam_api_refresh(sata->api);
+
     return sata;
 }
 
@@ -426,8 +428,6 @@ static void steam_cb_logon(SteamApiReq *req, gpointer data)
     set_setstr(&sata->ic->acc->set, "umqid", req->api->umqid);
     imcb_log(sata->ic, "Requesting friends list");
 
-    steam_api_refresh(req->api);
-
     req = steam_api_req_new(req->api, steam_cb_friends, sata);
     steam_api_req_friends(req);
 }
@@ -444,8 +444,6 @@ static void steam_cb_relogon(SteamApiReq *req, gpointer data)
 
     if (steam_req_error(sata, req, TRUE))
         return;
-
-    steam_api_refresh(req->api);
 
     /* Update the friend list for good measures */
     req = steam_api_req_new(req->api, steam_cb_friends, sata);

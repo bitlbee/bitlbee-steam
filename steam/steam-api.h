@@ -50,7 +50,6 @@
 #define STEAM_COM_PATH_FRIEND_BLOCK  "/actions/BlockUserAjax/"
 #define STEAM_COM_PATH_FRIEND_REMOVE "/actions/RemoveFriendAjax/"
 #define STEAM_COM_PATH_KEY           "/mobilelogin/getrsakey/"
-#define STEAM_COM_PATH_PROFILE       "/profiles/"
 
 
 /** The #GError codes of #SteamApi. **/
@@ -122,24 +121,24 @@ enum _SteamApiAcceptType
  **/
 struct _SteamApi
 {
-    SteamUserId *id;   /** The #SteamFriendId of the user. **/
-    SteamHttp   *http; /** The #SteamHttp for API requests. **/
-    GQueue      *msgs; /** The #GQueue of message based #SteamApiReq. **/
+    SteamUserInfo *info; /** The #SteamUserInfo of the user. **/
+    SteamHttp     *http; /** The #SteamHttp for API requests. **/
+    GQueue        *msgs; /** The #GQueue of message based #SteamApiReq. **/
 
-    gboolean online;   /** The online state of the user. **/
+    gboolean online;     /** The online state of the user. **/
 
-    gchar *umqid;      /** The unique device identifier. **/
-    gchar *token;      /** The session token (mobile requests). **/
-    gchar *sessid;     /** The session identifier (community requests). **/
+    gchar *umqid;        /** The unique device identifier. **/
+    gchar *token;        /** The session token (mobile requests). **/
+    gchar *sessid;       /** The session identifier (community requests). **/
 
-    gint64 lmid;       /** The last message identifier. **/
-    gint64 time;       /** The logon timestamp (UTC). **/
+    gint64 lmid;         /** The last message identifier. **/
+    gint64 time;         /** The logon timestamp (UTC). **/
 
-    gchar *cgid;       /** The captcha GID (authentication). **/
-    gchar *esid;       /** The email SteamID (authentication). **/
-    gchar *pkmod;      /** The PKCS (RSA) modulus (authentication). **/
-    gchar *pkexp;      /** The PKCS (RSA) exponent (authentication). **/
-    gchar *pktime;     /** The PKCS (RSA) key time (authentication). **/
+    gchar *cgid;         /** The captcha GID (authentication). **/
+    gchar *esid;         /** The email SteamID (authentication). **/
+    gchar *pkmod;        /** The PKCS (RSA) modulus (authentication). **/
+    gchar *pkexp;        /** The PKCS (RSA) exponent (authentication). **/
+    gchar *pktime;       /** The PKCS (RSA) key time (authentication). **/
 };
 
 /**
