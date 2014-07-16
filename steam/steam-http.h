@@ -126,6 +126,8 @@ struct _SteamHttpReq
     struct http_request *request; /** The underlying #http_request. **/
 
     GError *err;                  /** The #GError or NULL. **/
+    gchar  *status;               /** Shortcut to request->status_string. **/
+    gint    scode;                /** Shortcut to request->status_code. **/
     gchar  *header;               /** Shortcut to request->reply_headers. **/
     gchar  *body;                 /** Shortcut to request->reply_body. **/
     gint    body_size;            /** Shortcut to request->body_size. **/

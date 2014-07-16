@@ -347,31 +347,30 @@ static void steam_http_req_close(SteamHttpReq *req, gboolean callback)
 
     b_event_remove(req->toid);
 
-    req->header    = NULL;
-    req->body      = NULL;
-    req->body_size = 0;
-    req->toid      = 0;
-
-    if (req->err == NULL) {
+    if ((req->err == NULL) && (req->scode == 0)) {
         g_set_error(&req->err, STEAM_HTTP_ERROR, STEAM_HTTP_ERROR_CLOSED,
                     "Request closed");
     }
 
-    if (req->request == NULL)
-        return;
+    if (callback && (req->func != NULL))
+        req->func(req, req->data);
 
-    /* Prevent more than one call to request->func() */
-    req->request->func = steam_http_req_close_nuller;
-    req->request->data = NULL;
+    if (req->request != NULL) {
+        /* Prevent more than one call to request->func() */
+        req->request->func = steam_http_req_close_nuller;
+        req->request->data = NULL;
 
-    if (!(req->request->flags & STEAM_HTTP_CLIENT_FREED)) {
-        if (callback && (req->func != NULL))
-            req->func(req, req->data);
-
-        http_close(req->request);
+        if (!(req->request->flags & STEAM_HTTP_CLIENT_FREED))
+            http_close(req->request);
     }
 
-    req->request = NULL;
+    req->status    = NULL;
+    req->scode     = 0;
+    req->header    = NULL;
+    req->body      = NULL;
+    req->body_size = 0;
+    req->toid      = 0;
+    req->request   = NULL;
 }
 
 /**
@@ -413,8 +412,8 @@ static void steam_http_req_debug(SteamHttpReq *req, gboolean response,
 
     if (req->err != NULL)
         str = g_strdup_printf(" (%s)", req->err->message);
-    else if (req->request != NULL)
-        str = g_strdup_printf(" (%s)", req->request->status_string);
+    else if (req->status != NULL)
+        str = g_strdup_printf(" (%s)", req->status);
     else
         str = g_strdup("");
 
@@ -524,8 +523,6 @@ static void steam_http_req_done(SteamHttpReq *req)
     steam_http_req_debug(req, TRUE, req->header, req->body);
 #endif /* DEBUG_STEAM */
 
-    g_hash_table_remove(req->http->reqs, req);
-
     if (req->err != NULL) {
         if (req->rsc < STEAM_HTTP_RESEND_MAX) {
             steam_http_req_close(req, FALSE);
@@ -541,9 +538,7 @@ static void steam_http_req_done(SteamHttpReq *req)
         g_prefix_error(&req->err, "HTTP: ");
     }
 
-    if (req->func != NULL)
-        req->func(req, req->data);
-
+    g_hash_table_remove(req->http->reqs, req);
     steam_http_req_free(req);
 }
 
@@ -556,11 +551,14 @@ static void steam_http_req_cb(struct http_request *request)
 {
     SteamHttpReq *req = request->data;
 
+    /* Shortcut request elements */
+    req->status    = request->status_string;
+    req->scode     = request->status_code;
     req->header    = request->reply_headers;
     req->body      = request->reply_body;
     req->body_size = request->body_size;
 
-    switch (request->status_code) {
+    switch (req->scode) {
     case 200:
     case 301:
     case 302:
@@ -569,8 +567,7 @@ static void steam_http_req_cb(struct http_request *request)
         break;
 
     default:
-        g_set_error(&req->err, STEAM_HTTP_ERROR, request->status_code,
-                    "%s", request->status_string);
+        g_set_error(&req->err, STEAM_HTTP_ERROR, req->scode, "%s", req->status);
     }
 
     req->request->flags |= STEAM_HTTP_CLIENT_FREED;
