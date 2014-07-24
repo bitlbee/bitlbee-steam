@@ -21,10 +21,10 @@
 #include "steam.h"
 #include "steam-util.h"
 
-static void steam_relogon(SteamApiReq *req, gpointer data);
-static void steam_poll(SteamApiReq *req, gpointer data);
-static void steam_user_chatlog(SteamApiReq *req, gpointer data);
-static void steam_user_info_nicks(SteamApiReq *req, gpointer data);
+static void steam_cb_relogon(SteamApiReq *req, gpointer data);
+static void steam_cb_poll(SteamApiReq *req, gpointer data);
+static void steam_cb_user_chatlog(SteamApiReq *req, gpointer data);
+static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data);
 
 /**
  * Creates a new #SteamData with an #account_t. The returned #SteamData
@@ -90,7 +90,7 @@ static gboolean steam_req_error(SteamData *sata, SteamApiReq *req,
 
     if (g_error_matches(req->err, STEAM_API_ERROR, STEAM_API_ERROR_EXPRIED)) {
         steam_http_free_reqs(req->api->http);
-        req = steam_api_req_new(req->api, steam_relogon, sata);
+        req = steam_api_req_new(req->api, steam_cb_relogon, sata);
         steam_api_req_logon(req);
         return TRUE;
     }
@@ -265,7 +265,7 @@ relationship:
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_auth(SteamApiReq *req, gpointer data)
+static void steam_cb_auth(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
     account_t *acc;
@@ -314,7 +314,7 @@ static void steam_auth(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_friends(SteamApiReq *req, gpointer data)
+static void steam_cb_friends(SteamApiReq *req, gpointer data)
 {
     SteamData            *sata = data;
     SteamUserInfo        *info;
@@ -362,12 +362,12 @@ static void steam_friends(SteamApiReq *req, gpointer data)
         }
 
         if (info->mtime > info->vtime) {
-            req = steam_api_req_new(req->api, steam_user_chatlog, sata);
+            req = steam_api_req_new(req->api, steam_cb_user_chatlog, sata);
             steam_api_req_user_chatlog(req, info->id);
         }
     }
 
-    req = steam_api_req_new(req->api, steam_poll, sata);
+    req = steam_api_req_new(req->api, steam_cb_poll, sata);
     steam_api_req_poll(req);
 }
 
@@ -377,7 +377,7 @@ static void steam_friends(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_key(SteamApiReq *req, gpointer data)
+static void steam_cb_key(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
     account_t *acc;
@@ -393,7 +393,7 @@ static void steam_key(SteamApiReq *req, gpointer data)
 
     imcb_log(sata->ic, "Requesting authentication token");
 
-    req = steam_api_req_new(req->api, steam_auth, sata);
+    req = steam_api_req_new(req->api, steam_cb_auth, sata);
     steam_api_req_auth(req, acc->user, acc->pass, ac, cc);
 }
 
@@ -403,7 +403,7 @@ static void steam_key(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_logoff(SteamApiReq *req, gpointer data)
+static void steam_cb_logoff(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
 
@@ -416,7 +416,7 @@ static void steam_logoff(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_logon(SteamApiReq *req, gpointer data)
+static void steam_cb_logon(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
 
@@ -428,7 +428,7 @@ static void steam_logon(SteamApiReq *req, gpointer data)
 
     steam_api_refresh(req->api);
 
-    req = steam_api_req_new(req->api, steam_friends, sata);
+    req = steam_api_req_new(req->api, steam_cb_friends, sata);
     steam_api_req_friends(req);
 }
 
@@ -438,7 +438,7 @@ static void steam_logon(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_relogon(SteamApiReq *req, gpointer data)
+static void steam_cb_relogon(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
 
@@ -448,7 +448,7 @@ static void steam_relogon(SteamApiReq *req, gpointer data)
     steam_api_refresh(req->api);
 
     /* Update the friend list for good measures */
-    req = steam_api_req_new(req->api, steam_friends, sata);
+    req = steam_api_req_new(req->api, steam_cb_friends, sata);
     steam_api_req_friends(req);
 }
 
@@ -458,7 +458,7 @@ static void steam_relogon(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_msg(SteamApiReq *req, gpointer data)
+static void steam_cb_msg(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
 
@@ -472,7 +472,7 @@ static void steam_msg(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_poll(SteamApiReq *req, gpointer data)
+static void steam_cb_poll(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
     GList     *l;
@@ -483,7 +483,7 @@ static void steam_poll(SteamApiReq *req, gpointer data)
     for (l = req->msgs->head; l != NULL; l = l->next)
         steam_user_msg(sata, l->data, 0);
 
-    req = steam_api_req_new(req->api, steam_poll, sata);
+    req = steam_api_req_new(req->api, steam_cb_poll, sata);
     steam_api_req_poll(req);
 }
 
@@ -493,7 +493,7 @@ static void steam_poll(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_user_action(SteamApiReq *req, gpointer data)
+static void steam_cb_user_action(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
     SteamUserInfo *info = req->infs->head->data;
@@ -514,7 +514,7 @@ static void steam_user_action(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_user_chatlog(SteamApiReq *req, gpointer data)
+static void steam_cb_user_chatlog(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
     SteamUser     *user;
@@ -550,11 +550,11 @@ static void steam_user_chatlog(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_user_info(SteamApiReq *req, gpointer data)
+static void steam_cb_user_info(SteamApiReq *req, gpointer data)
 {
     req = steam_api_req_fwd(req);
 
-    req->func = steam_user_info_nicks;
+    req->func = steam_cb_user_info_nicks;
     steam_api_req_user_info_nicks(req);
 }
 
@@ -564,7 +564,7 @@ static void steam_user_info(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_user_info_nicks(SteamApiReq *req, gpointer data)
+static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
     SteamUserInfo *info = req->infs->head->data;
@@ -632,7 +632,7 @@ static void steam_user_info_nicks(SteamApiReq *req, gpointer data)
  * @param req  The #SteamApiReq.
  * @param data The user defined data, which is #SteamData.
  **/
-static void steam_user_search(SteamApiReq *req, gpointer data)
+static void steam_cb_user_search(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
     SteamUserInfo *info;
@@ -652,7 +652,7 @@ static void steam_user_search(SteamApiReq *req, gpointer data)
 
     case 1:
         info = req->infs->head->data;
-        req  = steam_api_req_new(req->api, steam_user_action, sata);
+        req  = steam_api_req_new(req->api, steam_cb_user_action, sata);
         steam_api_req_user_add(req, info->id);
         return;
     }
@@ -866,13 +866,13 @@ static void steam_login(account_t *acc)
         sata->api->esid = g_strdup(str);
 
         imcb_log(sata->ic, "Requesting authentication key");
-        req = steam_api_req_new(sata->api, steam_key, sata);
+        req = steam_api_req_new(sata->api, steam_cb_key, sata);
         steam_api_req_key(req, acc->user);
         return;
     }
 
     imcb_log(sata->ic, "Sending logon request");
-    req = steam_api_req_new(sata->api, steam_logon, sata);
+    req = steam_api_req_new(sata->api, steam_cb_logon, sata);
     steam_api_req_logon(req);
 }
 
@@ -889,7 +889,7 @@ static void steam_logout(struct im_connection *ic)
     steam_http_free_reqs(sata->api->http);
 
     if (ic->flags & OPT_LOGGED_IN) {
-        req = steam_api_req_new(sata->api, steam_logoff, sata);
+        req = steam_api_req_new(sata->api, steam_cb_logoff, sata);
         steam_api_req_logoff(req);
     } else {
         steam_data_free(sata);
@@ -937,7 +937,7 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
     }
     */
 
-    req = steam_api_req_new(sata->api, steam_msg, sata);
+    req = steam_api_req_new(sata->api, steam_cb_msg, sata);
     steam_api_req_msg(req, msg);
 
     steam_user_msg_free(msg);
@@ -962,7 +962,7 @@ static int steam_send_typing(struct im_connection *ic, char *who, int flags)
     msg = steam_user_msg_new_str(who);
     msg->type = STEAM_USER_MSG_TYPE_TYPING;
 
-    req = steam_api_req_new(sata->api, steam_msg, sata);
+    req = steam_api_req_new(sata->api, steam_cb_msg, sata);
     steam_api_req_msg(req, msg);
 
     steam_user_msg_free(msg);
@@ -984,7 +984,7 @@ static void steam_add_buddy(struct im_connection *ic, char *name, char *group)
     gchar       *str;
 
     if (g_ascii_strncasecmp(name, "steamid:", 8) != 0) {
-        req = steam_api_req_new(sata->api, steam_user_search, sata);
+        req = steam_api_req_new(sata->api, steam_cb_user_search, sata);
         steam_api_req_user_search(req, name, 5);
         return;
     }
@@ -993,7 +993,7 @@ static void steam_add_buddy(struct im_connection *ic, char *name, char *group)
 
     if ((++str)[0] != 0) {
         id  = steam_user_id_new_str(str);
-        req = steam_api_req_new(sata->api, steam_user_action, sata);
+        req = steam_api_req_new(sata->api, steam_cb_user_action, sata);
 
         steam_api_req_user_add(req, id);
         steam_user_id_free(id);
@@ -1017,7 +1017,7 @@ static void steam_remove_buddy(struct im_connection *ic, char *name,
     SteamUserId *id;
 
     id  = steam_user_id_new_str(name);
-    req = steam_api_req_new(sata->api, steam_user_action, sata);;
+    req = steam_api_req_new(sata->api, steam_cb_user_action, sata);;
 
     steam_api_req_user_remove(req, id);
     steam_user_id_free(id);
@@ -1049,7 +1049,7 @@ static void steam_add_deny(struct im_connection *ic, char *who)
     imcb_buddy_status(ic, who, 0, NULL, NULL);
 
     id  = steam_user_id_new_str(who);
-    req = steam_api_req_new(sata->api, steam_user_action, sata);
+    req = steam_api_req_new(sata->api, steam_cb_user_action, sata);
 
     steam_api_req_user_ignore(req, id, TRUE);
     steam_user_id_free(id);
@@ -1079,7 +1079,7 @@ static void steam_rem_deny(struct im_connection *ic, char *who)
     SteamUserId *id;
 
     id  = steam_user_id_new_str(who);
-    req = steam_api_req_new(sata->api, steam_user_action, sata);
+    req = steam_api_req_new(sata->api, steam_cb_user_action, sata);
 
     steam_api_req_user_ignore(req, id, FALSE);
     steam_user_id_free(id);
@@ -1098,7 +1098,7 @@ static void steam_get_info(struct im_connection *ic, char *who)
     SteamUserInfo *info;
 
     info = steam_user_info_new_str(who);
-    req  = steam_api_req_new(sata->api, steam_user_info, sata);
+    req  = steam_api_req_new(sata->api, steam_cb_user_info, sata);
 
     g_queue_push_head(req->infs, info);
     steam_api_req_user_info(req);
@@ -1117,7 +1117,7 @@ static void steam_auth_allow(struct im_connection *ic, const char *who)
     SteamUserId *id;
 
     id  = steam_user_id_new_str(who);
-    req = steam_api_req_new(sata->api, steam_user_action, sata);
+    req = steam_api_req_new(sata->api, steam_cb_user_action, sata);
 
     steam_api_req_user_accept(req, id, STEAM_API_ACCEPT_TYPE_DEFAULT);
     steam_user_id_free(id);
@@ -1136,7 +1136,7 @@ static void steam_auth_deny(struct im_connection *ic, const char *who)
     SteamUserId *id;
 
     id  = steam_user_id_new_str(who);
-    req = steam_api_req_new(sata->api, steam_user_action, sata);
+    req = steam_api_req_new(sata->api, steam_cb_user_action, sata);
 
     steam_api_req_user_accept(req, id, STEAM_API_ACCEPT_TYPE_IGNORE);
     steam_user_id_free(id);
