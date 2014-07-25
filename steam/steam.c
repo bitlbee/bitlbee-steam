@@ -21,7 +21,6 @@
 #include "steam.h"
 #include "steam-util.h"
 
-static void steam_logon(SteamApiReq *req, gpointer data);
 static void steam_relogon(SteamApiReq *req, gpointer data);
 static void steam_poll(SteamApiReq *req, gpointer data);
 static void steam_user_chatlog(SteamApiReq *req, gpointer data);
@@ -305,10 +304,8 @@ static void steam_auth(SteamApiReq *req, gpointer data)
     steam_api_free_auth(req->api);
 
     imcb_log(sata->ic, "Authentication finished");
-    imcb_log(sata->ic, "Sending login request");
-
-    req = steam_api_req_new(req->api, steam_logon, sata);
-    steam_api_req_logon(req);
+    account_off(acc->bee, acc);
+    account_on(acc->bee, acc);
 }
 
 /**
@@ -859,26 +856,24 @@ static void steam_login(account_t *acc)
     sata = steam_data_new(acc);
     imcb_log(sata->ic, "Connecting");
 
-    if ((sata->api->token != NULL) && (sata->api->sessid != NULL)) {
-        imcb_log(sata->ic, "Sending logon request");
+    if ((sata->api->token == NULL) || (sata->api->sessid == NULL)) {
+        str = set_getstr(&acc->set, "cgid");
+        g_free(sata->api->cgid);
+        sata->api->cgid = g_strdup(str);
 
-        req = steam_api_req_new(sata->api, steam_logon, sata);
-        steam_api_req_logon(req);
+        str = set_getstr(&acc->set, "esid");
+        g_free(sata->api->esid);
+        sata->api->esid = g_strdup(str);
+
+        imcb_log(sata->ic, "Requesting authentication key");
+        req = steam_api_req_new(sata->api, steam_key, sata);
+        steam_api_req_key(req, acc->user);
         return;
     }
 
-    str = set_getstr(&acc->set, "cgid");
-    g_free(sata->api->cgid);
-    sata->api->cgid = g_strdup(str);
-
-    str = set_getstr(&acc->set, "esid");
-    g_free(sata->api->esid);
-    sata->api->esid = g_strdup(str);
-
-    imcb_log(sata->ic, "Requesting authentication key");
-
-    req = steam_api_req_new(sata->api, steam_key, sata);
-    steam_api_req_key(req, acc->user);
+    imcb_log(sata->ic, "Sending logon request");
+    req = steam_api_req_new(sata->api, steam_logon, sata);
+    steam_api_req_logon(req);
 }
 
 /**

@@ -473,6 +473,45 @@ static void steam_api_cb_user_info_req(SteamApiReq *req, const json_value *json)
 }
 
 /**
+ * Implemented #SteamApiParser for #steam_api_cb_auth_rdir().
+ *
+ * @param req  The #SteamApiReq.
+ * @param json The #json_value or NULL.
+ **/
+static void steam_api_cb_auth_finish(SteamApiReq *req, const json_value *json)
+{
+    const gchar *str;
+
+    steam_http_cookies_parse_req(req->api->http, req->req);
+    str = g_hash_table_lookup(req->api->http->cookies, "sessionid");
+
+    if (str == NULL) {
+        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
+                    "Failed to obtain sessionid");
+        return;
+    }
+
+    g_free(req->api->sessid);
+    req->api->sessid = g_strdup(str);
+}
+
+/**
+ * Implemented #SteamApiParser for #steam_api_cb_auth().
+ *
+ * @param req  The #SteamApiReq.
+ * @param json The #json_value or NULL.
+ **/
+static void steam_api_cb_auth_rdir(SteamApiReq *req, const json_value *json)
+{
+    req = steam_api_req_fwd(req);
+    req->punc = steam_api_cb_auth_finish;
+    steam_api_req_init(req, STEAM_COM_HOST, "/");
+
+    req->flags |= STEAM_API_REQ_FLAG_NOJSON;
+    steam_http_req_send(req->req);
+}
+
+/**
  * Implemented #SteamApiParser for #steam_api_req_auth().
  *
  * @param req  The #SteamApiReq.
@@ -483,9 +522,10 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
     json_value  *jp;
     json_value  *jv;
     const gchar *str;
-    GHashTable  *prms;
+    gchar       *val;
     gboolean     bool;
     guint        errc;
+    guint        i;
 
     if (steam_json_bool_chk(json, "success", &bool) && !bool) {
         if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool) {
@@ -527,12 +567,23 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
         req->api->token = g_strdup(str);
     }
 
-    prms = steam_json_table(jp);
-    req  = steam_api_req_fwd(req);
+    req = steam_api_req_fwd(req);
+    req->punc = steam_api_cb_auth_rdir;
+    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_AUTH_RDIR);
 
-    steam_api_req_auth_rdir(req, prms);
+    for (i = 0; i < jp->u.object.length; i++) {
+        str = jp->u.object.values[i].name;
+        jv  = jp->u.object.values[i].value;
+        val = steam_json_valstr(jv);
 
-    g_hash_table_destroy(prms);
+        steam_http_req_params_set(req->req, STEAM_HTTP_PAIR(str, val), NULL);
+        g_free(val);
+    }
+
+    req->flags      |= STEAM_API_REQ_FLAG_NOJSON;
+    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    steam_http_req_send(req->req);
+
     json_value_free(jp);
 }
 
@@ -599,56 +650,6 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
 
     g_free(pswd);
     g_free(ms);
-}
-
-/**
- * Implemented #SteamApiParser for #steam_api_req_auth_rdir().
- *
- * @param req  The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
-static void steam_api_cb_auth_rdir(SteamApiReq *req, const json_value *json)
-{
-    const gchar *str;
-
-    steam_http_cookies_parse_req(req->api->http, req->req);
-    str = g_hash_table_lookup(req->api->http->cookies, "sessionid");
-
-    if (str != NULL) {
-        g_free(req->api->sessid);
-        req->api->sessid = g_strdup(str);
-    }
-}
-
-/**
- * Sends a new authorization redirect request. This is called after the
- * initial authorization process has finished via #steam_api_req_auth().
- * With the provided OAuth parameters, this will provide session
- * information which is later used by the #SteamApi.
- *
- * @param req    The #SteamApiReq.
- * @param params The #GHashTable of OAuth parameters.
- **/
-void steam_api_req_auth_rdir(SteamApiReq *req, GHashTable *params)
-{
-    GHashTableIter  iter;
-    gchar          *key;
-    gchar          *val;
-
-    g_return_if_fail(req    != NULL);
-    g_return_if_fail(params != NULL);
-
-    req->punc = steam_api_cb_auth_rdir;
-    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_AUTH_RDIR);
-
-    g_hash_table_iter_init(&iter, params);
-
-    while (g_hash_table_iter_next(&iter, (gpointer*) &key, (gpointer*) &val))
-        steam_http_req_params_set(req->req, STEAM_HTTP_PAIR(key, val), NULL);
-
-    req->flags      |= STEAM_API_REQ_FLAG_NOJSON;
-    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(req->req);
 }
 
 /**

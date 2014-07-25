@@ -73,6 +73,44 @@ json_value *steam_json_new(const gchar *data, gsize length, GError **err)
 }
 
 /**
+ * Gets the string representation of a #json_value. The returned string
+ * should be freed with #g_free() when no longer needed.
+ *
+ * @param json The #json_value.
+ *
+ * @return The resulting string, or NULL on error.
+ **/
+gchar *steam_json_valstr(const json_value *json)
+{
+    g_return_val_if_fail(json != NULL, NULL);
+
+    switch (json->type) {
+    case json_integer:
+#if json_error_max
+        return g_strdup_printf("%ld", json->u.integer);
+#else
+        return g_strdup_printf("%lld", json->u.integer);
+#endif
+        break;
+
+    case json_double:
+        return g_strdup_printf("%f", json->u.dbl);
+
+    case json_string:
+        return g_strdup(json->u.string.ptr);
+
+    case json_boolean:
+        return g_strdup(json->u.boolean ? "true" : "false");
+
+    case json_null:
+        return g_strdup("null");
+
+    default:
+        return NULL;
+    }
+}
+
+/**
  * Gets a #json_value by name from a parent #json_value.
  *
  * @param json The #json_value.
@@ -285,100 +323,4 @@ gboolean steam_json_str_chk(const json_value *json, const gchar *name,
 
     *val = jv->u.string.ptr;
     return TRUE;
-}
-
-/**
- * Fills a #GHashTable with key/value pairs from a #json_value
- * recursively.
- *
- * @param table The #GHashTable.
- * @param key   The key name or NULL.
- * @param json  The #json_value.
- **/
-static void steam_json_table_fill(GHashTable *table, gchar *key,
-                                  const json_value *json)
-{
-    json_value *jv;
-    gchar      *val;
-    gchar      *lval;
-    gsize       i;
-
-    switch (json->type) {
-    case json_object:
-        for (i = 0; i < json->u.object.length; i++) {
-            key = json->u.object.values[i].name;
-            jv  = json->u.object.values[i].value;
-            steam_json_table_fill(table, key, jv);
-        }
-        return;
-
-    case json_array:
-        for (i = 0; i < json->u.array.length; i++) {
-            jv = json->u.array.values[i];
-            steam_json_table_fill(table, key, jv);
-        }
-        return;
-
-    case json_integer:
-#if json_error_max
-        val = g_strdup_printf("%ld", json->u.integer);
-#else
-        val = g_strdup_printf("%lld", json->u.integer);
-#endif
-        break;
-
-    case json_double:
-        val = g_strdup_printf("%f", json->u.dbl);
-        break;
-
-    case json_string:
-        val = g_strdup(json->u.string.ptr);
-        break;
-
-    case json_boolean:
-        val = g_strdup(json->u.boolean ? "true" : "false");
-        break;
-
-    case json_null:
-        val = g_strdup("null");
-        break;
-
-    default:
-        return;
-    }
-
-    if (key == NULL)
-        return;
-
-    lval = g_hash_table_lookup(table, key);
-
-    if (lval != NULL) {
-        lval = g_strdup_printf("%s,%s", lval, val);
-        g_free(val);
-        val = lval;
-    }
-
-    key = g_strdup(key);
-    g_hash_table_replace(table, key, val);
-}
-
-/**
- * Gets a #GHashTable of key/value pairs from a #json_value recursively.
- *
- * @param json The #json_value.
- *
- * @return The #GHashTable of key/value pairs, or NULL on error.
- **/
-GHashTable *steam_json_table(const json_value *json)
-{
-    GHashTable *table;
-
-    g_return_val_if_fail(json != NULL, NULL);
-
-    table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-
-    if (json->type == json_object)
-        steam_json_table_fill(table, NULL, json);
-
-    return table;
 }

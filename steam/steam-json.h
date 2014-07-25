@@ -43,6 +43,8 @@ GQuark steam_json_error_quark(void);
 
 json_value *steam_json_new(const gchar *data, gsize length, GError **err);
 
+gchar *steam_json_valstr(const json_value *json);
+
 json_value *steam_json_val(const json_value *json, const gchar *name,
                            json_type type);
 
@@ -68,7 +70,5 @@ const gchar *steam_json_str(const json_value *json, const gchar *name);
 
 gboolean steam_json_str_chk(const json_value *json, const gchar *name,
                             const gchar **val);
-
-GHashTable *steam_json_table(const json_value *json);
 
 #endif /* _STEAM_JSON_H */
