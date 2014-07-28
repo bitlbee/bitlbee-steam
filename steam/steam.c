@@ -989,7 +989,7 @@ static void steam_add_buddy(struct im_connection *ic, char *name, char *group)
 
     str = strchr(name, ':');
 
-    if ((++str)[0] != 0) {
+    if ((str != NULL) && ((++str)[0] != 0)) {
         id  = steam_user_id_new_str(str);
         req = steam_api_req_new(sata->api, steam_cb_user_action, sata);
 
