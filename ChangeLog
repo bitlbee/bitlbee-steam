@@ -1,3 +1,18 @@
+bitlbee-steam-1.1.0 (2014-07-27):
+  - Added denotation of non-Steam games
+  - Added internal documentation of the plugin
+  - Added last online time to the information output
+  - Added previous nicknames to the information output
+  - Added user states to the information output
+  - Fixed custom profile URLs causing request failures
+  - Fixed missing sessionid after authentication
+  - Fixed several control flow, overflow, and memory issues
+  - Fixed storage issues of HTTP cookies, headers, and parameters
+  - Fixed XML entities not being replaced with their characters
+  - Refactored several things for better control flow and readability
+  - Reorganized the information output
+  - Required GLib version bumped to 2.32.0
+
 bitlbee-steam-1.0.1 (2014-04-27):
   - Added --enable-minimal-flags option to autoconf
   - Fixed a segfault when setting `show_playing`
