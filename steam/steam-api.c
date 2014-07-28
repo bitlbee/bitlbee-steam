@@ -552,7 +552,7 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
 
         if (G_LIKELY(errc != STEAM_API_ERROR_UNKNOWN)) {
             str = steam_json_str(json, "message");
-            g_set_error(&req->err, STEAM_API_ERROR, errc, str);
+            g_set_error(&req->err, STEAM_API_ERROR, errc, "%s", str);
             return;
         }
     }
