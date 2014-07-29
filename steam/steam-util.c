@@ -110,19 +110,19 @@ guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
  * string should be freed with #g_free() when no longer needed.
  *
  * @param text The text.
+ * @param len  The length of the text, or -1 if NULL-terminated.
+ * @param nlen The return location for the return string length or NULL.
  *
  * @return The unescaped string or NULL on error.
  **/
-gchar *steam_util_markup_unescape_text(const gchar *text)
+gchar *steam_util_markup_unescape_text(const gchar *text, gssize len,
+                                       gsize *nlen)
 {
-    gchar   *head;
-    gchar   *tail;
+    GString *gstr;
     gchar   *amp;
     gchar   *col;
     gchar   *val;
     gchar   *end;
-    gsize    size;
-    gsize    len;
     guint32  chr;
     guint    i;
 
@@ -136,11 +136,13 @@ gchar *steam_util_markup_unescape_text(const gchar *text)
 
     g_return_val_if_fail(text != NULL, NULL);
 
-    head = g_strdup(text);
-    size = strlen(head) + 1;
-    tail = size + head;
+    if (len < 0)
+        len = strlen(text);
 
-    for (amp = strchr(head, '&'); amp != NULL; amp = strchr(++amp, '&')) {
+    gstr = g_string_new_len(text, len);
+    amp  = gstr->str;
+
+    for (amp = strchr(amp, '&'); amp != NULL; amp = strchr(++amp, '&')) {
         val = amp + 1;
         col = strchr(val, ';');
         chr = 0;
@@ -168,19 +170,15 @@ gchar *steam_util_markup_unescape_text(const gchar *text)
 
         /* Ignore Unicode as nothing internal uses it. */
         if ((end == col) && (chr <= 127)) {
-            g_strlcpy(amp + 1, col + 1, tail - col);
-
-            amp[0]  = chr;
-            tail   -= (col - val) + 1;
+            g_string_insert_c(gstr, amp - gstr->str, chr);
+            g_string_erase(gstr, val - gstr->str, (col - val) + 2);
         }
     }
 
-    len = tail - head;
+    if (nlen != NULL)
+        *nlen = gstr->len;
 
-    if (len < size)
-        head = g_realloc(head, len);
-
-    return head;
+    return g_string_free(gstr, FALSE);
 }
 
 /**
