@@ -1075,7 +1075,7 @@ void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
         {STEAM_API_ACCEPT_TYPE_DEFAULT, "accept"},
         {STEAM_API_ACCEPT_TYPE_BLOCK,   "block"},
         {STEAM_API_ACCEPT_TYPE_IGNORE,  "ignore"},
-        {0, NULL}
+        STEAM_UTIL_ENUM_NULL
     };
 
     sct = steam_util_enum_ptr(enums, NULL, type);

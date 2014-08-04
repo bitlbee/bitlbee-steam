@@ -22,6 +22,9 @@
 
 #include <glib.h>
 
+#define STEAM_UTIL_ENUM_NULL {0, NULL}
+
+
 /** The structure for holding value/pointer pairs for enumerators. **/
 typedef struct _SteamUtilEnum SteamUtilEnum;
 

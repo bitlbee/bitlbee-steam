@@ -179,7 +179,7 @@ gchar *steam_user_flags_str(SteamUserFlags flags)
         {STEAM_USER_FLAG_WEB,    "Web"},
         {STEAM_USER_FLAG_MOBILE, "Mobile"},
         {STEAM_USER_FLAG_BIGPIC, "Big Picture"},
-        {0, NULL}
+        STEAM_UTIL_ENUM_NULL
     };
 
     strs = (gchar **) steam_util_enum_ptrs(enums, flags);
@@ -403,7 +403,7 @@ const gchar *steam_user_msg_type_str(SteamUserMsgType type)
         {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
         {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
         {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
-        {0, NULL}
+        STEAM_UTIL_ENUM_NULL
     };
 
     return steam_util_enum_ptr(enums, NULL, type);
@@ -425,7 +425,7 @@ SteamUserMsgType steam_user_msg_type_from_str(const gchar *type)
         {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
         {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
         {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
-        {0, NULL}
+        STEAM_UTIL_ENUM_NULL
     };
 
     return steam_util_enum_val(enums, STEAM_USER_MSG_TYPE_UNKNOWN, type,
@@ -449,7 +449,7 @@ const gchar *steam_user_state_str(SteamUserState state)
         {STEAM_USER_STATE_SNOOZE,  "Snooze"},
         {STEAM_USER_STATE_TRADE,   "Looking to Trade"},
         {STEAM_USER_STATE_PLAY,    "Looking to Play"},
-        {0, NULL}
+        STEAM_UTIL_ENUM_NULL
     };
 
     return steam_util_enum_ptr(enums, NULL, state);
