@@ -22,6 +22,23 @@
 
 #include <glib.h>
 
+/**
+ * Prints a debugging line to stdout.
+ *
+ * @param f   The format string literal.
+ * @param ... The arguments for the format string.
+ **/
+#ifdef DEBUG_STEAM
+#define STEAM_UTIL_DEBUGLN(f, ...)                                \
+    G_STMT_START {                                                \
+        if (steam_util_debugging()) {                             \
+            g_print("[" PACKAGE_NAME "] " f "\n", ##__VA_ARGS__); \
+        }                                                         \
+    } G_STMT_END
+#else /* DEBUG_STEAM */
+#define STEAM_UTIL_DEBUGLN(f, ...)
+#endif /* DEBUG_STEAM */
+
 #define STEAM_UTIL_ENUM_NULL {0, NULL}
 
 
@@ -50,6 +67,10 @@ struct _SteamUtilTimeSpan
     gint64  span; /** The span. **/
 };
 
+
+#ifdef DEBUG_STEAM
+gboolean steam_util_debugging(void);
+#endif /* DEBUG_STEAM */
 
 gpointer steam_util_enum_ptr(const SteamUtilEnum *enums, gpointer def,
                              guint val);

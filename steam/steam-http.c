@@ -407,9 +407,6 @@ static void steam_http_req_debug(SteamHttpReq *req, gboolean response,
     gchar       **ls;
     guint         i;
 
-    if (!g_getenv("BITLBEE_DEBUG") && !g_getenv("BITLBEE_DEBUG_STEAM"))
-        return;
-
     if (req->err != NULL)
         str = g_strdup_printf(" (%s)", req->err->message);
     else if (req->status != NULL)
@@ -421,36 +418,35 @@ static void steam_http_req_debug(SteamHttpReq *req, gboolean response,
     type = (req->flags & STEAM_HTTP_REQ_FLAG_POST) ? "POST"  : "GET";
     prot = (req->flags & STEAM_HTTP_REQ_FLAG_SSL)  ? "https" : "http";
 
-    g_print("%s %s (%p): %s://%s:%d%s%s\n", type, act, req, prot,
-            req->host, req->port, req->path, str);
+    STEAM_UTIL_DEBUGLN("%s %s (%p): %s://%s:%d%s%s", type, act, req,
+                       prot, req->host, req->port, req->path, str);
     g_free(str);
 
     if (req->rsc > 0)
-        g_print("Reattempt: #%u\n", req->rsc);
+        STEAM_UTIL_DEBUGLN("Reattempt: #%u", req->rsc);
 
     if ((header != NULL) && (strlen(header) > 0)) {
         ls = g_strsplit(header, "\n", 0);
 
         for (i = 0; ls[i] != NULL; i++)
-            g_print("  %s\n", ls[i]);
+            STEAM_UTIL_DEBUGLN("  %s", ls[i]);
 
         g_strfreev(ls);
     } else {
-        g_print("  ** No header data **\n\n");
+        STEAM_UTIL_DEBUGLN("  ** No header data **");
+        STEAM_UTIL_DEBUGLN("");
     }
 
     if ((body != NULL) && (strlen(body) > 0)) {
         ls = g_strsplit(body, "\n", 0);
 
         for (i = 0; ls[i] != NULL; i++)
-            g_print("  %s\n", ls[i]);
+            STEAM_UTIL_DEBUGLN("  %s", ls[i]);
 
         g_strfreev(ls);
     } else {
-        g_print("  ** No body data **\n");
+        STEAM_UTIL_DEBUGLN("  ** No body data **");
     }
-
-    g_print("\n\n");
 }
 #endif /* DEBUG_STEAM */
 

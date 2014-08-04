@@ -21,6 +21,26 @@
 #include "steam-util.h"
 
 /**
+ * Determines the debugging state of the plugin.
+ *
+ * @return TRUE if debugging is enabled, otherwise FALSE.
+ **/
+#ifdef DEBUG_STEAM
+gboolean steam_util_debugging(void)
+{
+    static gboolean debug = FALSE;
+    static gboolean setup = FALSE;
+
+    if (G_UNLIKELY(!setup)) {
+        debug = g_getenv("BITLBEE_DEBUG") || g_getenv("BITLBEE_DEBUG_STEAM");
+        setup = TRUE;
+    }
+
+    return debug;
+}
+#endif /* DEBUG_STEAM */
+
+/**
  * Gets the enumerator pointer from its value.
  *
  * @param enums The array of #SteamUtilEnum.
