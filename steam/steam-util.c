@@ -15,7 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <gmp.h>
 #include <string.h>
 
 #include "steam-util.h"
@@ -202,140 +201,45 @@ gchar *steam_util_markup_unescape_text(const gchar *text, gssize len,
 }
 
 /**
- * Pads a string for PKCS (RSA) processing.
+ * Converts a hexadecimal string to a #GByteArray. The returned
+ * #GByteArray should be freed with #g_byte_array_free() when no
+ * longer needed.
  *
- * @param op  The output integer.
- * @param mod The modulus integer.
- * @param str The string.
+ * @param str The hexadecimal string.
+ *
+ * @return The #GByteArray or NULL on error.
  **/
-static void steam_util_rsa_pad(mpz_t op, mpz_t mod, const gchar *str)
+GByteArray *steam_util_str_hex2bytes(const gchar *str)
 {
-    GRand *rand;
-    gchar *buf;
-    gsize  b;
-    gsize  bsz;
-    gsize  ssz;
+    GByteArray *ret;
+    gboolean    hax;
+    gsize       size;
+    gchar       val;
+    guint       i;
+    guint       d;
 
-    bsz = mpz_sizeinbase(mod, 16) / 2;
-    ssz = strlen(str);
+    g_return_val_if_fail(str != NULL, NULL);
 
-    if (bsz < (ssz + 11))
-        return;
+    size = strlen(str);
+    hax  = (size % 2) != 0;
 
-    rand = g_rand_new();
-    buf  = g_new0(gchar, bsz);
-    b    = bsz - ssz;
+    ret = g_byte_array_new();
+    g_byte_array_set_size(ret, (size + 1) / 2);
+    memset(ret->data, 0, ret->len);
 
-    memcpy(buf + b, str, ssz);
+    for (d = i = 0; i < size; i++, hax = !hax) {
+        val = g_ascii_xdigit_value(str[i]);
 
-    for (b -= 2; b > 1; b--)
-        buf[b] = g_rand_int_range(rand, 1, 255);
-
-    buf[b] = 2;
-    mpz_import(op, bsz, 1, sizeof buf[0], 0, 0, buf);
-
-    g_free(buf);
-    g_rand_free(rand);
-}
-
-/**
- * Converts a raw PKCS (RSA) string to a hexadecimal string. The
- * returned string should be freed with #g_free() when no longer
- * needed.
- *
- * @param str The raw string.
- * @param ssz The size of the string.
- * @param rsz The return location for the size of the return string.
- *
- * @return The converted hexadecimal string or NULL on error.
- **/
-static gchar *steam_util_rsa_hexdec(const gchar *str, gsize ssz, gsize *rsz)
-{
-    static gchar *hex;
-
-    GString  *ret;
-    gboolean  hax;
-    gchar    *pos;
-    gchar     chh;
-    gchar     chr;
-    gsize     i;
-
-    hex = "0123456789abcdef";
-    ret = g_string_sized_new(ssz / 2);
-
-    for (i = 0, hax = FALSE; i < ssz; i++, hax = !hax) {
-        chh = g_ascii_tolower(str[i]);
-        pos = strchr(hex, chh);
-        chh = (pos != NULL) ? (pos - hex) : 0;
-
-        if (hax) {
-            chr |= chh & 0x0F;
-            g_string_append_c(ret, chr);
-        } else {
-            chr = (chh << 4) & 0xF0;
+        if (val < 0) {
+            g_byte_array_free(ret, TRUE);
+            return NULL;
         }
+
+        if (hax)
+            ret->data[d++] |= val & 0x0F;
+        else
+            ret->data[d] |= (val << 4) & 0xF0;
     }
-
-    *rsz = ret->len;
-    return g_string_free(ret, FALSE);
-}
-
-/**
- * Encrypts a string via PKCS (RSA). The returned string should be
- * freed with #g_free() when no longer needed.
- *
- * @param pkmod The PKCS (RSA) modulus.
- * @param pkexp The PKCS (RSA) exponent.
- * @param str   The string to encrypt.
- *
- * @return The encrypted string or NULL on error.
- **/
-gchar *steam_util_rsa_encrypt(const gchar *pkmod, const gchar *pkexp,
-                              const gchar *str)
-{
-    gchar *buf;
-    gchar *ret;
-    gsize  bsz;
-    mpz_t  ip;
-    mpz_t  op;
-    mpz_t  mod;
-    mpz_t  exp;
-
-    g_return_val_if_fail(pkmod != NULL, NULL);
-    g_return_val_if_fail(pkexp != NULL, NULL);
-    g_return_val_if_fail(str   != NULL, NULL);
-
-    mpz_init(ip);
-    mpz_init(op);
-    mpz_init(mod);
-    mpz_init(exp);
-
-    mpz_set_str(mod, pkmod, 16);
-    mpz_set_str(exp, pkexp, 16);
-
-    steam_util_rsa_pad(ip, mod, str);
-
-#ifdef mpz_powm_sec
-    mpz_powm_sec(op, ip, exp, mod);
-#else
-    mpz_powm(op, ip, exp, mod);
-#endif
-
-    bsz = mpz_sizeinbase(op, 16) + 2;
-    buf = g_new0(gchar, bsz);
-
-    mpz_get_str(buf, 16, op);
-    ret = steam_util_rsa_hexdec(buf, bsz, &bsz);
-    g_free(buf);
-
-    buf = ret;
-    ret = g_base64_encode((guchar *) buf, bsz);
-
-    mpz_clear(exp);
-    mpz_clear(mod);
-    mpz_clear(op);
-    mpz_clear(ip);
-    g_free(buf);
 
     return ret;
 }

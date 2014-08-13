@@ -83,8 +83,7 @@ guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
 gchar *steam_util_markup_unescape_text(const gchar *text, gssize len,
                                        gsize *nlen);
 
-gchar *steam_util_rsa_encrypt(const gchar *pkmod, const gchar *pkexp,
-                              const gchar *str);
+GByteArray *steam_util_str_hex2bytes(const gchar *str);
 
 gboolean steam_util_str_iequal(const gchar *s1, const gchar *s2);
 

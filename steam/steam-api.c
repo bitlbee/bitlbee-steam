@@ -19,6 +19,7 @@
 #include <url.h>
 
 #include "steam-api.h"
+#include "steam-crypt.h"
 #include "steam-http.h"
 #include "steam-json.h"
 #include "steam-util.h"
@@ -617,7 +618,7 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
     g_return_if_fail(user != NULL);
     g_return_if_fail(pass != NULL);
 
-    pswd = steam_util_rsa_encrypt(req->api->pkmod, req->api->pkexp, pass);
+    pswd = steam_crypt_rsa_enc_str(req->api->pkmod, req->api->pkexp, pass);
 
     if (pswd == NULL) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,

@@ -73,25 +73,6 @@ AC_ARG_WITH(
     [plugindir="$with_plugindir"]
 )
 
-AC_CHECK_LIB(
-    [gmp],
-    [__gmpz_init],
-    [HAVE_GMP_LIB=yes],
-    [HAVE_GMP_LIB=no]
-)
-
-AC_CHECK_HEADER(
-    [gmp.h],
-    [HAVE_GMP_HEADER=yes],
-    [HAVE_GMP_HEADER=no]
-)
-
-AS_IF(
-    [test "x$HAVE_GMP_LIB" == "xno" -o "x$HAVE_GMP_HEADER" == "xno"],
-    [AC_MSG_ERROR([Package requirements (GMP) were not met.])],
-    [GMP_LIBS=-lgmp]
-)
-
 AC_DEFUN([MACRO_CHECK],
     [m4_ifndef(
         [$1],
@@ -99,9 +80,11 @@ AC_DEFUN([MACRO_CHECK],
     )]
 )
 
+MACRO_CHECK([AM_PATH_LIBGCRYPT], [libgcrypt])
 MACRO_CHECK([PKG_CHECK_MODULES], [pkg-config])
 MACRO_CHECK([PKG_CHECK_VAR],     [pkg-config])
 
+AM_PATH_LIBGCRYPT([1.5.0])
 PKG_CHECK_MODULES([GLIB],    [glib-2.0 >= 2.32.0])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee  >= 3.2.2])
 
@@ -117,6 +100,5 @@ AS_IF(
 )
 
 AC_CONFIG_FILES([Makefile steam/Makefile])
-AC_SUBST([GMP_LIBS])
 AC_SUBST([plugindir])
 AC_OUTPUT
