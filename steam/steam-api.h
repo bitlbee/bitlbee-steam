@@ -200,15 +200,14 @@ void steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg);
 
 void steam_api_req_poll(SteamApiReq *req);
 
-void steam_api_req_user_accept(SteamApiReq *req, const SteamUserId *id,
+void steam_api_req_user_accept(SteamApiReq *req, SteamId id,
                                SteamApiAcceptType type);
 
-void steam_api_req_user_add(SteamApiReq *req, const SteamUserId *id);
+void steam_api_req_user_add(SteamApiReq *req, SteamId id);
 
-void steam_api_req_user_chatlog(SteamApiReq *req, const SteamUserId *id);
+void steam_api_req_user_chatlog(SteamApiReq *req, SteamId id);
 
-void steam_api_req_user_ignore(SteamApiReq *req, const SteamUserId *id,
-                               gboolean ignore);
+void steam_api_req_user_ignore(SteamApiReq *req, SteamId id, gboolean ignore);
 
 void steam_api_req_user_info(SteamApiReq *req);
 
@@ -216,7 +215,7 @@ void steam_api_req_user_info_extra(SteamApiReq *req);
 
 void steam_api_req_user_info_nicks(SteamApiReq *req);
 
-void steam_api_req_user_remove(SteamApiReq *req, const SteamUserId *id);
+void steam_api_req_user_remove(SteamApiReq *req, SteamId id);
 
 void steam_api_req_user_search(SteamApiReq *req, const gchar *name,
                                guint count);

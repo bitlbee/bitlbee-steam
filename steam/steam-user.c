@@ -196,121 +196,22 @@ gchar *steam_user_flags_str(SteamUserFlags flags)
 }
 
 /**
- * Creates a new #SteamUserId. The returned #SteamUserId should be freed
- * with #steam_user_id_free() when no longer needed.
- *
- * @param id The SteamID.
- *
- * @return The #SteamUserId or NULL on error.
- **/
-SteamUserId *steam_user_id_new(gint64 id)
-{
-    SteamUserId *uid;
-
-    uid = g_new0(SteamUserId, 1);
-
-    uid->steam.i = id;
-    uid->steam.s = g_strdup_printf("%" G_GINT64_FORMAT, uid->steam.i);
-
-    uid->commu.i = STEAM_USER_ID_NUMBER(id);
-    uid->commu.s = g_strdup_printf("%" G_GINT64_FORMAT, uid->commu.i);
-
-    uid->type = STEAM_USER_ID_TYPE(uid->steam.i);
-    uid->uni  = STEAM_USER_ID_UNI(uid->steam.i);
-
-    return uid;
-}
-
-/**
- * Creates a new #SteamUserId from a string SteamID. The returned
- * #SteamUserId should be freed with #steam_user_id_free() when no
- * longer needed.
- *
- * @param id The SteamID.
- *
- * @return The #SteamUserId or NULL on error.
- **/
-SteamUserId *steam_user_id_new_str(const gchar *id)
-{
-    gint64 in;
-
-    g_return_val_if_fail(id != NULL, NULL);
-
-    in = g_ascii_strtoll(id, NULL, 10);
-    return steam_user_id_new(in);
-}
-
-/**
- * Duplicates all memory used by a #SteamUserId.
- *
- * @param id The #SteamUserId.
- *
- * @return The #SteamUserId or NULL on error.
- **/
-SteamUserId *steam_user_id_dup(const SteamUserId *id)
-{
-    SteamUserId *uid;
-
-    g_return_val_if_fail(id != NULL, NULL);
-
-    uid = g_memdup(id, sizeof *id);
-    uid->steam.s = g_strdup(uid->steam.s);
-    uid->commu.s = g_strdup(uid->commu.s);
-
-    return uid;
-}
-
-/**
- * Frees all memory used by a #SteamUserId.
- *
- * @param id The #SteamUserId.
- **/
-void steam_user_id_free(SteamUserId *id)
-{
-    if (G_UNLIKELY(id == NULL))
-        return;
-
-    g_free(id->steam.s);
-    g_free(id->commu.s);
-    g_free(id);
-}
-
-/**
  * Creates a new #SteamUserInfo. The returned #SteamUserInfo should be
  * freed with #steam_user_info_free() when no longer needed.
  *
- * @param id The SteamID.
+ * @param id The #SteamId.
  *
  * @return The #SteamUserInfo or NULL on error.
  **/
-SteamUserInfo *steam_user_info_new(gint64 id)
+SteamUserInfo *steam_user_info_new(SteamId id)
 {
     SteamUserInfo *info;
 
     info = g_new0(SteamUserInfo, 1);
-    info->id  = steam_user_id_new(id);
+    info->id  = id;
     info->act = STEAM_USER_ACT_NONE;
 
     return info;
-}
-
-/**
- * Creates a new #SteamUserInfo from a string SteamID. The returned
- * #SteamUserInfo should be freed with #steam_user_info_free() when
- * no longer needed.
- *
- * @param id The SteamID.
- *
- * @return The #SteamUserInfo or NULL on error.
- **/
-SteamUserInfo *steam_user_info_new_str(const gchar *id)
-{
-    gint64 in;
-
-    g_return_val_if_fail(id != NULL, NULL);
-
-    in = g_ascii_strtoll(id, NULL, 10);
-    return steam_user_info_new(in);
 }
 
 /**
@@ -323,7 +224,6 @@ void steam_user_info_free(SteamUserInfo *info)
     if (G_UNLIKELY(info == NULL))
         return;
 
-    steam_user_id_free(info->id);
     g_slist_free_full(info->nicks, g_free);
 
     g_free(info->profile);
@@ -338,11 +238,11 @@ void steam_user_info_free(SteamUserInfo *info)
  * Creates a new #SteamUserMsg. The returned #SteamUserMsg should be
  * freed with #steam_user_msg_free() when no longer needed.
  *
- * @param id The SteamID.
+ * @param id The #SteamId.
  *
  * @return The #SteamUserMsg or NULL on error.
  **/
-SteamUserMsg *steam_user_msg_new(gint64 id)
+SteamUserMsg *steam_user_msg_new(SteamId id)
 {
     SteamUserMsg *msg;
 
@@ -350,25 +250,6 @@ SteamUserMsg *steam_user_msg_new(gint64 id)
     msg->info = steam_user_info_new(id);
 
     return msg;
-}
-
-/**
- * Creates a new #SteamUserMsg from a string SteamID. The returned
- * #SteamUserMsg should be freed with #steam_user_msg_free() when
- * no longer needed.
- *
- * @param id The SteamID.
- *
- * @return The #SteamUserMsg or NULL on error.
- **/
-SteamUserMsg *steam_user_msg_new_str(const gchar *id)
-{
-    gint64 in;
-
-    g_return_val_if_fail(id != NULL, NULL);
-
-    in = g_ascii_strtoll(id, NULL, 10);
-    return steam_user_msg_new(in);
 }
 
 /**

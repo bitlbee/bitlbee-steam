@@ -23,77 +23,11 @@
 #include <bitlbee.h>
 #include <glib.h>
 
-
-/**
- * Create a new 64-bit SteamID.
- *
- * @param u The #SteamUserIdUni.
- * @param t The #SteamUserIdType.
- * @param i The instance (usually 1).
- * @param n The account number.
- *
- * @return The resulting 64-bit SteamID.
- **/
-#define STEAM_USER_ID_NEW(u, t, i, n) ((gint64) ( \
-         ((gint32) n)        | \
-        (((gint64) i) << 32) | \
-        (((gint64) t) << 52) | \
-        (((gint64) u) << 56)   \
-    ))
-
-/**
- * Get the 20-bit account instance from a 64-bit SteamID.
- *
- * @param id The 64-bit SteamID.
- *
- * @return The resulting 20-bit account instance.
- **/
-#define STEAM_USER_ID_INSTANCE(id) ((gint32) ( \
-        (((gint64) id) >> 32) & 0x0FFFFF \
-    ))
-
-/**
- * Get the 32-bit account number from a 64-bit SteamID.
- *
- * @param id The 64-bit SteamID.
- *
- * @return The resulting 32-bit account number.
- **/
-#define STEAM_USER_ID_NUMBER(id) ((gint32) ( \
-        ((gint64) id) & 0xFFFFFFFF \
-    ))
-
-/**
- * Get the #SteamUserIdType from a 64-bit SteamID.
- *
- * @param id The 64-bit SteamID.
- *
- * @return The resulting #SteamUserIdType.
- **/
-#define STEAM_USER_ID_TYPE(id) ((SteamUserIdType) ( \
-        (id >> 52) & 0x0F \
-    ))
-
-/**
- * Get the #SteamUserIdUni from a 64-bit SteamID.
- *
- * @param id The 64-bit SteamID.
- *
- * @return The resulting #SteamUserIdUni.
- **/
-#define STEAM_USER_ID_UNI(id) ((SteamUserIdUni) ( \
-        ((gint64) id) >> 56 \
-    ))
+#include "steam-id.h"
 
 
 /** The action of a #SteamUserInfo. **/
 typedef enum _SteamUserAct SteamUserAct;
-
-/** The type of #SteamUserId. **/
-typedef enum _SteamUserIdType SteamUserIdType;
-
-/** The universe of #SteamUserId. **/
-typedef enum _SteamUserIdUni SteamUserIdUni;
 
 /** The type of #SteamUserMsg. **/
 typedef enum _SteamUserMsgType SteamUserMsgType;
@@ -109,9 +43,6 @@ typedef enum _SteamUserFlags SteamUserFlags;
 
 /** The structure for a Steam user. **/
 typedef struct _SteamUser SteamUser;
-
-/** The structure for representing a 64-bit SteamID. **/
-typedef struct _SteamUserId SteamUserId;
 
 /** The structure for Steam user information. **/
 typedef struct _SteamUserInfo SteamUserInfo;
@@ -132,37 +63,6 @@ enum _SteamUserAct
     STEAM_USER_ACT_REQUESTED = 4, /** Friendship request **/
 
     STEAM_USER_ACT_NONE           /** None **/
-};
-
-/**
- * The type of a #SteamUserId.
- **/
-enum _SteamUserIdType
-{
-    STEAM_USER_ID_TYPE_INVALID        = 0, /** Invalid **/
-    STEAM_USER_ID_TYPE_INDIVIDUAL     = 1, /** Individual (user) **/
-    STEAM_USER_ID_TYPE_MULTISEAT      = 2, /** Multiseat **/
-    STEAM_USER_ID_TYPE_GAMESERVER     = 3, /** Game server **/
-    STEAM_USER_ID_TYPE_ANONGAMESERVER = 4, /** Anonymous game server **/
-    STEAM_USER_ID_TYPE_PENDING        = 5, /** Pending **/
-    STEAM_USER_ID_TYPE_CONTENTSERVER  = 6, /** Content server **/
-    STEAM_USER_ID_TYPE_CLAN           = 7, /** Clan or group **/
-    STEAM_USER_ID_TYPE_CHAT           = 8, /** Chat **/
-    STEAM_USER_ID_TYPE_SUPERSEEDER    = 9, /** P2P super seeder **/
-    STEAM_USER_ID_TYPE_ANONUSER       = 10 /** Anonymous user **/
-};
-
-/**
- * The universe of a #SteamUserId.
- **/
-enum _SteamUserIdUni
-{
-    STEAM_USER_ID_UNI_UNKNOWN  = 0, /** Unknown **/
-    STEAM_USER_ID_UNI_PUBLIC   = 1, /** Public **/
-    STEAM_USER_ID_UNI_BETA     = 2, /** Beta **/
-    STEAM_USER_ID_UNI_INTERNAL = 3, /** Internal **/
-    STEAM_USER_ID_UNI_DEV      = 4, /** Development **/
-    STEAM_USER_ID_UNI_RC       = 5  /** Release candidate **/
 };
 
 /**
@@ -227,39 +127,12 @@ struct _SteamUser
 };
 
 /**
- * The structure for representing a 64-bit SteamID.
- **/
-struct _SteamUserId
-{
-    SteamUserIdType type; /** The #SteamUserIdType. **/
-    SteamUserIdUni  uni;  /** The #SteamUserIdUni. **/
-
-    /**
-     * The substructure used for representing a 64-bit SteamID.
-     **/
-    struct
-    {
-        gchar  *s; /** The string form of the SteamID. **/
-        gint64  i; /** The integer form of the SteamID. **/
-    } steam;
-
-    /**
-     * The structure used for representing a 32-bit Steam CommunityID.
-     **/
-    struct
-    {
-        gchar  *s; /** The string form of the CommunityID. **/
-        gint64  i; /** The integer form of the CommunityID. **/
-    } commu;
-};
-
-/**
  * The structure for Steam user information. 
  **/
 struct _SteamUserInfo
 {
-    SteamUserId *id;      /** The #SteamUserId. **/
-    GSList      *nicks;   /** The #GSList of prior nicknames. */
+    SteamId  id;          /** The #SteamId. **/
+    GSList  *nicks;       /** The #GSList of prior nicknames. */
 
     SteamUserState state; /** The #SteamUserState. **/
     SteamUserFlags flags; /** The #SteamUserFlags. **/
@@ -285,10 +158,9 @@ struct _SteamUserMsg
     SteamUserMsgType  type;   /** The #SteamUserMsgType. **/
     SteamUserInfo    *info;   /** The #SteamUserInfo. **/
 
-    gchar  *text;            /** The message text or NULL. **/
-    gint64  time;            /** The message timestamp (UTC) or NULL **/
+    gchar  *text;             /** The message text or NULL. **/
+    gint64  time;             /** The message timestamp (UTC) or NULL **/
 };
-
 
 
 SteamUser *steam_user_new(bee_user_t *bu);
@@ -305,23 +177,11 @@ gint steam_user_chan_mode(const gchar *mode);
 
 gchar *steam_user_flags_str(SteamUserFlags flags);
 
-SteamUserId *steam_user_id_new(gint64 id);
-
-SteamUserId *steam_user_id_new_str(const gchar *id);
-
-SteamUserId *steam_user_id_dup(const SteamUserId *id);
-
-void steam_user_id_free(SteamUserId *id);
-
-SteamUserInfo *steam_user_info_new(gint64 id);
-
-SteamUserInfo *steam_user_info_new_str(const gchar *id);
+SteamUserInfo *steam_user_info_new(SteamId id);
 
 void steam_user_info_free(SteamUserInfo *info);
 
-SteamUserMsg *steam_user_msg_new(gint64 id);
-
-SteamUserMsg *steam_user_msg_new_str(const gchar *id);
+SteamUserMsg *steam_user_msg_new(SteamId id);
 
 void steam_user_msg_free(SteamUserMsg *msg);
 
