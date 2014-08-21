@@ -1283,11 +1283,14 @@ void steam_api_req_user_ignore(SteamApiReq *req, const SteamUserId *id,
 static void steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
 {
     SteamUserInfo *info;
+    GHashTable    *ght;
     json_value    *jv;
     json_value    *je;
     const gchar   *str;
     GList         *l;
     GList         *n;
+    gpointer       key;
+    gint64         in;
     guint          i;
 
     if ((!steam_json_array_chk(json, "players", &jv) ||
@@ -1298,23 +1301,30 @@ static void steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
         return;
     }
 
+    ght = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, NULL);
+
     for (i = 0; i < jv->u.array.length; i++) {
         je = jv->u.array.values[i];
 
-        if (!steam_json_str_chk(je, "steamid", &str))
-            continue;
-
-        for (l = req->infr->head; l != NULL; l = n) {
-            info = l->data;
-            n    = l->next;
-
-            if (g_strcmp0(info->id->steam.s, str) == 0) {
-                steam_api_json_user_info(info, je);
-                g_queue_delete_link(req->infr, l);
-            }
+        if (steam_json_str_chk(je, "steamid", &str)) {
+            in  = g_ascii_strtoll(str, NULL, 10);
+            key = g_memdup(&in, sizeof in);
+            g_hash_table_replace(ght, key, je);
         }
     }
 
+    for (l = req->infr->head; l != NULL; l = n) {
+        info = l->data;
+        n    = l->next;
+        je   = g_hash_table_lookup(ght, &info->id->steam.i);
+
+        if (je != NULL) {
+            steam_api_json_user_info(info, je);
+            g_queue_delete_link(req->infr, l);
+        }
+    }
+
+    g_hash_table_destroy(ght);
     req = steam_api_req_fwd(req);
 
     if (!g_queue_is_empty(req->infr))
@@ -1399,13 +1409,13 @@ static void steam_api_cb_user_info_extra(SteamApiReq *req,
     SteamUserInfo *info;
     GHashTable    *ght;
     json_value    *jp;
+    json_value    *jv;
     json_value    *je;
     const gchar   *str;
     const gchar   *end;
     gchar         *jraw;
     gsize          size;
     GList         *l;
-    gint64         in;
     guint          i;
 
     str = strstr(req->req->body, "CWebChat");
@@ -1431,20 +1441,18 @@ static void steam_api_cb_user_info_extra(SteamApiReq *req,
 
     ght = g_hash_table_new(g_int64_hash, g_int64_equal);
 
-    for (l = req->infs->head; l != NULL; l = l->next) {
-        info = l->data;
-        g_hash_table_insert(ght, &info->id->commu.i, info);
-    }
-
     for (i = 0; i < jp->u.array.length; i++) {
         je = jp->u.array.values[i];
 
-        if (!steam_json_int_chk(je, "m_unAccountID", &in))
-            continue;
+        if (steam_json_val_chk(je, "m_unAccountID", json_integer, &jv))
+            g_hash_table_replace(ght, &jv->u.integer, je);
+    }
 
-        info = g_hash_table_lookup(ght, &in);
+    for (l = req->infs->head; l != NULL; l = l->next) {
+        info = l->data;
+        je   = g_hash_table_lookup(ght, &info->id->commu.i);
 
-        if (info != NULL)
+        if (je != NULL)
             steam_api_json_user_info_js(info, je);
     }
 
