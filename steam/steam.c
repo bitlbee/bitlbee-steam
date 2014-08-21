@@ -116,7 +116,7 @@ static gboolean steam_req_error(SteamData *sata, SteamApiReq *req,
  *
  * @param sata The #SteamData.
  * @param info The #SteamUserInfo.
- * @param bu   The #bee_user_t.
+ * @param bu   The #bee_user_t or NULL.
  **/
 static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
                               bee_user_t *bu)
@@ -127,6 +127,13 @@ static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
     gint         f;
     gboolean     cgm;
     gboolean     csv;
+
+    if (bu == NULL) {
+        bu = imcb_buddy_by_handle(sata->ic, info->id->steam.s);
+
+        if (G_UNLIKELY(bu == NULL))
+            return;
+    }
 
     if (info->state == STEAM_USER_STATE_OFFLINE) {
         imcb_buddy_status(sata->ic, info->id->steam.s, 0, NULL, NULL);
@@ -227,12 +234,7 @@ static void steam_user_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
         return;
 
     default:
-        bu = imcb_buddy_by_handle(sata->ic, info->id->steam.s);
-
-        if (G_UNLIKELY(bu == NULL))
-            return;
-
-        steam_user_status(sata, info, bu);
+        steam_user_status(sata, info, NULL);
         return;
     }
 
@@ -251,9 +253,7 @@ relationship:
         imcb_add_buddy(sata->ic, info->id->steam.s, NULL);
         imcb_buddy_nick_hint(sata->ic, info->id->steam.s, info->nick);
         imcb_rename_buddy(sata->ic, info->id->steam.s, info->fullname);
-
-        bu = imcb_buddy_by_handle(sata->ic, info->id->steam.s);
-        steam_user_status(sata, info, bu);
+        steam_user_status(sata, info, NULL);
         return;
 
     default:
@@ -495,15 +495,11 @@ static void steam_cb_user_action(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
     SteamUserInfo *info = req->infs->head->data;
-    bee_user_t    *bu;
 
     if (steam_req_error(sata, req, TRUE))
         return;
 
-    bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
-
-    if (bu != NULL)
-        steam_user_status(sata, info, bu);
+    steam_user_status(sata, info, NULL);
 }
 
 /**
@@ -566,7 +562,6 @@ static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data)
 {
     SteamData     *sata = data;
     SteamUserInfo *info = req->infs->head->data;
-    bee_user_t    *bu;
     const gchar   *ctr;
     gchar         *str;
     GSList        *l;
@@ -574,11 +569,6 @@ static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data)
 
     if (steam_req_error(sata, req, TRUE))
         return;
-
-    bu = bee_user_by_handle(sata->ic->bee, sata->ic, info->id->steam.s);
-
-    if (G_LIKELY(bu == NULL))
-        steam_user_status(sata, info, bu);
 
     if (info->fullname != NULL)
         imcb_log(sata->ic, "Name: %s (%s)", info->nick, info->fullname);
@@ -622,6 +612,8 @@ static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data)
         for (l = info->nicks, i = 1; l != NULL; l = l->next, i++)
             imcb_log(sata->ic, "%u. `%s'", i, (gchar*) l->data);
     }
+
+    steam_user_status(sata, info, NULL);
 }
 
 /**
