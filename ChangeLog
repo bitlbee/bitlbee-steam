@@ -1,3 +1,9 @@
+bitlbee-steam-1.1.1 (2014-08-25):
+  - Fixed information requests not populating
+  - Fixed potential NULL pointer dereference with user statuses
+  - Link all libraries which are required
+  - Refactored the XML entity unescaper
+
 bitlbee-steam-1.1.0 (2014-07-27):
   - Added denotation of non-Steam games
   - Added internal documentation of the plugin

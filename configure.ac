@@ -15,7 +15,7 @@
 
 AC_INIT(
     [bitlbee-steam],
-    [1.1.0],
+    [1.1.1],
     [https://github.com/jgeboski/bitlbee-steam/issues],
     [bitlbee-steam],
     [https://github.com/jgeboski/bitlbee-steam],
