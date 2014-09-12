@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <inttypes.h>
 #include <string.h>
 
 #include "steam-json.h"
@@ -51,14 +52,8 @@ json_value *steam_json_new(const gchar *data, gsize length, GError **err)
     gchar         *estr;
 
     memset(&js, 0, sizeof js);
-
-#ifdef json_error_max
     estr = g_new0(gchar, json_error_max);
     json = json_parse_ex(&js, data, length, estr);
-#else
-    estr = g_new0(gchar, 128);
-    json = json_parse_ex(&js, data, estr);
-#endif
 
     if ((json != NULL) && (strlen(estr) < 1)) {
         g_free(estr);
@@ -86,12 +81,7 @@ gchar *steam_json_valstr(const json_value *json)
 
     switch (json->type) {
     case json_integer:
-#if json_error_max
-        return g_strdup_printf("%ld", json->u.integer);
-#else
-        return g_strdup_printf("%lld", json->u.integer);
-#endif
-        break;
+        return g_strdup_printf("%" PRId64, json->u.integer);
 
     case json_double:
         return g_strdup_printf("%f", json->u.dbl);

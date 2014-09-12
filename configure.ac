@@ -70,16 +70,7 @@ AC_ARG_WITH(
         [--with-plugindir],
         [BitlBee plugin directory]
     )],
-    [plugindir="$with_plugindir"],
-    [plugindir="$libdir/bitlbee"]
-)
-
-m4_define_default(
-    [PKG_CHECK_MODULES], [
-        AC_MSG_CHECKING([$1])
-        AC_MSG_RESULT([no])
-    ],
-    [AC_MSG_ERROR([Package requirements (pkg-config) were not met.])]
+    [plugindir="$with_plugindir"]
 )
 
 AC_CHECK_LIB(
@@ -101,64 +92,28 @@ AS_IF(
     [GMP_LIBS=-lgmp]
 )
 
+AC_DEFUN([MACRO_CHECK],
+    [m4_ifndef(
+        [$1],
+        [AC_MSG_ERROR([Package requirements ($2) were not met.])]
+    )]
+)
+
+MACRO_CHECK([PKG_CHECK_MODULES], [pkg-config])
+MACRO_CHECK([PKG_CHECK_VAR],     [pkg-config])
+
 PKG_CHECK_MODULES([GLIB],    [glib-2.0 >= 2.32.0])
-PKG_CHECK_MODULES([BITLBEE], [bitlbee])
-
-# Check for "real" bitlbee headers
-CPPFLAGS="$GLIB_CFLAGS $BITLBEE_CFLAGS"
-AC_MSG_CHECKING([for bitlbee headers])
-AC_PREPROC_IFELSE(
-    [AC_LANG_PROGRAM([[
-        #define HAVE_CONFIG_H 1
-        #include <bitlbee.h>
-        #include <http_client.h>
-    ]], [])],
-    [HAVE_BITLBEE_HEADERS=yes],
-    [HAVE_BITLBEE_HEADERS=no]
-)
-
-AC_MSG_RESULT([$HAVE_BITLBEE_HEADERS])
+PKG_CHECK_MODULES([BITLBEE], [bitlbee  >= 3.2.2])
 
 AS_IF(
-    [test "x$HAVE_BITLBEE_HEADERS" == "xno"],
-    [AC_MSG_ERROR([Failed to find required bitlbee headers.])]
-)
-
-# No "reliable" version set in bitlbee.pc, check manually
-CPPFLAGS="$GLIB_CFLAGS $BITLBEE_CFLAGS"
-AC_MSG_CHECKING([for bitlbee >= 3.2.1])
-AC_RUN_IFELSE(
-    [AC_LANG_PROGRAM([[
-        #include <bitlbee.h>
-        #if BITLBEE_VERSION_CODE < BITLBEE_VER(3, 2, 0)
-        #error outdated bitlbee version
-        #endif
-    ]], [[
-        #if BITLBEE_VERSION_CODE == BITLBEE_VER(3, 2, 0)
-        #include <stdlib.h>
-        #include <string.h>
-
-        size_t size = strlen(BITLBEE_VERSION);
-        if (size != 5) return EXIT_FAILURE;
-
-        char *c = strrchr(BITLBEE_VERSION, '.');
-        if (c == NULL) return EXIT_FAILURE;
-
-        int m = atoi(c + 1);
-        if (m < 1) return EXIT_FAILURE;
-
-        return EXIT_SUCCESS;
-        #endif
-    ]])],
-    [HAVE_BITLBEE_REQ=yes],
-    [HAVE_BITLBEE_REQ=no]
-)
-
-AC_MSG_RESULT([$HAVE_BITLBEE_REQ])
-
-AS_IF(
-    [test "x$HAVE_BITLBEE_REQ" == "xno"],
-    [AC_MSG_ERROR([Package requirements (bitlbee >= 3.2.1) were not met.])]
+    [test -z "$plugindir"],
+    [PKG_CHECK_VAR(
+        [BITLBEE_PLUGINDIR],
+        [bitlbee],
+        [plugindir],
+        [plugindir="$BITLBEE_PLUGINDIR"],
+        [plugindir="$libdir/bitlbee"]
+    )]
 )
 
 AC_CONFIG_FILES([Makefile steam/Makefile])
