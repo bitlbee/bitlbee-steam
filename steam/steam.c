@@ -603,19 +603,17 @@ static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data)
     }
 
     ctr = steam_user_state_str(info->state);
-    str = steam_user_flags_str(info->flags);
+
+    if (info->state == STEAM_USER_STATE_OFFLINE)
+        str = steam_util_time_since_utc(info->ltime);
+    else
+        str = steam_user_flags_str(info->flags);
 
     if (str != NULL) {
         imcb_log(sata->ic, "Status: %s (%s)", ctr, str);
         g_free(str);
     } else {
         imcb_log(sata->ic, "Status: %s", ctr);
-    }
-
-    if (info->state == STEAM_USER_STATE_OFFLINE) {
-        str = steam_util_time_since_utc(info->ltime);
-        imcb_log(sata->ic, "Last Online: %s", str);
-        g_free(str);
     }
 
     imcb_log(sata->ic, "Steam ID: %" STEAM_ID_FORMAT " (%" G_GINT32_FORMAT ")",
