@@ -1,12 +1,12 @@
 #!/bin/sh
 
-srcdir=$(dirname $0)
+test -z "$srcdir" && srcdir=$(dirname "$0")
 test -z "$srcdir" && srcdir=.
 
 cwd=$(pwd)
 cd "$srcdir"
 
-autoreconf -vfi || exit 1
+autoreconf --verbose --force --install || exit $?
 
 cd "$cwd"
-$srcdir/configure $@
+"$srcdir/configure" $@
