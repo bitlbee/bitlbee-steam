@@ -53,11 +53,11 @@ GByteArray *steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
     kata = data = cata = NULL;
     ret  = NULL;
 
-    res  = gcry_mpi_scan(&mmpi, GCRYMPI_FMT_STD, mod->data,
+    res  = gcry_mpi_scan(&mmpi, GCRYMPI_FMT_USG, mod->data,
                          mod->len, NULL);
-    res |= gcry_mpi_scan(&empi, GCRYMPI_FMT_STD, exp->data,
+    res |= gcry_mpi_scan(&empi, GCRYMPI_FMT_USG, exp->data,
                          exp->len, NULL);
-    res |= gcry_mpi_scan(&dmpi, GCRYMPI_FMT_STD, bytes->data,
+    res |= gcry_mpi_scan(&dmpi, GCRYMPI_FMT_USG, bytes->data,
                          bytes->len, NULL);
 
     if (G_UNLIKELY(res != 0))
@@ -84,7 +84,7 @@ GByteArray *steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
     }
 
     gcry_mpi_release(dmpi);
-    dmpi = gcry_sexp_nth_mpi(data, 1, GCRYMPI_FMT_STD);
+    dmpi = gcry_sexp_nth_mpi(data, 1, GCRYMPI_FMT_USG);
 
     if (G_UNLIKELY(dmpi == NULL)) {
         g_warn_if_reached();
@@ -94,7 +94,7 @@ GByteArray *steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
     ret = g_byte_array_new();
     g_byte_array_set_size(ret, mod->len);
 
-    gcry_mpi_print(GCRYMPI_FMT_STD, ret->data, ret->len, &size, dmpi);
+    gcry_mpi_print(GCRYMPI_FMT_USG, ret->data, ret->len, &size, dmpi);
 
     g_warn_if_fail(size <= mod->len);
     g_byte_array_set_size(ret, size);
