@@ -49,39 +49,64 @@ GByteArray *steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
     g_return_val_if_fail(exp   != NULL, NULL);
     g_return_val_if_fail(bytes != NULL, NULL);
 
-    gcry_mpi_scan(&mmpi, GCRYMPI_FMT_STD, mod->data,   mod->len,   NULL);
-    gcry_mpi_scan(&empi, GCRYMPI_FMT_STD, exp->data,   exp->len,   NULL);
-    gcry_mpi_scan(&dmpi, GCRYMPI_FMT_STD, bytes->data, bytes->len, NULL);
+    mmpi = empi = dmpi = NULL;
+    kata = data = cata = NULL;
+    ret  = NULL;
 
-    gcry_sexp_build(&kata, NULL, "(public-key(rsa(n %m)(e %m)))", mmpi, empi);
-    gcry_sexp_build(&data, NULL, "(data(flags pkcs1)(value %m))", dmpi);
+    res  = gcry_mpi_scan(&mmpi, GCRYMPI_FMT_STD, mod->data,
+                         mod->len, NULL);
+    res |= gcry_mpi_scan(&empi, GCRYMPI_FMT_STD, exp->data,
+                         exp->len, NULL);
+    res |= gcry_mpi_scan(&dmpi, GCRYMPI_FMT_STD, bytes->data,
+                         bytes->len, NULL);
 
-    gcry_mpi_release(dmpi);
-    gcry_mpi_release(empi);
-    gcry_mpi_release(mmpi);
+    if (G_UNLIKELY(res != 0))
+        goto finish;
+
+    res  = gcry_sexp_build(&kata, NULL, "(public-key(rsa(n %m)(e %m)))",
+                           mmpi, empi);
+    res |= gcry_sexp_build(&data, NULL, "(data(flags pkcs1)(value %m))",
+                           dmpi);
+
+    if (G_UNLIKELY(res != 0))
+        goto finish;
 
     res = gcry_pk_encrypt(&cata, data, kata);
-    gcry_sexp_release(data);
-    gcry_sexp_release(kata);
 
-    if (res != 0) {
-        gcry_sexp_release(cata);
-        return NULL;
-    }
+    if (G_UNLIKELY(res != 0))
+        goto finish;
 
     data = gcry_sexp_find_token(cata, "a", 0);
+
+    if (G_UNLIKELY(data == NULL)) {
+        g_warn_if_reached();
+        goto finish;
+    }
+
+    gcry_mpi_release(dmpi);
     dmpi = gcry_sexp_nth_mpi(data, 1, GCRYMPI_FMT_STD);
-    gcry_sexp_release(data);
-    gcry_sexp_release(cata);
+
+    if (G_UNLIKELY(dmpi == NULL)) {
+        g_warn_if_reached();
+        goto finish;
+    }
 
     ret = g_byte_array_new();
     g_byte_array_set_size(ret, mod->len);
 
     gcry_mpi_print(GCRYMPI_FMT_STD, ret->data, ret->len, &size, dmpi);
-    gcry_mpi_release(dmpi);
 
     g_warn_if_fail(size <= mod->len);
     g_byte_array_set_size(ret, size);
+
+finish:
+    gcry_sexp_release(cata);
+    gcry_sexp_release(data);
+    gcry_sexp_release(kata);
+
+    gcry_mpi_release(dmpi);
+    gcry_mpi_release(empi);
+    gcry_mpi_release(mmpi);
 
     return ret;
 }
@@ -131,7 +156,7 @@ gchar *steam_crypt_rsa_enc_str(const gchar *mod, const gchar *exp,
     g_byte_array_free(eytes, TRUE);
     g_byte_array_free(mytes, TRUE);
 
-    if (enc == NULL)
+    if (G_UNLIKELY(enc == NULL))
         return NULL;
 
     ret = g_base64_encode(enc->data, enc->len);
