@@ -73,17 +73,6 @@ AC_ARG_WITH(
     [plugindir="$with_plugindir"]
 )
 
-AC_DEFUN([MACRO_CHECK],
-    [m4_ifndef(
-        [$1],
-        [AC_MSG_ERROR([Package requirements ($2) were not met.])]
-    )]
-)
-
-MACRO_CHECK([AM_PATH_LIBGCRYPT], [libgcrypt])
-MACRO_CHECK([PKG_CHECK_MODULES], [pkg-config])
-MACRO_CHECK([PKG_CHECK_VAR],     [pkg-config])
-
 AM_PATH_LIBGCRYPT([1.5.0])
 PKG_CHECK_MODULES([GLIB],    [glib-2.0 >= 2.32.0])
 PKG_CHECK_MODULES([BITLBEE], [bitlbee  >= 3.2.2])
