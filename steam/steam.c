@@ -148,11 +148,11 @@ static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
         return;
     }
 
-    f = OPT_LOGGED_IN;
+    f = BEE_USER_ONLINE;
     m = steam_user_state_str(info->state);
 
     if (info->state != STEAM_USER_STATE_ONLINE)
-        f |= OPT_AWAY;
+        f |= BEE_USER_AWAY;
 
     user = bu->data;
     cgm  = g_strcmp0(info->game,   user->game)   != 0;
@@ -343,7 +343,7 @@ static void steam_cb_friends(SteamApiReq *req, gpointer data)
 
     ic = sata->ic;
 
-    if (!(ic->flags & OPT_LOGGED_IN))
+    if (!(ic->flags & BEE_USER_ONLINE))
         imcb_connected(ic);
 
     for (l = req->infs->head; l != NULL; l = l->next) {
@@ -690,7 +690,7 @@ static char *steam_eval_accounton(set_t *set, char *value)
 {
     account_t *acc = set->data;
 
-    if ((acc->ic != NULL) && (acc->ic->flags & OPT_LOGGED_IN))
+    if ((acc->ic != NULL) && (acc->ic->flags & BEE_USER_ONLINE))
         return value;
 
     /* Some hackery to auto connect upon authcode entry */
@@ -896,7 +896,7 @@ static void steam_logout(struct im_connection *ic)
 
     steam_http_free_reqs(sata->api->http);
 
-    if (ic->flags & OPT_LOGGED_IN) {
+    if (ic->flags & BEE_USER_ONLINE) {
         req = steam_api_req_new(sata->api, steam_cb_logoff, sata);
         steam_api_req_logoff(req);
     } else {
