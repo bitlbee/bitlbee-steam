@@ -169,7 +169,8 @@ void steam_user_free(SteamUser *user);
 
 gint steam_user_chan_mode(const gchar *mode);
 
-void steam_user_chans_msg(SteamUser *user, const gchar *format, ...);
+void steam_user_chans_msg(SteamUser *user, const gchar *fmt, ...)
+    G_GNUC_PRINTF(2, 3);
 
 void steam_user_chans_umode(SteamUser *user, gint mode, gboolean override);
 
