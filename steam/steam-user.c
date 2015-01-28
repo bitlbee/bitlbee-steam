@@ -54,28 +54,6 @@ void steam_user_free(SteamUser *user)
 }
 
 /**
- * Gets the #irc_channel_user_flags_t value of a string.
- *
- * @param mode The string.
- *
- * @return The #irc_channel_user_flags_t value.
- **/
-gint steam_user_chan_mode(const gchar *mode)
-{
-    if ((mode == NULL) || (strlen(mode) < 1))
-        return IRC_CHANNEL_USER_NONE;
-
-    switch (mode[0]) {
-    case '@': return IRC_CHANNEL_USER_OP;
-    case '%': return IRC_CHANNEL_USER_HALFOP;
-    case '+': return IRC_CHANNEL_USER_VOICE;
-
-    default:
-        return IRC_CHANNEL_USER_NONE;
-    }
-}
-
-/**
  * Sends a message to all channels which a #SteamUser is occupying with
  * the sender being the #SteamUser.
  *
@@ -108,58 +86,6 @@ void steam_user_chans_msg(SteamUser *user, const gchar *format, ...)
     }
 
     g_free(str);
-}
-
-/**
- * Sets the channel mode of a #SteamUser in all channels which the
- * #SteamUser is occupying. If the mode will be overridden by current
- * modes, they will optionally be unset, allowing the new mode to take
- * precedence.
- *
- * @param user     The #SteamUser.
- * @param mode     The #irc_channel_user_flags_t.
- * @param override TRUE to override modes, or FALSE to keep all modes.
- **/
-void steam_user_chans_umode(SteamUser *user, gint mode, gboolean override)
-{
-    irc_channel_t            *ic;
-    irc_user_t               *iu;
-    irc_channel_user_t       *icu;
-    irc_channel_user_flags_t  fgs;
-    GSList                   *l;
-    guint                     i;
-
-    g_return_if_fail(user != NULL);
-
-    static guint modes[] = {
-        IRC_CHANNEL_USER_NONE,
-        IRC_CHANNEL_USER_VOICE,
-        IRC_CHANNEL_USER_HALFOP,
-        IRC_CHANNEL_USER_OP
-    };
-
-    static gsize mize = G_N_ELEMENTS(modes);
-    iu = user->buser->ui_data;
-
-    for (l = iu->irc->channels; l != NULL; l = l->next) {
-        ic  = l->data;
-        icu = irc_channel_has_user(ic, iu);
-        fgs = mode;
-
-        if (icu == NULL)
-            continue;
-
-        if (override) {
-            for (i = 0; (i < mize) && !(mode & modes[i]); i++) {
-                if (icu->flags & modes[i])
-                    fgs |= modes[i];
-            }
-        } else {
-            fgs |= icu->flags;
-        }
-
-        irc_channel_user_set_mode(ic, iu, fgs);
-    }
 }
 
 /**

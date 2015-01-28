@@ -39,7 +39,6 @@ struct _SteamData
     struct im_connection *ic; /** The #im_connection. **/
 
     gboolean game_status;     /** The printing of game play statues. **/
-    gint     show_playing;    /** The user mode of a #SteamUser in-game. **/
 };
 
 

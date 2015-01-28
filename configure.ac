@@ -84,7 +84,7 @@ AC_ARG_WITH(
 
 AM_PATH_LIBGCRYPT([1.5.0])
 PKG_CHECK_MODULES([GLIB],    [glib-2.0 >= 2.32.0])
-PKG_CHECK_MODULES([BITLBEE], [bitlbee  >= 3.2.2])
+PKG_CHECK_MODULES([BITLBEE], [bitlbee  >= 3.4.0])
 
 AS_IF(
     [test -z "$plugindir"],

@@ -45,9 +45,6 @@ Usage:
   Output game play statues to the account channel(s):
     > account <acc> set game_status true
 
-  Disable game play statuses (default: %):
-    > account <acc> set show_playing false
-
 Debugging:
   Before debugging can begin, the plugin must be compiled with debugging
   support. Once debugging support has been enabled, one of the two

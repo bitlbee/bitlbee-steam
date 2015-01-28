@@ -37,7 +37,6 @@ static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data);
 SteamData *steam_data_new(account_t *acc)
 {
     SteamData *sata;
-    gchar     *str;
 
     g_return_val_if_fail(acc != NULL, NULL);
 
@@ -50,9 +49,6 @@ SteamData *steam_data_new(account_t *acc)
     sata->api->token  = g_strdup(set_getstr(&acc->set, "token"));
     sata->api->sessid = g_strdup(set_getstr(&acc->set, "sessid"));
     sata->game_status = set_getbool(&acc->set, "game_status");
-
-    str = set_getstr(&acc->set, "show_playing");
-    sata->show_playing = steam_user_chan_mode(str);
 
     steam_api_rehash(sata->api);
 
@@ -152,15 +148,15 @@ static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
     if (info->state != STEAM_USER_STATE_ONLINE)
         f |= BEE_USER_AWAY;
 
+    if (info->game != NULL)
+        f |= BEE_USER_SPECIAL;
+
     user = bu->data;
     cgm  = g_strcmp0(info->game,   user->game)   != 0;
     csv  = g_strcmp0(info->server, user->server) != 0;
 
     if (!cgm && !csv) {
-        if (user->game == NULL) {
-            imcb_buddy_status(sata->ic, sid, f, m, bu->status_msg);
-        }
-
+        imcb_buddy_status(sata->ic, sid, f, m, bu->status_msg);
         return;
     }
 
@@ -170,11 +166,6 @@ static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
         game = g_strdup(info->game);
 
     if (cgm) {
-        imcb_buddy_status(sata->ic, sid, f, m, game);
-
-        if (info->game != NULL)
-            steam_user_chans_umode(user, sata->show_playing, TRUE);
-
         g_free(user->game);
         user->game = g_strdup(info->game);
     }
@@ -187,6 +178,7 @@ static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
     if (sata->game_status && (game != NULL))
         steam_user_chans_msg(user, "/me is now playing: %s", game);
 
+    imcb_buddy_status(sata->ic, sid, f, m, game);
     g_free(game);
 }
 
@@ -730,61 +722,6 @@ static char *steam_eval_game_status(set_t *set, char *value)
 }
 
 /**
- * Implemented #set_eval for the set of show_playing. If the account
- * is on, this updates all buddies in all channels that are currently
- * in a game with the new user mode.
- *
- * @param set   The #set_t.
- * @param value The set value.
- *
- * @return The resulting set value.
- **/
-static char *steam_eval_show_playing(set_t *set, char *value)
-{
-    account_t  *acc = set->data;
-    SteamData  *sata;
-    SteamUser  *user;
-    bee_user_t *bu;
-    GSList     *l;
-    gint        sply;
-
-    if ((acc->ic == NULL) || (acc->ic->proto_data == NULL))
-        return value;
-
-    if (G_UNLIKELY(g_strcmp0(acc->prpl->name, "steam") != 0)) {
-        g_warn_if_reached();
-        return value;
-    }
-
-    sata = acc->ic->proto_data;
-    sply = steam_user_chan_mode(value);
-
-    if (sply == sata->show_playing)
-        return value;
-
-    sata->show_playing = sply;
-
-    for (l = acc->bee->users; l; l = l->next) {
-        bu   = l->data;
-        user = bu->data;
-
-        if (G_UNLIKELY((bu->ic != acc->ic) || (user == NULL))) {
-            g_warn_if_reached();
-            continue;
-        }
-
-        if (!(bu->flags & BEE_USER_ONLINE) || (user->game == NULL))
-            continue;
-
-        imcb_buddy_status(acc->ic, bu->handle, bu->flags,
-                          bu->status, bu->status_msg);
-        steam_user_chans_umode(user, sata->show_playing, TRUE);
-    }
-
-    return value;
-}
-
-/**
  * Implemented #set_eval for the set of password. If the account is on,
  * this disables the account, and resets the token. Then the plugin
  * will force the authentication process with the new password.
@@ -840,9 +777,6 @@ static void steam_init(account_t *acc)
 
     s = set_add(&acc->set, "sessid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_PASSWORD;
-
-    s = set_add(&acc->set, "show_playing", "%", steam_eval_show_playing, acc);
-    s->flags = SET_NULL_OK;
 
     set_add(&acc->set, "game_status", "false", steam_eval_game_status, acc);
     set_add(&acc->set, "password", NULL, steam_eval_password, acc);
