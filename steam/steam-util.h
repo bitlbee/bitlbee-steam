@@ -80,9 +80,6 @@ gpointer *steam_util_enum_ptrs(const SteamUtilEnum *enums, guint vals);
 guint steam_util_enum_val(const SteamUtilEnum *enums, guint def,
                           gconstpointer ptr, GCompareFunc cmpfunc);
 
-gchar *steam_util_markup_unescape_text(const gchar *text, gssize len,
-                                       gsize *nlen);
-
 GByteArray *steam_util_str_hex2bytes(const gchar *str);
 
 gboolean steam_util_str_iequal(const gchar *s1, const gchar *s2);

@@ -277,24 +277,23 @@ static void steam_api_json_user_info_js(SteamUserInfo *info,
 {
     const gchar *str;
     const gchar *tmp;
-    gchar       *dtr;
     gint64       in;
 
     if (steam_json_str_chk(json, "m_strInGameName", &str)) {
         g_free(info->game);
 
-        if (steam_json_str_chk(json, "m_nInGameAppID", &tmp)) {
-            info->game = steam_util_markup_unescape_text(str, -1, NULL);
-        } else {
-            dtr = steam_util_markup_unescape_text(str, -1, NULL);
-            info->game = g_strdup_printf("Non-Steam: %s", dtr);
-            g_free(dtr);
-        }
+        if (steam_json_str_chk(json, "m_nInGameAppID", &tmp))
+            info->game = g_strdup(str);
+        else
+            info->game = g_strdup_printf("Non-Steam: %s", str);
+
+        strip_html(info->game);
     }
 
     if (steam_json_str_chk(json, "m_strName", &str)) {
         g_free(info->nick);
-        info->nick = steam_util_markup_unescape_text(str, -1, NULL);
+        info->nick = g_strdup(str);
+        strip_html(info->nick);
     }
 
     if (steam_json_int_chk(json, "m_ePersonaState", &in))
