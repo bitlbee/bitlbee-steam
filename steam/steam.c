@@ -953,6 +953,25 @@ static int steam_buddy_msg(struct im_connection *ic, char *to, char *message,
 }
 
 /**
+ * Implements #prpl->set_away(). This sets the away state of the user.
+ *
+ * @param ic      The #im_connection.
+ * @param state   The away state.
+ * @param message The away message.
+ **/
+static void steam_set_away(struct im_connection *ic, char *state, char *message)
+{
+    SteamData *sata = ic->proto_data;
+
+    if (g_strcmp0(state, "Away") == 0)
+        sata->api->info->state = STEAM_USER_STATE_AWAY;
+    else if (g_strcmp0(state, "Snooze") == 0)
+        sata->api->info->state = STEAM_USER_STATE_SNOOZE;
+    else
+        sata->api->info->state = STEAM_USER_STATE_ONLINE;
+}
+
+/**
  * Implements #prpl->send_typing(). This sends the typing state message.
  *
  * @param ic    The #im_connection.
@@ -1096,6 +1115,26 @@ static void steam_get_info(struct im_connection *ic, char *who)
 }
 
 /**
+ * Implements #prpl->away_states(). This retrieves the away states.
+ *
+ * @param ic The #im_connection.
+ *
+ * @return The #GList of away states.
+ **/
+static GList *steam_away_states(struct im_connection *ic)
+{
+    static GList *states = NULL;
+
+    if (G_UNLIKELY(states == NULL)) {
+        /* Steam only support setting "Away" and "Snooze" */
+        states = g_list_prepend(states, "Snooze");
+        states = g_list_prepend(states, "Away");
+    }
+
+    return states;
+}
+
+/**
  * Implements #prpl->auth_allow(). This accepts buddy requests.
  *
  * @param ic  The #im_connection.
@@ -1164,6 +1203,7 @@ void init_plugin()
     pp->login           = steam_login;
     pp->logout          = steam_logout;
     pp->buddy_msg       = steam_buddy_msg;
+    pp->set_away        = steam_set_away;
     pp->send_typing     = steam_send_typing;
     pp->add_buddy       = steam_add_buddy;
     pp->remove_buddy    = steam_remove_buddy;
@@ -1172,6 +1212,7 @@ void init_plugin()
     pp->rem_permit      = steam_rem_permit;
     pp->rem_deny        = steam_rem_deny;
     pp->get_info        = steam_get_info;
+    pp->away_states     = steam_away_states;
     pp->handle_cmp      = g_ascii_strcasecmp;
     pp->auth_allow      = steam_auth_allow;
     pp->auth_deny       = steam_auth_deny;

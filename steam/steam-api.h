@@ -33,6 +33,9 @@
 #define STEAM_API_CLIENTID "DE45CD61"
 #define STEAM_API_TIMEOUT  30
 
+#define STEAM_API_IDLEOUT_AWAY   600
+#define STEAM_API_IDLEOUT_SNOOZE 8000
+
 #define STEAM_API_PATH_FRIEND_SEARCH "/ISteamUserOAuth/Search/v0001"
 #define STEAM_API_PATH_FRIENDS       "/ISteamUserOAuth/GetFriendList/v0001"
 #define STEAM_API_PATH_LOGON         "/ISteamWebUserPresenceOAuth/Logon/v0001"
@@ -126,6 +129,7 @@ struct _SteamApi
     GQueue        *msgs; /** The #GQueue of message based #SteamApiReq. **/
 
     gboolean online;     /** The online state of the user. **/
+    guint32  idle;       /** The idle time of the user. **/
 
     gchar *umqid;        /** The unique device identifier. **/
     gchar *token;        /** The session token (mobile requests). **/
@@ -170,6 +174,8 @@ SteamApi *steam_api_new(const gchar *umqid);
 void steam_api_free_auth(SteamApi *api);
 
 void steam_api_free(SteamApi *api);
+
+void steam_api_away(SteamApi *api, gboolean away);
 
 gchar *steam_api_captcha_url(const gchar *cgid);
 
