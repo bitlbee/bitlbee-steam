@@ -756,7 +756,7 @@ static void steam_api_cb_key(SteamApiReq *req, const json_value *json)
 
 /**
  * Sends a key request. The PKCS key is used to encrypt the password
- * before it is sent during the authentication phase. 
+ * before it is sent during the authentication phase.
  *
  * @param req  The #SteamApiReq.
  * @param user The username.
@@ -1019,7 +1019,7 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
 /**
  * Sends a poll request. This retrieves new messages from Steam. In
  * addition, this keeps the #SteamApi session active, and must be
- * called every 30 seconds. 
+ * called every 30 seconds.
  *
  * @param req The #SteamApiReq.
  **/
@@ -1664,7 +1664,7 @@ static void steam_api_cb_user_search(SteamApiReq *req, const json_value *json)
 /**
  * Sends a user search request. This searches for Steam users based on
  * a search term. This is very useful when attempting to add Steam
- * users by their name via #steam_api_req_user_add(). 
+ * users by their name via #steam_api_req_user_add().
  *
  * @param req   The #SteamApiReq.
  * @param name  The username.

@@ -127,7 +127,7 @@ struct _SteamUser
 };
 
 /**
- * The structure for Steam user information. 
+ * The structure for Steam user information.
  **/
 struct _SteamUserInfo
 {

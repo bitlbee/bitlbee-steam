@@ -75,7 +75,7 @@ typedef struct _SteamApiReq SteamApiReq;
  * The type of callback for #SteamApiReq operations.
  *
  * @param req  The #SteamApiReq.
- * @param data The user defined data or NULL. 
+ * @param data The user defined data or NULL.
  **/
 typedef void (*SteamApiFunc) (SteamApiReq *req, gpointer data);
 
@@ -154,7 +154,7 @@ struct _SteamApiReq
     SteamApiReqFlags  flags; /** The #SteamApiReqFlags. **/
     SteamHttpReq     *req;   /** The #SteamHttpReq. **/
     GError           *err;   /** The #GError or NULL. **/
-    GQueue           *msgs;  /** The #GQueue of #SteamApiMsg. **/ 
+    GQueue           *msgs;  /** The #GQueue of #SteamApiMsg. **/
     GQueue           *infs;  /** The #GQueue of #SteamUserInfo. **/
     GQueue           *infr;  /** The #GQueue of #SteamUserInfo remaining. **/
 

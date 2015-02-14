@@ -60,7 +60,7 @@ typedef struct _SteamHttpReq SteamHttpReq;
  * The type of callback for #SteamHttpReq operations.
  *
  * @param req  The #SteamHttpReq.
- * @param data The user defined data or NULL. 
+ * @param data The user defined data or NULL.
  **/
 typedef void (*SteamHttpFunc) (SteamHttpReq *req, gpointer data);
 
