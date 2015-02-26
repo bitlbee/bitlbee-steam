@@ -636,6 +636,11 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
 
+    steam_http_req_headers_set(req->req,
+        STEAM_HTTP_PAIR("User-Agent", STEAM_API_AGENT_AUTH),
+        NULL
+    );
+
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("username",        user),
         STEAM_HTTP_PAIR("password",        pswd),
