@@ -42,21 +42,19 @@ SteamData *steam_data_new(account_t *acc)
     g_return_val_if_fail(acc != NULL, NULL);
 
     sata = g_new0(SteamData, 1);
-
-    sata->ic = imcb_new(acc);
+    sata->api = steam_api_new();
+    sata->ic  = imcb_new(acc);
     sata->ic->proto_data = sata;
 
-    str = set_getstr(&acc->set, "umqid");
-    sata->api = steam_api_new(str);
-
-    sata->api->token   = g_strdup(set_getstr(&acc->set, "token"));
-    sata->api->sessid  = g_strdup(set_getstr(&acc->set, "sessid"));
-    sata->game_status  = set_getbool(&acc->set, "game_status");
+    sata->api->umqid  = g_strdup(set_getstr(&acc->set, "umqid"));
+    sata->api->token  = g_strdup(set_getstr(&acc->set, "token"));
+    sata->api->sessid = g_strdup(set_getstr(&acc->set, "sessid"));
+    sata->game_status = set_getbool(&acc->set, "game_status");
 
     str = set_getstr(&acc->set, "show_playing");
     sata->show_playing = steam_user_chan_mode(str);
 
-    steam_api_refresh(sata->api);
+    steam_api_rehash(sata->api);
 
     return sata;
 }

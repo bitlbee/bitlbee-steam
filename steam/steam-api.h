@@ -174,7 +174,7 @@ struct _SteamApiReq
 
 GQuark steam_api_error_quark(void);
 
-SteamApi *steam_api_new(const gchar *umqid);
+SteamApi *steam_api_new(void);
 
 void steam_api_free_auth(SteamApi *api);
 
@@ -184,7 +184,7 @@ void steam_api_away(SteamApi *api, gboolean away);
 
 gchar *steam_api_captcha_url(const gchar *cgid);
 
-void steam_api_refresh(SteamApi *api);
+void steam_api_rehash(SteamApi *api);
 
 SteamApiReq *steam_api_req_new(SteamApi *api, SteamApiFunc func, gpointer data);
 

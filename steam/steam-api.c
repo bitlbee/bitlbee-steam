@@ -43,26 +43,13 @@ GQuark steam_api_error_quark(void)
  * Creates a new #SteamApi. The returned #SteamApi should be freed with
  * #steam_api_free() when no longer needed.
  *
- * @param umqid The umqid or NULL.
- *
  * @return The #SteamApi or NULL on error.
  **/
-SteamApi *steam_api_new(const gchar *umqid)
+SteamApi *steam_api_new(void)
 {
     SteamApi *api;
-    GRand    *rand;
 
     api = g_new0(SteamApi, 1);
-
-    if (umqid == NULL) {
-        rand       = g_rand_new();
-        api->umqid = g_strdup_printf("%" G_GUINT32_FORMAT, g_rand_int(rand));
-
-        g_rand_free(rand);
-    } else {
-        api->umqid = g_strdup(umqid);
-    }
-
     api->info = steam_user_info_new(0);
     api->http = steam_http_new(STEAM_API_AGENT);
     api->msgs = g_queue_new();
@@ -132,16 +119,18 @@ gchar *steam_api_captcha_url(const gchar *cgid)
 }
 
 /**
- * Refreshes the #SteamApi after the modification of session
- * information.
+ * Rehashes the #SteamApi after modifying the session information.
  *
  * @param api The #SteamApi.
  **/
-void steam_api_refresh(SteamApi *api)
+void steam_api_rehash(SteamApi *api)
 {
     gchar *str;
 
     g_return_if_fail(api != NULL);
+
+    if (api->umqid == NULL)
+        api->umqid = g_strdup_printf("%" G_GUINT32_FORMAT, g_random_int());
 
     str = g_strdup_printf("%" STEAM_ID_FORMAT "||oauth:%s", api->info->id,
                           api->token);
@@ -824,13 +813,14 @@ static void steam_api_cb_logon(SteamApiReq *req, const json_value *json)
 
     if (steam_json_str_chk(json, "steamid", &str)) {
         req->api->info->id = STEAM_ID_NEW_STR(str);
-        steam_api_refresh(req->api);
         g_queue_push_tail(req->infs, req->api->info);
+        steam_api_rehash(req->api);
     }
 
     if (steam_json_str_chk(json, "umqid", &str)) {
         g_free(req->api->umqid);
         req->api->umqid = g_strdup(str);
+        steam_api_rehash(req->api);
     }
 
     req->api->lmid = steam_json_int(json, "message");
@@ -845,7 +835,6 @@ static void steam_api_cb_logon(SteamApiReq *req, const json_value *json)
         steam_http_req_send(req->req);
     }
 
-    steam_api_refresh(req->api);
     steam_api_cb_user_info_req(req, json);
 }
 
