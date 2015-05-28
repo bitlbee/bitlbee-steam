@@ -7,5 +7,5 @@ Build-Depends: debhelper (>= 9), libglib2.0-dev (>= 2.32), bitlbee-dev (>= 3.4),
 
 Package: bitlbee-steam
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, bitlbee (>= 3.4), libgcrypt11 (>= 1.5.0) | libgcrypt20
+Depends: ${shlibs:Depends}, ${misc:Depends}, bitlbee (>= 3.4) | bitlbee-libpurple (>= 3.4), libgcrypt11 (>= 1.5.0) | libgcrypt20
 Description: Steam protocol plugin for BitlBee
