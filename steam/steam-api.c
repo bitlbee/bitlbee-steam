@@ -631,18 +631,20 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
     );
 
     steam_http_req_params_set(req->req,
-        STEAM_HTTP_PAIR("username",        user),
-        STEAM_HTTP_PAIR("password",        pswd),
-        STEAM_HTTP_PAIR("emailauth",       authcode),
-        STEAM_HTTP_PAIR("emailsteamid",    req->api->esid),
-        STEAM_HTTP_PAIR("captchagid",      req->api->cgid),
-        STEAM_HTTP_PAIR("captcha_text",    captcha),
-        STEAM_HTTP_PAIR("rsatimestamp",    req->api->pktime),
-        STEAM_HTTP_PAIR("oauth_client_id", STEAM_API_CLIENTID),
-        STEAM_HTTP_PAIR("donotcache",      ms),
-        STEAM_HTTP_PAIR("remember_login",  "true"),
-        STEAM_HTTP_PAIR("oauth_scope",     "read_profile write_profile "
-                                           "read_client write_client"),
+        STEAM_HTTP_PAIR("username",          user),
+        STEAM_HTTP_PAIR("password",          pswd),
+        STEAM_HTTP_PAIR("twofactorcode",     NULL),
+        STEAM_HTTP_PAIR("emailauth",         authcode),
+        STEAM_HTTP_PAIR("emailsteamid",      req->api->esid),
+        STEAM_HTTP_PAIR("captchagid",        req->api->cgid),
+        STEAM_HTTP_PAIR("captcha_text",      captcha),
+        STEAM_HTTP_PAIR("rsatimestamp",      req->api->pktime),
+        STEAM_HTTP_PAIR("loginfriendlyname", PACKAGE),
+        STEAM_HTTP_PAIR("oauth_client_id",   STEAM_API_CLIENTID),
+        STEAM_HTTP_PAIR("donotcache",        ms),
+        STEAM_HTTP_PAIR("remember_login",    "true"),
+        STEAM_HTTP_PAIR("oauth_scope",       "read_profile write_profile "
+                                             "read_client write_client"),
         NULL
     );
 
