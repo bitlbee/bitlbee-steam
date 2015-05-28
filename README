@@ -32,6 +32,14 @@ Building and Installing:
     $ make install
 
 Usage:
+  Before continuing, please note, any account which is a "Limited User
+  Account" will not work with this plugin. These limited accounts have
+  many features negated from them, which are required for this plugin
+  to function correctly as a chat client. Please, do not file issues in
+  the tracker if your account is a limited account.
+
+  See: https://support.steampowered.com/kb_article.php?ref=3330-IAGK-7663
+
   Getting started:
     > account add steam <username> <password>
     > account <acc> on
