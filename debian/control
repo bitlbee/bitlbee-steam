@@ -2,10 +2,18 @@ Source: bitlbee-steam
 Maintainer: jgeboski <jgeboski@gmail.com>
 Section: misc
 Priority: optional
-Standards-Version: 3.9.2
-Build-Depends: debhelper (>= 9), libglib2.0-dev (>= 2.32), bitlbee-dev (>= 3.4), libgcrypt11-dev (>= 1.5.0) | libgcrypt20-dev
+Standards-Version: 3.9.6
+Build-Depends: debhelper (>= 9), dh-autoreconf, libglib2.0-dev (>= 2.32), bitlbee-dev (>= 3.4), libgcrypt11-dev (>= 1.5.0) | libgcrypt20-dev
+Homepage: https://github.com/jgeboski/bitlbee-steam
 
 Package: bitlbee-steam
 Architecture: any
+Section: misc
+Priority: optional
 Depends: ${shlibs:Depends}, ${misc:Depends}, bitlbee (>= 3.4) | bitlbee-libpurple (>= 3.4), libgcrypt11 (>= 1.5.0) | libgcrypt20
+Homepage: https://github.com/jgeboski/bitlbee-steam
 Description: Steam protocol plugin for BitlBee
+ BitlBee Steam implements the Steam API into bitlbee. This plugin uses
+ the Steam Mobile API allowing it to run alongside the main Steam
+ client. It is worth noting that the Steam Mobile API is HTTP based,
+ which does lead to mild latency.
