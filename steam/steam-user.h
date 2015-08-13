@@ -146,8 +146,9 @@ struct _SteamUserInfo
     gchar *profile;       /** The profile URL or NULL. **/
 
     gint64 ltime;         /** The last logoff timestamp (UTC). **/
-    gint64 mtime;         /** The last message timestamp (UTC). **/
     gint64 vtime;         /** The last view timestamp (UTC). **/
+
+    guint unread;         /** The unread message count. **/
 };
 
 /**

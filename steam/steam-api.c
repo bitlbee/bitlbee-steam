@@ -256,46 +256,6 @@ static void steam_api_json_user_info(SteamUserInfo *info,
 }
 
 /**
- * Parses and assigns #SteamUserInfo values from a #json_value.
- *
- * @param info The #SteamUserInfo.
- * @param json The #json_value.
- **/
-static void steam_api_json_user_info_js(SteamUserInfo *info,
-                                        const json_value *json)
-{
-    const gchar *str;
-    const gchar *tmp;
-    gint64       in;
-
-    if (steam_json_str_chk(json, "m_strInGameName", &str)) {
-        g_free(info->game);
-
-        if (steam_json_str_chk(json, "m_nInGameAppID", &tmp))
-            info->game = g_strdup(str);
-        else
-            info->game = g_strdup_printf("Non-Steam: %s", str);
-
-        strip_html(info->game);
-    }
-
-    if (steam_json_str_chk(json, "m_strName", &str)) {
-        g_free(info->nick);
-        info->nick = g_strdup(str);
-        strip_html(info->nick);
-    }
-
-    if (steam_json_int_chk(json, "m_ePersonaState", &in))
-        info->state = in;
-
-    if (steam_json_int_chk(json, "m_tsLastMessage", &in))
-        info->mtime = in;
-
-    if (steam_json_int_chk(json, "m_tsLastView", &in))
-        info->vtime = in;
-}
-
-/**
  * Creates a new #SteamApiReq. The returned #SteamApiReq should be freed
  * with #steam_api_req_free() when no longer needed.
  *
@@ -695,7 +655,8 @@ static void steam_api_cb_friends(SteamApiReq *req, const json_value *json)
         g_queue_push_tail(req->infs, info);
     }
 
-    steam_api_cb_user_info_req(req, json);
+    req = steam_api_req_fwd(req);
+    steam_api_req_msg_info(req);
 }
 
 /**
@@ -930,6 +891,177 @@ void steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg)
         steam_http_req_send(req->req);
     else
         g_queue_push_tail(req->api->msgs, req);
+}
+
+/**
+ * Implemented #SteamApiParser for #steam_api_req_msg_info().
+ *
+ * @param req  The #SteamApiReq.
+ * @param json The #json_value or NULL.
+ **/
+static void steam_api_cb_msg_info(SteamApiReq *req, const json_value *json)
+{
+    SteamUserInfo *info;
+    GHashTable    *ght;
+    json_value    *jv;
+    json_value    *je;
+    GList         *l;
+    SteamId        id;
+    gint64         in;
+    guint          i;
+
+    if (!steam_json_val_chk(json, "response", json_object, &jv) ||
+        !steam_json_array_chk(jv, "message_sessions", &jv))
+    {
+        steam_api_cb_user_info_req(req, json);
+        return;
+    }
+
+    ght = g_hash_table_new(steam_id_hash, steam_id_equal);
+
+    for (l = req->infs->head; l != NULL; l = l->next) {
+        info = l->data;
+        g_hash_table_replace(ght, &info->id, info);
+    }
+
+    for (i = 0; i < jv->u.array.length; i++) {
+        je = jv->u.array.values[i];
+
+        if (!steam_json_int_chk(je, "accountid_friend", &in))
+            continue;
+
+        id = STEAM_ID_NEW(STEAM_ID_UNIV_PUBLIC, STEAM_ID_TYPE_INDIVIDUAL,
+                          STEAM_ID_INST_DESKTOP, in);
+
+        info = g_hash_table_lookup(ght, &id);
+
+        if (G_UNLIKELY(info == NULL)) {
+            continue;
+        }
+
+        if (steam_json_int_chk(je, "last_view", &in))
+            info->vtime = in;
+
+        if (steam_json_int_chk(je, "unread_message_count", &in))
+            info->unread = in;
+    }
+
+    g_hash_table_destroy(ght);
+    steam_api_cb_user_info_req(req, json);
+}
+
+/**
+ * Sends a message information request. This retrieves the last know
+ * message info of the #SteamUserInfos.
+ *
+ * @param req The #SteamApiReq.
+ **/
+void steam_api_req_msg_info(SteamApiReq *req)
+{
+    g_return_if_fail(req != NULL);
+
+    if (req->infs == NULL) {
+        if (req->func != NULL)
+            req->func(req, req->data);
+
+        steam_api_req_free(req);
+        return;
+    }
+
+    req->punc = steam_api_cb_msg_info;
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_MESSAGE_INFO);
+
+    steam_http_req_params_set(req->req,
+        STEAM_HTTP_PAIR("access_token", req->api->token),
+        NULL
+    );
+
+    steam_http_req_send(req->req);
+}
+
+/**
+ * Implemented #SteamApiParser for #steam_api_req_msgs().
+ *
+ * @param req  The #SteamApiReq.
+ * @param json The #json_value or NULL.
+ **/
+void steam_api_cb_msgs(SteamApiReq *req, const json_value *json)
+{
+    SteamUserMsg *msg;
+    json_value   *jv;
+    json_value   *je;
+    const gchar  *str;
+    SteamId       id;
+    gint64        in;
+    guint         i;
+
+    if (!steam_json_val_chk(json, "response", json_object, &jv) ||
+        !steam_json_array_chk(jv, "messages", &jv))
+    {
+        return;
+    }
+
+    for (i = 0; i < jv->u.array.length; i++) {
+        je = jv->u.array.values[i];
+
+        if (!steam_json_int_chk(je, "accountid", &in))
+            continue;
+
+        id = STEAM_ID_NEW(STEAM_ID_UNIV_PUBLIC, STEAM_ID_TYPE_INDIVIDUAL,
+                          STEAM_ID_INST_DESKTOP, in);
+
+        if (!steam_json_str_chk(je, "message", &str) ||
+            !steam_json_int_chk(je, "timestamp", &in))
+        {
+            continue;
+        }
+
+        msg = steam_user_msg_new(id);
+        msg->type = STEAM_USER_MSG_TYPE_SAYTEXT;
+        msg->text = g_strdup(str);
+        msg->time = in;
+
+        /* The messages are sent in reverse */
+        g_queue_push_head(req->msgs, msg);
+        g_queue_push_tail(req->infs, msg->info);
+    }
+
+    steam_api_cb_user_info_req(req, json);
+}
+
+/**
+ * Sends a message log request. This retrieves the messages since a
+ * given timestamp.
+ *
+ * @param req   The #SteamApiReq.
+ * @param id    The #SteamId.
+ * @param since The time stamp of the last message.
+ **/
+void steam_api_req_msgs(SteamApiReq *req, SteamId id, gint64 since)
+{
+    gchar *stime;
+    gchar  sid1[STEAM_ID_STR_MAX];
+    gchar  sid2[STEAM_ID_STR_MAX];
+
+    g_return_if_fail(req != NULL);
+
+    stime = g_strdup_printf("%" G_GINT64_FORMAT, since);
+    STEAM_ID_STR(req->api->info->id, sid1);
+    STEAM_ID_STR(id, sid2);
+
+    req->punc = steam_api_cb_msgs;
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_MESSAGES);
+
+    steam_http_req_params_set(req->req,
+        STEAM_HTTP_PAIR("access_token",       req->api->token),
+        STEAM_HTTP_PAIR("steamid1",           sid1),
+        STEAM_HTTP_PAIR("steamid2",           sid2),
+        STEAM_HTTP_PAIR("rtime32_start_time", stime),
+        NULL
+    );
+
+    steam_http_req_send(req->req);
+    g_free(stime);
 }
 
 /**
@@ -1169,79 +1301,6 @@ void steam_api_req_user_add(SteamApiReq *req, SteamId id)
 }
 
 /**
- * Implemented #SteamApiParser for #steam_api_req_user_chatlog().
- *
- * @param req  The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
-static void steam_api_cb_user_chatlog(SteamApiReq *req, const json_value *json)
-{
-    SteamUserMsg *msg;
-    json_value   *jv;
-    const gchar  *str;
-    SteamId       id;
-    gint32        aid;
-    gint64        in;
-    gsize         i;
-
-    aid = STEAM_ID_ACCID(req->api->info->id);
-
-    for (i = 0; i < json->u.array.length; i++) {
-        jv = json->u.array.values[i];
-
-        if (!steam_json_int_chk(jv, "m_unAccountID", &in) || (in == aid))
-            continue;
-
-        id = STEAM_ID_NEW(STEAM_ID_UNIV_PUBLIC, STEAM_ID_TYPE_INDIVIDUAL,
-                          STEAM_ID_INST_DESKTOP, in);
-
-        msg = steam_user_msg_new(id);
-        msg->type = STEAM_USER_MSG_TYPE_SAYTEXT;
-        msg->time = steam_json_int(jv, "m_tsTimestamp");
-
-        str = steam_json_str(jv, "m_strMessage");
-        msg->text = g_strdup(str);
-
-        g_queue_push_tail(req->msgs, msg);
-        g_queue_push_tail(req->infs, msg->info);
-    }
-
-    steam_api_cb_user_info_req(req, json);
-}
-
-/**
- * Sends a chatlog request. This will retrieve read and unread messages
- * from the Steam user. If there are unread messages, this will mark
- * them as read.
- *
- * @param req The #SteamApiReq.
- * @param id  The #SteamId.
- **/
-void steam_api_req_user_chatlog(SteamApiReq *req, SteamId id)
-{
-    gchar   *path;
-    guint32  aid;
-
-    g_return_if_fail(req != NULL);
-
-    aid  = STEAM_ID_ACCID(id);
-    path = g_strdup_printf("%s%" G_GINT32_FORMAT, STEAM_COM_PATH_CHATLOG, aid);
-
-    req->punc = steam_api_cb_user_chatlog;
-    steam_api_req_init(req, STEAM_COM_HOST, path);
-
-    steam_http_req_params_set(req->req,
-        STEAM_HTTP_PAIR("sessionid", req->api->sessid),
-        NULL
-    );
-
-    req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
-    steam_http_req_send(req->req);
-
-    g_free(path);
-}
-
-/**
  * Sends a friend ignore request. This will either ignore or unignore
  * a Steam user from the #SteamApi user.
  *
@@ -1335,13 +1394,12 @@ static void steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
         }
     }
 
-    g_hash_table_destroy(ght);
-    req = steam_api_req_fwd(req);
-
-    if (!g_queue_is_empty(req->infr))
+    if (!g_queue_is_empty(req->infr)) {
+        req = steam_api_req_fwd(req);
         steam_api_req_user_info(req);
-    else
-        steam_api_req_user_info_extra(req);
+    }
+
+    g_hash_table_destroy(ght);
 }
 
 /**
@@ -1406,90 +1464,6 @@ void steam_api_req_user_info(SteamApiReq *req)
 
     g_string_free(gstr, TRUE);
     g_hash_table_destroy(ght);
-}
-
-/**
- * Implemented #SteamApiParser for #steam_api_req_user_info_extra().
- *
- * @param req  The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
-static void steam_api_cb_user_info_extra(SteamApiReq *req,
-                                         const json_value *json)
-{
-    SteamUserInfo *info;
-    GHashTable    *ght;
-    json_value    *jp;
-    json_value    *jv;
-    json_value    *je;
-    const gchar   *str;
-    const gchar   *end;
-    gchar         *jraw;
-    GList         *l;
-    gsize          size;
-    gint64         aid;
-    guint          i;
-
-    str = strstr(req->req->body, "CWebChat");
-    str = steam_util_ustrchr(str, '}');
-
-    str = steam_util_ustrchr(str, '[');
-    end = steam_util_ustrchr(str, ']');
-
-    if ((str == NULL) || (end == NULL)) {
-        g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,
-                    "Failed to obtain extra user information");
-        return;
-    }
-
-    size = (end - str) + 1;
-    jraw = g_strndup(str, size);
-    jp   = steam_json_new(jraw, size, &req->err);
-
-    g_free(jraw);
-
-    if ((jp == NULL) || (req->err != NULL))
-        return;
-
-    ght = g_hash_table_new(g_int64_hash, g_int64_equal);
-
-    for (i = 0; i < jp->u.array.length; i++) {
-        je = jp->u.array.values[i];
-
-        if (steam_json_val_chk(je, "m_unAccountID", json_integer, &jv))
-            g_hash_table_replace(ght, &jv->u.integer, je);
-    }
-
-    for (l = req->infs->head; l != NULL; l = l->next) {
-        info = l->data;
-        aid  = STEAM_ID_ACCID(info->id);
-        je   = g_hash_table_lookup(ght, &aid);
-
-        if (je != NULL)
-            steam_api_json_user_info_js(info, je);
-    }
-
-    g_hash_table_destroy(ght);
-    json_value_free(jp);
-}
-
-/**
- * Sends a user information request for extra information. This gets
- * additional information for the friends of the #SteamApi user.
- * Information such as last message times, which can be used with
- * #steam_api_req_chatlog() for displaying unread messages.
- *
- * @param req The #SteamApiReq.
- **/
-void steam_api_req_user_info_extra(SteamApiReq *req)
-{
-    g_return_if_fail(req != NULL);
-
-    req->punc = steam_api_cb_user_info_extra;
-    steam_api_req_init(req, STEAM_COM_HOST, STEAM_COM_PATH_CHAT);
-
-    req->flags |= STEAM_API_REQ_FLAG_NOJSON;
-    steam_http_req_send(req->req);
 }
 
 /**

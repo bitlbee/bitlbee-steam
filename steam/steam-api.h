@@ -46,14 +46,15 @@
 #define STEAM_API_PATH_LOGON         "/ISteamWebUserPresenceOAuth/Logon/v0001"
 #define STEAM_API_PATH_LOGOFF        "/ISteamWebUserPresenceOAuth/Logoff/v0001"
 #define STEAM_API_PATH_MESSAGE       "/ISteamWebUserPresenceOAuth/Message/v0001"
+#define STEAM_API_PATH_MESSAGE_INFO  "/IFriendMessagesService/GetActiveMessageSessions/v0001"
+#define STEAM_API_PATH_MESSAGES      "/IFriendMessagesService/GetRecentMessages/v0001"
+#define STEAM_API_PATH_MESSAGES_READ "/IFriendMessagesService/MarkOfflineMessagesRead/v0001"
 #define STEAM_API_PATH_POLL          "/ISteamWebUserPresenceOAuth/Poll/v0001"
 #define STEAM_API_PATH_SUMMARIES     "/ISteamUserOAuth/GetUserSummaries/v0001"
 
 #define STEAM_COM_PATH_AUTH          "/mobilelogin/dologin/"
 #define STEAM_COM_PATH_AUTH_RDIR     "/mobileloginsucceeded/"
 #define STEAM_COM_PATH_CAPTCHA       "/public/captcha.php"
-#define STEAM_COM_PATH_CHAT          "/chat/"
-#define STEAM_COM_PATH_CHATLOG       "/chat/chatlog/"
 #define STEAM_COM_PATH_FRIEND_ADD    "/actions/AddFriendAjax/"
 #define STEAM_COM_PATH_FRIEND_BLOCK  "/actions/BlockUserAjax/"
 #define STEAM_COM_PATH_FRIEND_REMOVE "/actions/RemoveFriendAjax/"
@@ -209,6 +210,10 @@ void steam_api_req_logon(SteamApiReq *req);
 
 void steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg);
 
+void steam_api_req_msg_info(SteamApiReq *req);
+
+void steam_api_req_msgs(SteamApiReq *req, SteamId id, gint64 since);
+
 void steam_api_req_poll(SteamApiReq *req);
 
 void steam_api_req_user_accept(SteamApiReq *req, SteamId id,
@@ -216,13 +221,9 @@ void steam_api_req_user_accept(SteamApiReq *req, SteamId id,
 
 void steam_api_req_user_add(SteamApiReq *req, SteamId id);
 
-void steam_api_req_user_chatlog(SteamApiReq *req, SteamId id);
-
 void steam_api_req_user_ignore(SteamApiReq *req, SteamId id, gboolean ignore);
 
 void steam_api_req_user_info(SteamApiReq *req);
-
-void steam_api_req_user_info_extra(SteamApiReq *req);
 
 void steam_api_req_user_info_nicks(SteamApiReq *req);
 

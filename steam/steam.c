@@ -22,8 +22,8 @@
 #include "steam-util.h"
 
 static void steam_cb_relogon(SteamApiReq *req, gpointer data);
+static void steam_cb_msgs(SteamApiReq *req, gpointer data);
 static void steam_cb_poll(SteamApiReq *req, gpointer data);
-static void steam_cb_user_chatlog(SteamApiReq *req, gpointer data);
 static void steam_cb_user_info_nicks(SteamApiReq *req, gpointer data);
 
 /**
@@ -367,9 +367,9 @@ static void steam_cb_friends(SteamApiReq *req, gpointer data)
             break;
         }
 
-        if (info->mtime > info->vtime) {
-            req = steam_api_req_new(req->api, steam_cb_user_chatlog, sata);
-            steam_api_req_user_chatlog(req, info->id);
+        if (info->unread > 0) {
+            req = steam_api_req_new(req->api, steam_cb_msgs, sata);
+            steam_api_req_msgs(req, info->id, info->vtime);
         }
     }
 
@@ -465,9 +465,45 @@ static void steam_cb_relogon(SteamApiReq *req, gpointer data)
 static void steam_cb_msg(SteamApiReq *req, gpointer data)
 {
     SteamData *sata = data;
+    steam_req_error(sata, req, TRUE);
+}
+
+/**
+ * Implemented #SteamApiFunc for #steam_api_req_msgs().
+ *
+ * @param req  The #SteamApiReq.
+ * @param data The user defined data, which is #SteamData.
+ **/
+static void steam_cb_msgs(SteamApiReq *req, gpointer data)
+{
+    SteamData      *sata = data;
+    SteamUser      *user;
+    SteamUserInfo  *info;
+    SteamUserMsg   *msg;
+    bee_user_t     *bu;
+    GList          *l;
+    gchar           sid[STEAM_ID_STR_MAX];
 
     if (steam_req_error(sata, req, TRUE))
         return;
+
+    for (bu = NULL, l = req->msgs->head; l != NULL; l = l->next) {
+        msg  = l->data;
+        info = msg->info;
+        STEAM_ID_STR(info->id, sid);
+
+        if ((bu == NULL) || (g_strcmp0(sid, bu->handle) != 0)) {
+            bu = bee_user_by_handle(sata->ic->bee, sata->ic, sid);
+
+            if (G_UNLIKELY(bu == NULL))
+                continue;
+
+            user = bu->data;
+        }
+
+        if (msg->time > user->vtime)
+            steam_user_msg(sata, msg, msg->time);
+    }
 }
 
 /**
@@ -506,44 +542,6 @@ static void steam_cb_user_action(SteamApiReq *req, gpointer data)
         return;
 
     steam_user_status(sata, info, NULL);
-}
-
-/**
- * Implemented #SteamApiFunc for #steam_api_req_user_chatlog().
- *
- * @param req  The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
-static void steam_cb_user_chatlog(SteamApiReq *req, gpointer data)
-{
-    SteamData     *sata = data;
-    SteamUser     *user;
-    SteamUserInfo *info;
-    SteamUserMsg  *msg;
-    bee_user_t    *bu;
-    GList         *l;
-    gchar          sid[STEAM_ID_STR_MAX];
-
-    if (steam_req_error(sata, req, TRUE))
-        return;
-
-    for (bu = NULL, l = req->msgs->head; l != NULL; l = l->next) {
-        msg  = l->data;
-        info = msg->info;
-        STEAM_ID_STR(info->id, sid);
-
-        if ((bu == NULL) || (g_strcmp0(sid, bu->handle) != 0)) {
-            bu = bee_user_by_handle(sata->ic->bee, sata->ic, sid);
-
-            if (G_UNLIKELY(bu == NULL))
-                continue;
-
-            user = bu->data;
-        }
-
-        if (msg->time > user->vtime)
-            steam_user_msg(sata, msg, msg->time);
-    }
 }
 
 /**
