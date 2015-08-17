@@ -54,6 +54,12 @@ SteamApi *steam_api_new(void)
     api->http = steam_http_new(STEAM_API_AGENT);
     api->msgs = g_queue_new();
 
+    steam_http_cookies_set(api->http,
+        STEAM_HTTP_PAIR("forceMobile",  "1"),
+        STEAM_HTTP_PAIR("mobileClient", PACKAGE),
+        NULL
+    );
+
     return api;
 }
 
@@ -584,11 +590,6 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
 
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
-
-    steam_http_req_headers_set(req->req,
-        STEAM_HTTP_PAIR("User-Agent", STEAM_API_AGENT_AUTH),
-        NULL
-    );
 
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("username",          user),
