@@ -76,6 +76,7 @@ GByteArray *steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
     if (G_UNLIKELY(res != 0))
         goto finish;
 
+    gcry_sexp_release(data);
     data = gcry_sexp_find_token(cata, "a", 0);
 
     if (G_UNLIKELY(data == NULL)) {
