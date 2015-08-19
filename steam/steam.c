@@ -369,7 +369,7 @@ static void steam_cb_friends(SteamApiReq *req, gpointer data)
 
         if (info->unread > 0) {
             req = steam_api_req_new(req->api, steam_cb_msgs, sata);
-            steam_api_req_msgs(req, info->id, info->vtime);
+            steam_api_req_msgs(req, info->id);
         }
     }
 
