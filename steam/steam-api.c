@@ -54,12 +54,6 @@ SteamApi *steam_api_new(void)
     api->http = steam_http_new(STEAM_API_AGENT);
     api->msgs = g_queue_new();
 
-    steam_http_cookies_set(api->http,
-        STEAM_HTTP_PAIR("forceMobile",  "1"),
-        STEAM_HTTP_PAIR("mobileClient", PACKAGE),
-        NULL
-    );
-
     return api;
 }
 
@@ -564,6 +558,7 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
 void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
                         const gchar *authcode, const gchar *captcha)
 {
+    SteamApi *api = req->api;
     GTimeVal  tv;
     gchar    *pswd;
     gchar    *ms;
@@ -609,8 +604,17 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
         NULL
     );
 
+    steam_http_cookies_set(api->http,
+        STEAM_HTTP_PAIR("forceMobile",  "1"),
+        STEAM_HTTP_PAIR("mobileClient", PACKAGE),
+        NULL
+    );
+
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(req->req);
+
+    g_hash_table_remove(api->http->cookies, "forceMobile");
+    g_hash_table_remove(api->http->cookies, "mobileClient");
 
     g_free(pswd);
     g_free(ms);
