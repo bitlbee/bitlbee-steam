@@ -1524,8 +1524,16 @@ void steam_api_req_user_info_nicks(SteamApiReq *req)
     }
 
     info = g_queue_peek_head(req->infr);
-    srl  = g_strconcat(info->profile, "/ajaxaliases/", NULL);
 
+    if (G_UNLIKELY(info->profile == NULL)) {
+        if (req->func != NULL)
+            req->func(req, req->data);
+
+        steam_api_req_free(req);
+        return;
+    }
+
+    srl = g_strconcat(info->profile, "/ajaxaliases/", NULL);
     url_set(&url, srl);
 
     req->punc = steam_api_cb_user_info_nicks;
