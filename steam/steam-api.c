@@ -992,20 +992,27 @@ void steam_api_req_msg_info(SteamApiReq *req)
  **/
 static void steam_api_cb_msgs(SteamApiReq *req, const json_value *json)
 {
-    SteamUserMsg *msg;
+    SteamUserMsg *msg = NULL;
     json_value   *jv;
+    json_value   *je;
     const gchar  *str;
     SteamId       id;
     gint32        aid;
     gint64        in;
     guint         i;
 
+    if (!steam_json_val_chk(json, "response", json_object, &jv) ||
+        !steam_json_array_chk(jv, "messages", &jv))
+    {
+        return;
+    }
+
     aid = STEAM_ID_ACCID(req->api->info->id);
 
-    for (i = 0; i < json->u.array.length; i++) {
-        jv = json->u.array.values[i];
+    for (i = 0; i < jv->u.array.length; i++) {
+        je = jv->u.array.values[i];
 
-        if (!steam_json_int_chk(jv, "m_unAccountID", &in) || (in == aid))
+        if (!steam_json_int_chk(je, "accountid", &in) || (in == aid))
             continue;
 
         id = STEAM_ID_NEW(STEAM_ID_UNIV_PUBLIC, STEAM_ID_TYPE_INDIVIDUAL,
@@ -1013,51 +1020,82 @@ static void steam_api_cb_msgs(SteamApiReq *req, const json_value *json)
 
         msg = steam_user_msg_new(id);
         msg->type = STEAM_USER_MSG_TYPE_SAYTEXT;
-        msg->time = steam_json_int(jv, "m_tsTimestamp");
+        msg->time = steam_json_int(je, "timestamp");
 
-        str = steam_json_str(jv, "m_strMessage");
+        str = steam_json_str(je, "message");
         msg->text = g_strdup(str);
 
-        g_queue_push_tail(req->msgs, msg);
+        /* Messages are send backwards */
+        g_queue_push_head(req->msgs, msg);
         g_queue_push_tail(req->infs, msg->info);
     }
 
-    steam_api_cb_user_info_req(req, json);
+    if (msg != NULL) {
+        req = steam_api_req_fwd(req);
+        steam_api_req_msgs_read(req, msg->info->id);
+    }
 }
 
 /**
  * Sends a message log request.
  *
- * Note: this currently uses the Steam Community API, but should use
- * the newer API once it has been reversed. The newer API is done via
- * cleaner OAuth APIs, but is simply a dead-end as of now. The new
- * requests are /IFriendMessagesService/GetRecentMessages/v0001 and
- * /IFriendMessagesService/MarkOfflineMessagesRead/v0001.
+ * @param req   The #SteamApiReq.
+ * @param id    The #SteamId.
+ * @param since The since timestamp.
+ **/
+void steam_api_req_msgs(SteamApiReq *req, SteamId id, gint64 since)
+{
+    gchar *stime;
+    gchar  sid1[STEAM_ID_STR_MAX];
+    gchar  sid2[STEAM_ID_STR_MAX];
+
+    g_return_if_fail(req != NULL);
+
+    req->punc = steam_api_cb_msgs;
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_MESSAGES);
+
+    STEAM_ID_STR(id, sid1);
+    STEAM_ID_STR(req->api->info->id, sid2);
+    stime = g_strdup_printf("%" G_GINT64_FORMAT, since);
+
+    steam_http_req_params_set(req->req,
+        STEAM_HTTP_PAIR("access_token",       req->api->token),
+        STEAM_HTTP_PAIR("steamid1",           sid1),
+        STEAM_HTTP_PAIR("steamid2",           sid2),
+        STEAM_HTTP_PAIR("rtime32_start_time", stime),
+        NULL
+    );
+
+    steam_http_req_send(req->req);
+    g_free(stime);
+}
+
+/**
+ * Sends a messages read request.
  *
  * @param req The #SteamApiReq.
  * @param id  The #SteamId.
  **/
-void steam_api_req_msgs(SteamApiReq *req, SteamId id)
+void steam_api_req_msgs_read(SteamApiReq *req, SteamId id)
 {
-    gchar   *path;
-    guint32  aid;
+    gchar sid[STEAM_ID_STR_MAX];
 
     g_return_if_fail(req != NULL);
 
-    aid  = STEAM_ID_ACCID(id);
-    path = g_strdup_printf("%s%" G_GINT32_FORMAT, STEAM_COM_PATH_CHATLOG, aid);
+    req->punc = steam_api_cb_user_info_req;
+    steam_api_req_init(req, STEAM_API_HOST, STEAM_API_PATH_MESSAGES_READ);
 
-    req->punc = steam_api_cb_msgs;
-    steam_api_req_init(req, STEAM_COM_HOST, path);
+    STEAM_ID_STR(id, sid);
 
     steam_http_req_params_set(req->req,
-        STEAM_HTTP_PAIR("sessionid", req->api->sessid),
+        STEAM_HTTP_PAIR("access_token",   req->api->token),
+        STEAM_HTTP_PAIR("steamid_friend", sid),
         NULL
     );
 
+    req->flags      |= STEAM_API_REQ_FLAG_NOJSON;
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(req->req);
-    g_free(path);
 }
 
 /**
