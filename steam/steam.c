@@ -216,7 +216,7 @@ static void steam_user_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
         else
             str = g_strdup(msg->text);
 
-		imcb_buddy_msg(sata->ic, sid, str, OPT_SELFMESSAGE, time);
+        imcb_buddy_msg(sata->ic, sid, str, OPT_SELFMESSAGE, time);
         g_free(str);
         return;
 
