@@ -210,6 +210,8 @@ const gchar *steam_user_msg_type_str(SteamUserMsgType type)
         {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
         {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
         {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
+        {STEAM_USER_MSG_TYPE_MY_SAYTEXT,   "my_saytext"},
+        {STEAM_USER_MSG_TYPE_MY_EMOTE,     "my_emote"},
         STEAM_UTIL_ENUM_NULL
     };
 
@@ -232,6 +234,8 @@ SteamUserMsgType steam_user_msg_type_from_str(const gchar *type)
         {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
         {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
         {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
+        {STEAM_USER_MSG_TYPE_MY_SAYTEXT,   "my_saytext"},
+        {STEAM_USER_MSG_TYPE_MY_EMOTE,     "my_emote"},
         STEAM_UTIL_ENUM_NULL
     };
 

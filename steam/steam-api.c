@@ -1148,6 +1148,8 @@ static void steam_api_cb_poll(SteamApiReq *req, const json_value *json)
         msg->time = steam_json_int(je, "utc_timestamp");
 
         switch (msg->type) {
+        case STEAM_USER_MSG_TYPE_MY_SAYTEXT:
+        case STEAM_USER_MSG_TYPE_MY_EMOTE:
         case STEAM_USER_MSG_TYPE_SAYTEXT:
         case STEAM_USER_MSG_TYPE_EMOTE:
             str = steam_json_str(je, "text");

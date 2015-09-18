@@ -76,6 +76,8 @@ enum _SteamUserMsgType
     STEAM_USER_MSG_TYPE_RELATIONSHIP, /** Relationship **/
     STEAM_USER_MSG_TYPE_STATE,        /** State **/
     STEAM_USER_MSG_TYPE_TYPING,       /** Typing **/
+    STEAM_USER_MSG_TYPE_MY_SAYTEXT,   /** My say text **/
+    STEAM_USER_MSG_TYPE_MY_EMOTE,     /** My emote **/
 
     STEAM_USER_MSG_TYPE_UNKNOWN       /** Unknown **/
 };
