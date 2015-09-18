@@ -21,6 +21,10 @@
 #include "steam.h"
 #include "steam-util.h"
 
+#ifndef OPT_SELFMESSAGE
+#define OPT_SELFMESSAGE 0
+#endif
+
 static void steam_cb_relogon(SteamApiReq *req, gpointer data);
 static void steam_cb_msgs(SteamApiReq *req, gpointer data);
 static void steam_cb_poll(SteamApiReq *req, gpointer data);
@@ -202,6 +206,20 @@ static void steam_user_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
                        sid, msg->type, info->act);
 
     switch (msg->type) {
+    case STEAM_USER_MSG_TYPE_MY_EMOTE:
+    case STEAM_USER_MSG_TYPE_MY_SAYTEXT:
+        if (set_find(&sata->ic->bee->set, "self_messages") == NULL)
+            return;
+
+        if (msg->type == STEAM_USER_MSG_TYPE_MY_EMOTE)
+            str = g_strconcat("/me ", msg->text, NULL);
+        else
+            str = g_strdup(msg->text);
+
+        imcb_buddy_msg(sata->ic, sid, str, OPT_SELFMESSAGE, time);
+        g_free(str);
+        return;
+
     case STEAM_USER_MSG_TYPE_EMOTE:
     case STEAM_USER_MSG_TYPE_SAYTEXT:
         bu = imcb_buddy_by_handle(sata->ic, sid);
