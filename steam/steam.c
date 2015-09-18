@@ -211,8 +211,6 @@ static void steam_user_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
         if (set_find(&sata->ic->bee->set, "self_messages") == NULL)
             return;
 
-        bu = imcb_buddy_by_handle(sata->ic, sid);
-
         if (msg->type == STEAM_USER_MSG_TYPE_MY_EMOTE)
             str = g_strconcat("/me ", msg->text, NULL);
         else
