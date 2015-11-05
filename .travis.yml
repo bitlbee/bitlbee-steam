@@ -10,8 +10,16 @@ compiler:
   - gcc
 
 env:
-  - DEBUG=disable
-  - DEBUG=enable
+  global:
+    - secure: "Xz4TLsK/LCjMzIPjl2JHsROdjLAgwfJQhxxnvLAceF4NI0qU8MRTu/QObPzzU+TnqLBOqFJNwB5EDnTnbUyB9SiEFlOu1YkskVTkmQFA/KcZxNwww/U7O/ecUWfxsaaBgkwXh9fLXm4gJN/KLUZrzkjZGpUryjMqWJRFTL9JRyA="
+    - COVERITY_SCAN_PROJECT_NAME=jgeboski/bitlbee-steam
+    - COVERITY_SCAN_NOTIFICATION_EMAIL=nope
+    - COVERITY_SCAN_BUILD_COMMAND=make
+    - COVERITY_SCAN_BRANCH_PATTERN=coverity_scan
+
+  matrix:
+    - DEBUG=disable
+    - DEBUG=enable
 
 before_install:
   - sudo apt-get update -qq
@@ -44,6 +52,10 @@ before_install:
 
 script:
   - ./autogen.sh --${DEBUG}-debug
+  - |
+    if [[ "${TRAVIS_JOB_NUMBER##*.}" == "1" ]]; then
+        curl -s "https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh" | bash || true
+    fi
   - scan-build -k
       --use-cc=$(which "${CC}")
       --status-bugs
