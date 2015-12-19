@@ -37,7 +37,6 @@ before_install:
 install:
   - git clone https://github.com/bitlbee/bitlbee
   - cd bitlbee
-  - git checkout -b develop origin/develop
   - ./configure
       --events=glib
       --ssl=gnutls
