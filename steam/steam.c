@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <gcrypt.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -1144,6 +1145,11 @@ void init_plugin(void);
 void init_plugin()
 {
     struct prpl *pp;
+
+    if (gcry_check_version(GCRYPT_VERSION) == NULL) {
+        steam_util_debug_fatal("Failed to initialize libgcrypt");
+        return;
+    }
 
     pp = g_new0(struct prpl, 1);
 
