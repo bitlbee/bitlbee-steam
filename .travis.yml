@@ -36,13 +36,7 @@ install:
 
 script:
   - curl -s "https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh" | bash || true
-  - CFLAGS="-Werror" ./autogen.sh --disable-debug
-  - make
-  - make clean
-  - scan-build -k --status-bugs make
-  - git reset -q --hard
-  - git clean -dfqx
-  - CFLAGS="-Werror" ./autogen.sh --enable-debug
+  - CFLAGS="-Werror" ./autogen.sh --enable-warnings
   - make
   - make clean
   - scan-build -k --status-bugs make

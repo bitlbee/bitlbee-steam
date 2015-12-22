@@ -15,29 +15,160 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdarg.h>
 #include <string.h>
 
 #include "steam-util.h"
 
 /**
- * Determines the debugging state of the plugin.
+ * Logs a debugging message.
  *
- * @return TRUE if debugging is enabled, otherwise FALSE.
+ * @param level  The #SteamDebugLevel.
+ * @param format The format string literal.
+ * @param ...    The arguments for @format.
  **/
-#ifdef DEBUG_STEAM
-gboolean steam_util_debugging(void)
+void steam_util_debug(SteamDebugLevel level, const gchar *format, ...)
 {
+    va_list ap;
+
+    va_start(ap, format);
+    steam_util_vdebug(level, format, ap);
+    va_end(ap);
+}
+
+/**
+ * Logs a debugging message.
+ *
+ * @param level  The #SteamDebugLevel.
+ * @param format The format string literal.
+ * @param ap     The #va_list.
+ **/
+void steam_util_vdebug(SteamDebugLevel level, const gchar *format, va_list ap)
+{
+    const gchar *lstr;
+    gchar *str;
+
     static gboolean debug = FALSE;
     static gboolean setup = FALSE;
 
+    g_return_if_fail(format != NULL);
+
     if (G_UNLIKELY(!setup)) {
-        debug = g_getenv("BITLBEE_DEBUG") || g_getenv("BITLBEE_DEBUG_STEAM");
+        debug = (g_getenv("BITLBEE_DEBUG") != NULL) ||
+                (g_getenv("BITLBEE_DEBUG_STEAM") != NULL);
         setup = TRUE;
     }
 
-    return debug;
+    if (!debug) {
+        return;
+    }
+
+    switch (level) {
+    case STEAM_UTIL_DEBUG_LEVEL_MISC:
+        lstr = "MISC";
+        break;
+    case STEAM_UTIL_DEBUG_LEVEL_INFO:
+        lstr = "INFO";
+        break;
+    case STEAM_UTIL_DEBUG_LEVEL_WARN:
+        lstr = "WARN";
+        break;
+    case STEAM_UTIL_DEBUG_LEVEL_ERROR:
+        lstr = "ERROR";
+        break;
+    case STEAM_UTIL_DEBUG_LEVEL_FATAL:
+        lstr = "FATAL";
+        break;
+
+    default:
+        g_return_if_reached();
+        return;
+    }
+
+    str = g_strdup_vprintf(format, ap);
+    g_print("[%s] %s: %s\n", lstr, "steam", str);
+    g_free(str);
 }
-#endif /* DEBUG_STEAM */
+
+/**
+ * Logs a debugging message with the level of
+ * #STEAM_UTIL_DEBUG_LEVEL_MISC.
+ *
+ * @param format The format string literal.
+ * @param ...    The arguments for @format.
+ **/
+void steam_util_debug_misc(const gchar *format, ...)
+{
+    va_list ap;
+
+    va_start(ap, format);
+    steam_util_vdebug(STEAM_UTIL_DEBUG_LEVEL_MISC, format, ap);
+    va_end(ap);
+}
+
+/**
+ * Logs a debugging message with the level of
+ * #STEAM_UTIL_DEBUG_LEVEL_INFO.
+ *
+ * @param format The format string literal.
+ * @param ...    The arguments for @format.
+ **/
+void steam_util_debug_info(const gchar *format, ...)
+{
+    va_list ap;
+
+    va_start(ap, format);
+    steam_util_vdebug(STEAM_UTIL_DEBUG_LEVEL_INFO, format, ap);
+    va_end(ap);
+}
+
+/**
+ * Logs a debugging message with the level of
+ * #STEAM_UTIL_DEBUG_LEVEL_WARN.
+ *
+ * @param format The format string literal.
+ * @param ...    The arguments for @format.
+ **/
+void steam_util_debug_warn(const gchar *format, ...)
+{
+    va_list ap;
+
+    va_start(ap, format);
+    steam_util_vdebug(STEAM_UTIL_DEBUG_LEVEL_WARN, format, ap);
+    va_end(ap);
+}
+
+/**
+ * Logs a debugging message with the level of
+ * #STEAM_UTIL_DEBUG_LEVEL_ERROR.
+ *
+ * @param format The format string literal.
+ * @param ...    The arguments for @format.
+ **/
+void steam_util_debug_error(const gchar *format, ...)
+{
+    va_list ap;
+
+    va_start(ap, format);
+    steam_util_vdebug(STEAM_UTIL_DEBUG_LEVEL_ERROR, format, ap);
+    va_end(ap);
+}
+
+/**
+ * Logs a debugging message with the level of
+ * #STEAM_UTIL_DEBUG_LEVEL_FATAL.
+ *
+ * @param format The format string literal.
+ * @param ...    The arguments for @format.
+ **/
+void steam_util_debug_fatal(const gchar *format, ...)
+{
+    va_list ap;
+
+    va_start(ap, format);
+    steam_util_vdebug(STEAM_UTIL_DEBUG_LEVEL_FATAL, format, ap);
+    va_end(ap);
+}
 
 /**
  * Gets the enumerator pointer from its value.

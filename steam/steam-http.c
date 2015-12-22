@@ -396,7 +396,6 @@ void steam_http_req_free(SteamHttpReq *req)
     g_free(req);
 }
 
-#ifdef DEBUG_STEAM
 static void steam_http_req_debug(SteamHttpReq *req, gboolean response,
                                  const gchar *header, const gchar *body)
 {
@@ -418,37 +417,36 @@ static void steam_http_req_debug(SteamHttpReq *req, gboolean response,
     type = (req->flags & STEAM_HTTP_REQ_FLAG_POST) ? "POST"  : "GET";
     prot = (req->flags & STEAM_HTTP_REQ_FLAG_SSL)  ? "https" : "http";
 
-    STEAM_UTIL_DEBUGLN("%s %s (%p): %s://%s:%d%s%s", type, act, req,
-                       prot, req->host, req->port, req->path, str);
+    steam_util_debug_info("%s %s (%p): %s://%s:%d%s%s", type, act, req,
+                          prot, req->host, req->port, req->path, str);
     g_free(str);
 
     if (req->rsc > 0)
-        STEAM_UTIL_DEBUGLN("Reattempt: #%u", req->rsc);
+        steam_util_debug_info("Reattempt: #%u", req->rsc);
 
     if ((header != NULL) && (strlen(header) > 0)) {
         ls = g_strsplit(header, "\n", 0);
 
         for (i = 0; ls[i] != NULL; i++)
-            STEAM_UTIL_DEBUGLN("  %s", ls[i]);
+            steam_util_debug_info("  %s", ls[i]);
 
         g_strfreev(ls);
     } else {
-        STEAM_UTIL_DEBUGLN("  ** No header data **");
-        STEAM_UTIL_DEBUGLN("");
+        steam_util_debug_info("  ** No header data **");
+        steam_util_debug_info("%s", "");
     }
 
     if ((body != NULL) && (strlen(body) > 0)) {
         ls = g_strsplit(body, "\n", 0);
 
         for (i = 0; ls[i] != NULL; i++)
-            STEAM_UTIL_DEBUGLN("  %s", ls[i]);
+            steam_util_debug_info("  %s", ls[i]);
 
         g_strfreev(ls);
     } else {
-        STEAM_UTIL_DEBUGLN("  ** No body data **");
+        steam_util_debug_info("  ** No body data **");
     }
 }
-#endif /* DEBUG_STEAM */
 
 /**
  * Sets headers from #SteamHttpPair. If a header already exists, it is
@@ -515,9 +513,7 @@ static gboolean steam_http_req_done_error(gpointer data, gint fd,
  **/
 static void steam_http_req_done(SteamHttpReq *req)
 {
-#ifdef DEBUG_STEAM
     steam_http_req_debug(req, TRUE, req->header, req->body);
-#endif /* DEBUG_STEAM */
 
     if (req->err != NULL) {
         if (req->rsc < STEAM_HTTP_RESEND_MAX) {
@@ -683,10 +679,7 @@ void steam_http_req_send(SteamHttpReq *req)
     g_return_if_fail(req != NULL);
 
     steam_http_req_asm(req, &hs, &ps, &str);
-
-#ifdef DEBUG_STEAM
     steam_http_req_debug(req, FALSE, hs, ps);
-#endif /* DEBUG_STEAM */
 
     req->request = http_dorequest(req->host, req->port,
                                   (req->flags & STEAM_HTTP_REQ_FLAG_SSL),

@@ -89,7 +89,7 @@ static gboolean steam_req_error(SteamData *sata, SteamApiReq *req,
         return FALSE;
 
     if (g_error_matches(req->err, STEAM_API_ERROR, STEAM_API_ERROR_EXPRIED)) {
-        STEAM_UTIL_DEBUGLN("Relogging on due to expired session");
+        steam_util_debug_info("Relogging on due to expired session");
         steam_http_free_reqs(req->api->http);
         req = steam_api_req_new(req->api, steam_cb_relogon, sata);
         steam_api_req_logon(req);
@@ -97,16 +97,16 @@ static gboolean steam_req_error(SteamData *sata, SteamApiReq *req,
     }
 
     if (g_error_matches(req->err, STEAM_HTTP_ERROR, STEAM_HTTP_ERROR_CLOSED)) {
-        STEAM_UTIL_DEBUGLN("Request (%p) forcefully closed", req->req);
+        steam_util_debug_warn("Request (%p) forcefully closed", req->req);
         /* Ignore closed HTTP connections */
         return TRUE;
     }
 
-    STEAM_UTIL_DEBUGLN("Error: %s", req->err->message);
+    steam_util_debug_error("Error: %s", req->err->message);
     imcb_error(sata->ic, "%s", req->err->message);
 
     if (logout) {
-        STEAM_UTIL_DEBUGLN("Reconnecting due to error");
+        steam_util_debug_info("Reconnecting due to error");
         imc_logout(sata->ic, logout);
     }
 
@@ -202,8 +202,8 @@ static void steam_user_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
     gchar          sid[STEAM_ID_STR_MAX];
 
     STEAM_ID_STR(info->id, sid);
-    STEAM_UTIL_DEBUGLN("Incoming message from %s (Type: %u, Act: %u)",
-                       sid, msg->type, info->act);
+    steam_util_debug_info("Incoming message from %s (Type: %u, Act: %u)",
+                          sid, msg->type, info->act);
 
     switch (msg->type) {
     case STEAM_USER_MSG_TYPE_MY_EMOTE:
@@ -467,7 +467,7 @@ static void steam_cb_relogon(SteamApiReq *req, gpointer data)
     if (steam_req_error(sata, req, TRUE))
         return;
 
-    STEAM_UTIL_DEBUGLN("Relogon completed");
+    steam_util_debug_info("Relogon completed");
 
     /* Update the friend list for good measures */
     req = steam_api_req_new(req->api, steam_cb_friends, sata);
@@ -1133,6 +1133,8 @@ static void steam_buddy_data_free(struct bee_user *bu)
 {
     steam_user_free(bu->data);
 }
+
+void init_plugin(void);
 
 /**
  * Implements the #init_plugin() function. BitlBee looks for this

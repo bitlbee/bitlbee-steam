@@ -44,32 +44,27 @@ m4_define_default(
 )
 
 AC_ARG_ENABLE(
-    [debug],
+    [warnings],
     [AS_HELP_STRING(
-        [--enable-debug],
-        [Enable debugging features]
+        [--enable-warnings],
+        [Enable additional compile-time (GCC) warnings]
     )],
-    [DEBUG="yes"],
-    [DEBUG="no"]
-)
-
-AC_ARG_ENABLE(
-    [minimal-flags],
-    [AS_HELP_STRING(
-        [--enable-minimal-flags],
-        [Disable internal CFLAGS which are not required]
-    )],
-    [MINIMAL_FLAGS="yes"],
-    [MINIMAL_FLAGS="no"]
+    [WARNINGS="yes"],
+    [WARNINGS="no"]
 )
 
 AS_IF(
-    [test "x$DEBUG" == "xyes"],
-    [AC_DEFINE(DEBUG_STEAM, 1)
-     AS_IF(
-        [test "x$MINIMAL_FLAGS" == "xno"],
-        [CFLAGS="$CFLAGS -Wall -Wformat-nonliteral -g -O0"]
-    )]
+    [test "x$WARNINGS" == "xyes"],
+    [CFLAGS="$CFLAGS -Wall -Wextra \
+     -Waggregate-return \
+     -Wdeclaration-after-statement \
+     -Wfloat-equal \
+     -Wformat \
+     -Winit-self \
+     -Wmissing-declarations \
+     -Wmissing-prototypes \
+     -Wno-unused-parameter \
+     -Wpointer-arith"]
 )
 
 AC_ARG_WITH(

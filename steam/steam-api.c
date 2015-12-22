@@ -1193,13 +1193,13 @@ void steam_api_req_poll(SteamApiReq *req)
     gchar       *lmid;
     gchar       *tout;
 
-    g_return_if_fail(req != NULL);
-
     static const SteamUtilEnum enums[] = {
         {STEAM_USER_STATE_AWAY,   G_STRINGIFY(STEAM_API_IDLEOUT_AWAY)},
         {STEAM_USER_STATE_SNOOZE, G_STRINGIFY(STEAM_API_IDLEOUT_SNOOZE)},
         STEAM_UTIL_ENUM_NULL
     };
+
+    g_return_if_fail(req != NULL);
 
     idle = steam_util_enum_ptr(enums, "0", req->api->info->state);
     lmid = g_strdup_printf("%" G_GINT64_FORMAT, req->api->lmid);
