@@ -20,8 +20,7 @@
 #ifndef _STEAM_ID_H
 #define _STEAM_ID_H
 
-#include <glib.h>
-#include <glib/gprintf.h>
+#include "steam-glib.h"
 
 #define STEAM_ID_CONSTANT(v) G_GINT64_CONSTANT(v)
 #define STEAM_ID_FORMAT      G_GINT64_FORMAT

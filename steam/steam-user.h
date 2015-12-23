@@ -21,8 +21,8 @@
 #define _STEAM_USER_H
 
 #include <bitlbee.h>
-#include <glib.h>
 
+#include "steam-glib.h"
 #include "steam-id.h"
 
 

@@ -684,7 +684,7 @@ void steam_http_req_send(SteamHttpReq *req)
     req->request = http_dorequest(req->host, req->port,
                                   (req->flags & STEAM_HTTP_REQ_FLAG_SSL),
                                   str, steam_http_req_cb, req);
-    g_hash_table_add(req->http->reqs, req);
+    g_hash_table_replace(req->http->reqs, req, req);
 
     g_free(hs);
     g_free(ps);

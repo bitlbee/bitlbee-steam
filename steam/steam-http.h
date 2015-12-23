@@ -20,9 +20,9 @@
 #ifndef _STEAM_HTTP_H
 #define _STEAM_HTTP_H
 
-#include <glib.h>
 #include <http_client.h>
 
+#include "steam-glib.h"
 
 #define STEAM_HTTP_CLIENT_FREED   (1 << 31)
 #define STEAM_HTTP_RESEND_MAX     3

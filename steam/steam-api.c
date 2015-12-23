@@ -320,22 +320,25 @@ SteamApiReq *steam_api_req_fwd(SteamApiReq *req)
  **/
 void steam_api_req_free(SteamApiReq *req)
 {
-    GHashTable *tbl;
-    GList      *l;
-    GList      *n;
+    SteamUserMsg *msg;
+    GHashTable   *tbl;
+    GList        *l;
+    GList        *n;
 
     if (G_UNLIKELY(req == NULL))
         return;
 
     tbl = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-    for (l = req->msgs->head; l != NULL; l = l->next)
-        g_hash_table_add(tbl, ((SteamUserMsg*) l->data)->info);
+    for (l = req->msgs->head; l != NULL; l = l->next) {
+        msg = l->data;
+        g_hash_table_replace(tbl, msg->info, msg->info);
+    }
 
     for (l = req->infs->head; l != NULL; l = n) {
         n = l->next;
 
-        if (g_hash_table_contains(tbl, l->data))
+        if (g_hash_table_lookup_extended(tbl, l->data, NULL, NULL))
             g_queue_delete_link(req->infs, l);
     }
 
@@ -1447,6 +1450,7 @@ static void steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
 void steam_api_req_user_info(SteamApiReq *req)
 {
     SteamUserInfo *info;
+    SteamId       *id;
     GHashTable    *ght;
     GString       *gstr;
     GList         *l;
@@ -1474,9 +1478,10 @@ void steam_api_req_user_info(SteamApiReq *req)
     for (l = req->infr->head, i = 0; l != NULL; l = n) {
         info = l->data;
         n    = l->next;
+        id   = &info->id;
 
-        if (!g_hash_table_contains(ght, &info->id)) {
-            g_hash_table_add(ght, &info->id);
+        if (!g_hash_table_lookup_extended(ght, id, NULL, NULL)) {
+            g_hash_table_replace(ght, id, id);
             g_string_append_printf(gstr, "%" STEAM_ID_FORMAT ",", info->id);
 
             if ((++i % 100) == 0)

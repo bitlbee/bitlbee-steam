@@ -20,9 +20,9 @@
 #ifndef _STEAM_JSON_H
 #define _STEAM_JSON_H
 
-#include <glib.h>
 #include <json_util.h>
 
+#include "steam-glib.h"
 
 /** The #GError codes of the JSON parser. **/
 typedef enum _SteamJsonError SteamJsonError;

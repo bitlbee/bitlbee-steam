@@ -15,17 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/** @file **/
+#ifndef _STEAM_GLIB_H_
+#define _STEAM_GLIB_H_
 
-#ifndef _STEAM_CRYPT_H
-#define _STEAM_CRYPT_H
+#include <glib.h>
+#include <glib/gprintf.h>
 
-#include "steam-glib.h"
+#if !GLIB_CHECK_VERSION(2, 32, 0)
+static inline void
+g_queue_free_full(GQueue *queue, GDestroyNotify free_func)
+{
+    g_queue_foreach(queue, (GFunc) free_func, NULL);
+    g_queue_free(queue);
+}
+#endif /* 2.32.0 */
 
-GByteArray *steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
-                                const GByteArray *bytes);
-
-gchar *steam_crypt_rsa_enc_str(const gchar *mod, const gchar *exp,
-                               const gchar *str);
-
-#endif /* _STEAM_CRYPT_H */
+#endif /* _STEAM_GLIB_H_ */

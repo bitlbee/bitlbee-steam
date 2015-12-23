@@ -21,9 +21,9 @@
 #define _STEAM_H
 
 #include <bitlbee.h>
-#include <glib.h>
 
 #include "steam-api.h"
+#include "steam-glib.h"
 
 
 /** The main structure for the plugin. **/

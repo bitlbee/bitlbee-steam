@@ -20,7 +20,7 @@
 #ifndef _STEAM_UTIL_H
 #define _STEAM_UTIL_H
 
-#include <glib.h>
+#include "steam-glib.h"
 
 #define STEAM_UTIL_ENUM_NULL {0, NULL}
 

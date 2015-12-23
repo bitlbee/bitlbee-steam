@@ -20,8 +20,7 @@
 #ifndef _STEAM_API_H
 #define _STEAM_API_H
 
-#include <glib.h>
-
+#include "steam-glib.h"
 #include "steam-http.h"
 #include "steam-json.h"
 #include "steam-user.h"
