@@ -188,6 +188,9 @@ static void steam_api_json_error(SteamApiReq *req, const json_value *json)
         if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool)
             return;
 
+        if (steam_json_bool_chk(json, "requires_twofactor", &bool) && bool)
+            return;
+
         if (!steam_json_str_chk(json, "message", &str))
             str = "Unknown error";
 
@@ -489,7 +492,9 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
     guint        i;
 
     if (steam_json_bool_chk(json, "success", &bool) && !bool) {
-        if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool) {
+        if (steam_json_bool_chk(json, "requires_twofactor", &bool) && bool) {
+            errc = STEAM_API_ERROR_STEAMGUARD;
+        } else if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool) {
             errc = STEAM_API_ERROR_STEAMGUARD;
             str  = steam_json_str(json, "emailsteamid");
 
@@ -505,11 +510,13 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
             errc = STEAM_API_ERROR_UNKNOWN;
         }
 
-        if (G_LIKELY(errc != STEAM_API_ERROR_UNKNOWN)) {
+        if (errc == STEAM_API_ERROR_STEAMGUARD)
+            str = "SteamGuard authentication code required";
+        else
             str = steam_json_str(json, "message");
-            g_set_error(&req->err, STEAM_API_ERROR, errc, "%s", str);
-            return;
-        }
+
+        g_set_error(&req->err, STEAM_API_ERROR, errc, "%s", str);
+        return;
     }
 
     if (!steam_json_val_chk(json, "oauth", json_string, &jv)) {
@@ -593,7 +600,7 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("username",          user),
         STEAM_HTTP_PAIR("password",          pswd),
-        STEAM_HTTP_PAIR("twofactorcode",     NULL),
+        STEAM_HTTP_PAIR("twofactorcode",     authcode),
         STEAM_HTTP_PAIR("emailauth",         authcode),
         STEAM_HTTP_PAIR("emailsteamid",      req->api->esid),
         STEAM_HTTP_PAIR("captchagid",        req->api->cgid),
