@@ -17,44 +17,44 @@
 
 /** @file **/
 
-#ifndef _STEAM_API_H
-#define _STEAM_API_H
+#ifndef _STEAM_API_H_
+#define _STEAM_API_H_
 
 #include "steam-glib.h"
 #include "steam-http.h"
 #include "steam-json.h"
 #include "steam-user.h"
 
-
-#define STEAM_API_HOST     "api.steampowered.com"
-#define STEAM_COM_HOST     "steamcommunity.com"
-#define STEAM_API_AGENT    "Steam App / " PACKAGE " / " PACKAGE_VERSION
-#define STEAM_API_CLIENTID "DE45CD61"
+#define STEAM_API_HOST  "api.steampowered.com"
+#define STEAM_COM_HOST  "steamcommunity.com"
+#define STEAM_API_AGENT  "Steam App / " PACKAGE " / " PACKAGE_VERSION
+#define STEAM_API_CLIENTID  "DE45CD61"
 #define STEAM_API_TIMEOUT  30
 
-#define STEAM_API_IDLEOUT_AWAY   600
-#define STEAM_API_IDLEOUT_SNOOZE 8000
+#define STEAM_API_IDLEOUT_AWAY  600
+#define STEAM_API_IDLEOUT_SNOOZE  8000
 
-#define STEAM_API_PATH_FRIEND_SEARCH "/ISteamUserOAuth/Search/v0001"
-#define STEAM_API_PATH_FRIENDS       "/ISteamUserOAuth/GetFriendList/v0001"
-#define STEAM_API_PATH_LOGON         "/ISteamWebUserPresenceOAuth/Logon/v0001"
-#define STEAM_API_PATH_LOGOFF        "/ISteamWebUserPresenceOAuth/Logoff/v0001"
-#define STEAM_API_PATH_MESSAGE       "/ISteamWebUserPresenceOAuth/Message/v0001"
+#define STEAM_API_PATH_FRIEND_SEARCH  "/ISteamUserOAuth/Search/v0001"
+#define STEAM_API_PATH_FRIENDS  "/ISteamUserOAuth/GetFriendList/v0001"
+#define STEAM_API_PATH_LOGON  "/ISteamWebUserPresenceOAuth/Logon/v0001"
+#define STEAM_API_PATH_LOGOFF  "/ISteamWebUserPresenceOAuth/Logoff/v0001"
+#define STEAM_API_PATH_MESSAGE  "/ISteamWebUserPresenceOAuth/Message/v0001"
 #define STEAM_API_PATH_MESSAGE_INFO  "/IFriendMessagesService/GetActiveMessageSessions/v0001"
-#define STEAM_API_PATH_MESSAGES      "/IFriendMessagesService/GetRecentMessages/v0001"
-#define STEAM_API_PATH_MESSAGES_READ "/IFriendMessagesService/MarkOfflineMessagesRead/v0001"
-#define STEAM_API_PATH_POLL          "/ISteamWebUserPresenceOAuth/Poll/v0001"
-#define STEAM_API_PATH_SUMMARIES     "/ISteamUserOAuth/GetUserSummaries/v0001"
+#define STEAM_API_PATH_MESSAGES  "/IFriendMessagesService/GetRecentMessages/v0001"
+#define STEAM_API_PATH_MESSAGES_READ  "/IFriendMessagesService/MarkOfflineMessagesRead/v0001"
+#define STEAM_API_PATH_POLL  "/ISteamWebUserPresenceOAuth/Poll/v0001"
+#define STEAM_API_PATH_SUMMARIES  "/ISteamUserOAuth/GetUserSummaries/v0001"
 
-#define STEAM_COM_PATH_AUTH          "/mobilelogin/dologin/"
-#define STEAM_COM_PATH_AUTH_RDIR     "/mobileloginsucceeded/"
-#define STEAM_COM_PATH_CAPTCHA       "/public/captcha.php"
-#define STEAM_COM_PATH_CHATLOG       "/chat/chatlog/"
-#define STEAM_COM_PATH_FRIEND_ADD    "/actions/AddFriendAjax/"
+#define STEAM_COM_PATH_AUTH  "/mobilelogin/dologin/"
+#define STEAM_COM_PATH_AUTH_RDIR  "/mobileloginsucceeded/"
+#define STEAM_COM_PATH_CAPTCHA  "/public/captcha.php"
+#define STEAM_COM_PATH_CHATLOG  "/chat/chatlog/"
+#define STEAM_COM_PATH_FRIEND_ADD  "/actions/AddFriendAjax/"
 #define STEAM_COM_PATH_FRIEND_BLOCK  "/actions/BlockUserAjax/"
-#define STEAM_COM_PATH_FRIEND_REMOVE "/actions/RemoveFriendAjax/"
-#define STEAM_COM_PATH_KEY           "/mobilelogin/getrsakey/"
+#define STEAM_COM_PATH_FRIEND_REMOVE  "/actions/RemoveFriendAjax/"
+#define STEAM_COM_PATH_KEY  "/mobilelogin/getrsakey/"
 
+#define STEAM_API_ERROR  steam_api_error_quark()
 
 /** The types of authentication. **/
 typedef enum _SteamApiAuthType SteamApiAuthType;
@@ -74,11 +74,10 @@ typedef struct _SteamApi SteamApi;
 /** The structure for #SteamAPI requests. **/
 typedef struct _SteamApiReq SteamApiReq;
 
-
 /**
  * The type of callback for #SteamApiReq operations.
  *
- * @param req  The #SteamApiReq.
+ * @param req The #SteamApiReq.
  * @param data The user defined data or NULL.
  **/
 typedef void (*SteamApiFunc) (SteamApiReq *req, gpointer data);
@@ -86,11 +85,10 @@ typedef void (*SteamApiFunc) (SteamApiReq *req, gpointer data);
 /**
  * The type of callback for parser based #SteamApiReq operations.
  *
- * @param req  The #SteamApiReq.
+ * @param req The #SteamApiReq.
  * @param json The #json_value or NULL or NULL.
  **/
 typedef void (*SteamApiParser) (SteamApiReq *req, const json_value *json);
-
 
 /**
  * The types of authentication.
@@ -106,12 +104,12 @@ enum _SteamApiAuthType
  **/
 enum _SteamApiError
 {
-    STEAM_API_ERROR_CAPTCHA,    /** Captcha **/
-    STEAM_API_ERROR_EXPRIED,    /** Expired session **/
-    STEAM_API_ERROR_GENERAL,    /** General **/
-    STEAM_API_ERROR_PARSER,     /** JSON parser **/
+    STEAM_API_ERROR_CAPTCHA, /** Captcha **/
+    STEAM_API_ERROR_EXPRIED, /** Expired session **/
+    STEAM_API_ERROR_GENERAL, /** General **/
+    STEAM_API_ERROR_PARSER, /** JSON parser **/
     STEAM_API_ERROR_STEAMGUARD, /** Steam Guard **/
-    STEAM_API_ERROR_UNKNOWN     /** Unknown **/
+    STEAM_API_ERROR_UNKNOWN /** Unknown **/
 };
 
 /**
@@ -128,8 +126,8 @@ enum _SteamApiReqFlags
 enum _SteamApiAcceptType
 {
     STEAM_API_ACCEPT_TYPE_DEFAULT = 0, /** Accept **/
-    STEAM_API_ACCEPT_TYPE_BLOCK,       /** Block **/
-    STEAM_API_ACCEPT_TYPE_IGNORE       /** Ignore **/
+    STEAM_API_ACCEPT_TYPE_BLOCK, /** Block **/
+    STEAM_API_ACCEPT_TYPE_IGNORE /** Ignore **/
 };
 
 /**
@@ -138,26 +136,25 @@ enum _SteamApiAcceptType
 struct _SteamApi
 {
     SteamUserInfo *info; /** The #SteamUserInfo of the user. **/
-    SteamHttp     *http; /** The #SteamHttp for API requests. **/
-    GQueue        *msgs; /** The #GQueue of message based #SteamApiReq. **/
+    SteamHttp *http; /** The #SteamHttp for API requests. **/
+    GQueue *msgs; /** The #GQueue of message based #SteamApiReq. **/
 
-    gboolean online;     /** The online state of the user. **/
-    guint32  idle;       /** The idle time of the user. **/
+    gboolean online; /** The online state of the user. **/
+    guint32 idle; /** The idle time of the user. **/
 
-    gchar *umqid;        /** The unique device identifier. **/
-    gchar *token;        /** The session token (mobile requests). **/
-    gchar *sessid;       /** The session identifier (community requests). **/
+    gchar *umqid; /** The unique device identifier. **/
+    gchar *token; /** The session token (mobile requests). **/
+    gchar *sessid; /** The session identifier (community requests). **/
 
-    gint64 lmid;         /** The last message identifier. **/
-    gint64 time;         /** The logon timestamp (UTC). **/
+    gint64 lmid; /** The last message identifier. **/
+    gint64 time; /** The logon timestamp (UTC). **/
 
     SteamApiAuthType autht; /** The #SteamApiAuthType. **/
-
-    gchar *cgid;         /** The captcha GID (authentication). **/
-    gchar *esid;         /** The email SteamID (authentication). **/
-    gchar *pkmod;        /** The PKCS (RSA) modulus (authentication). **/
-    gchar *pkexp;        /** The PKCS (RSA) exponent (authentication). **/
-    gchar *pktime;       /** The PKCS (RSA) key time (authentication). **/
+    gchar *cgid; /** The captcha GID (authentication). **/
+    gchar *esid; /** The email SteamID (authentication). **/
+    gchar *pkmod; /** The PKCS (RSA) modulus (authentication). **/
+    gchar *pkexp; /** The PKCS (RSA) exponent (authentication). **/
+    gchar *pktime; /** The PKCS (RSA) key time (authentication). **/
 };
 
 /**
@@ -165,82 +162,107 @@ struct _SteamApi
  **/
 struct _SteamApiReq
 {
-    SteamApi         *api;   /** The #SteamAPI. **/
-    SteamApiReqFlags  flags; /** The #SteamApiReqFlags. **/
-    SteamHttpReq     *req;   /** The #SteamHttpReq. **/
-    GError           *err;   /** The #GError or NULL. **/
-    GQueue           *msgs;  /** The #GQueue of #SteamApiMsg. **/
-    GQueue           *infs;  /** The #GQueue of #SteamUserInfo. **/
-    GQueue           *infr;  /** The #GQueue of #SteamUserInfo remaining. **/
+    SteamApi *api; /** The #SteamAPI. **/
+    SteamApiReqFlags flags; /** The #SteamApiReqFlags. **/
+    SteamHttpReq *req; /** The #SteamHttpReq. **/
+    GError *err; /** The #GError or NULL. **/
+    GQueue *msgs; /** The #GQueue of #SteamApiMsg. **/
+    GQueue *infs; /** The #GQueue of #SteamUserInfo. **/
+    GQueue *infr; /** The #GQueue of #SteamUserInfo remaining. **/
 
-    SteamApiFunc      func;  /** The #SteamApiFunc or NULL. **/
-    gpointer          data;  /** The user define data or NULL. **/
+    SteamApiFunc func; /** The #SteamApiFunc or NULL. **/
+    gpointer data; /** The user define data or NULL. **/
 
-    SteamApiParser    punc;  /** The #SteamApiParser or NULL. **/
+    SteamApiParser punc; /** The #SteamApiParser or NULL. **/
 };
 
+GQuark
+steam_api_error_quark(void);
 
-#define STEAM_API_ERROR steam_api_error_quark()
+SteamApi *
+steam_api_new(void);
 
-GQuark steam_api_error_quark(void);
+void
+steam_api_free_auth(SteamApi *api);
 
-SteamApi *steam_api_new(void);
+void
+steam_api_free(SteamApi *api);
 
-void steam_api_free_auth(SteamApi *api);
+void
+steam_api_away(SteamApi *api, gboolean away);
 
-void steam_api_free(SteamApi *api);
+gchar *
+steam_api_captcha_url(const gchar *cgid);
 
-void steam_api_away(SteamApi *api, gboolean away);
+void
+steam_api_rehash(SteamApi *api);
 
-gchar *steam_api_captcha_url(const gchar *cgid);
+SteamApiReq *
+steam_api_req_new(SteamApi *api, SteamApiFunc func, gpointer data);
 
-void steam_api_rehash(SteamApi *api);
+SteamApiReq *
+steam_api_req_fwd(SteamApiReq *req);
 
-SteamApiReq *steam_api_req_new(SteamApi *api, SteamApiFunc func, gpointer data);
+void
+steam_api_req_free(SteamApiReq *req);
 
-SteamApiReq *steam_api_req_fwd(SteamApiReq *req);
+void
+steam_api_req_init(SteamApiReq *req, const gchar *host, const gchar *path);
 
-void steam_api_req_free(SteamApiReq *req);
+void
+steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
+                   const gchar *authcode, const gchar *captcha);
 
-void steam_api_req_init(SteamApiReq *req, const gchar *host, const gchar *path);
+void
+steam_api_req_auth_rdir(SteamApiReq *req, GHashTable *params);
 
-void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
-                        const gchar *authcode, const gchar *captcha);
+void
+steam_api_req_friends(SteamApiReq *req);
 
-void steam_api_req_auth_rdir(SteamApiReq *req, GHashTable *params);
+void
+steam_api_req_key(SteamApiReq *req, const gchar *user);
 
-void steam_api_req_friends(SteamApiReq *req);
+void
+steam_api_req_logoff(SteamApiReq *req);
 
-void steam_api_req_key(SteamApiReq *req, const gchar *user);
+void
+steam_api_req_logon(SteamApiReq *req);
 
-void steam_api_req_logoff(SteamApiReq *req);
+void
+steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg);
 
-void steam_api_req_logon(SteamApiReq *req);
+void
+steam_api_req_msg_info(SteamApiReq *req);
 
-void steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg);
+void
+steam_api_req_msgs(SteamApiReq *req, SteamId id, gint64 since);
 
-void steam_api_req_msg_info(SteamApiReq *req);
+void
+steam_api_req_msgs_read(SteamApiReq *req, SteamId id);
 
-void steam_api_req_msgs(SteamApiReq *req, SteamId id, gint64 since);
+void
+steam_api_req_poll(SteamApiReq *req);
 
-void steam_api_req_msgs_read(SteamApiReq *req, SteamId id);
+void
+steam_api_req_user_accept(SteamApiReq *req, SteamId id,
+                          SteamApiAcceptType type);
 
-void steam_api_req_poll(SteamApiReq *req);
+void
+steam_api_req_user_add(SteamApiReq *req, SteamId id);
 
-void steam_api_req_user_accept(SteamApiReq *req, SteamId id,
-                               SteamApiAcceptType type);
+void
+steam_api_req_user_ignore(SteamApiReq *req, SteamId id, gboolean ignore);
 
-void steam_api_req_user_add(SteamApiReq *req, SteamId id);
+void
+steam_api_req_user_info(SteamApiReq *req);
 
-void steam_api_req_user_ignore(SteamApiReq *req, SteamId id, gboolean ignore);
+void
+steam_api_req_user_info_nicks(SteamApiReq *req);
 
-void steam_api_req_user_info(SteamApiReq *req);
+void
+steam_api_req_user_remove(SteamApiReq *req, SteamId id);
 
-void steam_api_req_user_info_nicks(SteamApiReq *req);
+void
+steam_api_req_user_search(SteamApiReq *req, const gchar *name, guint count);
 
-void steam_api_req_user_remove(SteamApiReq *req, SteamId id);
-
-void steam_api_req_user_search(SteamApiReq *req, const gchar *name,
-                               guint count);
-
-#endif /* _STEAM_API_H */
+#endif /* _STEAM_API_H_ */

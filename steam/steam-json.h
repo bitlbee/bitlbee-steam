@@ -17,16 +17,17 @@
 
 /** @file **/
 
-#ifndef _STEAM_JSON_H
-#define _STEAM_JSON_H
+#ifndef _STEAM_JSON_H_
+#define _STEAM_JSON_H_
 
 #include <json_util.h>
 
 #include "steam-glib.h"
 
+#define STEAM_JSON_ERROR  steam_json_error_quark()
+
 /** The #GError codes of the JSON parser. **/
 typedef enum _SteamJsonError SteamJsonError;
-
 
 /**
  * The #GError codes of JSON parser.
@@ -36,39 +37,46 @@ enum _SteamJsonError
     STEAM_JSON_ERROR_PARSER
 };
 
+GQuark
+steam_json_error_quark(void);
 
-#define STEAM_JSON_ERROR steam_json_error_quark()
+json_value *
+steam_json_new(const gchar *data, gsize length, GError **err);
 
-GQuark steam_json_error_quark(void);
+gchar *
+steam_json_valstr(const json_value *json);
 
-json_value *steam_json_new(const gchar *data, gsize length, GError **err);
+json_value *
+steam_json_val(const json_value *json, const gchar *name, json_type type);
 
-gchar *steam_json_valstr(const json_value *json);
+gboolean
+steam_json_val_chk(const json_value *json, const gchar *name,
+                   json_type type, json_value **val);
 
-json_value *steam_json_val(const json_value *json, const gchar *name,
-                           json_type type);
+json_value *
+steam_json_array(const json_value *json, const gchar *name);
 
-gboolean steam_json_val_chk(const json_value *json, const gchar *name,
-                            json_type type, json_value **val);
+gboolean
+steam_json_array_chk(const json_value *json, const gchar *name,
+                     json_value **val);
 
-json_value *steam_json_array(const json_value *json, const gchar *name);
+gboolean
+steam_json_bool(const json_value *json, const gchar *name);
 
-gboolean steam_json_array_chk(const json_value *json, const gchar *name,
-                              json_value **val);
+gboolean
+steam_json_bool_chk(const json_value *json, const gchar *name, gboolean *val);
 
-gboolean steam_json_bool(const json_value *json, const gchar *name);
+gint64
+steam_json_int(const json_value *json, const gchar *name);
 
-gboolean steam_json_bool_chk(const json_value *json, const gchar *name,
-                             gboolean *val);
+gboolean
+steam_json_int_chk(const json_value *json, const gchar *name, gint64 *val);
 
-gint64 steam_json_int(const json_value *json, const gchar *name);
+const gchar *
+steam_json_str(const json_value *json, const gchar *name);
 
-gboolean steam_json_int_chk(const json_value *json, const gchar *name,
-                            gint64 *val);
+gboolean
+steam_json_str_chk(const json_value *json, const gchar *name,
+                   const gchar **val);
 
-const gchar *steam_json_str(const json_value *json, const gchar *name);
-
-gboolean steam_json_str_chk(const json_value *json, const gchar *name,
-                            const gchar **val);
-
-#endif /* _STEAM_JSON_H */
+#endif /* _STEAM_JSON_H_ */

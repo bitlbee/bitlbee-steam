@@ -17,33 +17,32 @@
 
 /** @file **/
 
-#ifndef _STEAM_H
-#define _STEAM_H
+#ifndef _STEAM_H_
+#define _STEAM_H_
 
 #include <bitlbee.h>
 
 #include "steam-api.h"
 #include "steam-glib.h"
 
-
 /** The main structure for the plugin. **/
 typedef struct _SteamData SteamData;
-
 
 /**
  * The main structure for the plugin.
  **/
 struct _SteamData
 {
-    SteamApi *api;            /** The #SteamApi. **/
+    SteamApi *api; /** The #SteamApi. **/
     struct im_connection *ic; /** The #im_connection. **/
 
-    gboolean game_status;     /** The printing of game play statues. **/
+    gboolean game_status; /** The printing of game play statues. **/
 };
 
+SteamData *
+steam_data_new(account_t *acc);
 
-SteamData *steam_data_new(account_t *acc);
+void
+steam_data_free(SteamData *sata);
 
-void steam_data_free(SteamData *sata);
-
-#endif /* _STEAM_H */
+#endif /* _STEAM_H_ */
