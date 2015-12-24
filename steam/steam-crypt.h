@@ -17,15 +17,16 @@
 
 /** @file **/
 
-#ifndef _STEAM_CRYPT_H
-#define _STEAM_CRYPT_H
+#ifndef _STEAM_CRYPT_H_
+#define _STEAM_CRYPT_H_
 
 #include "steam-glib.h"
 
-GByteArray *steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
-                                const GByteArray *bytes);
+GByteArray *
+steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
+                    const GByteArray *bytes);
 
-gchar *steam_crypt_rsa_enc_str(const gchar *mod, const gchar *exp,
-                               const gchar *str);
+gchar *
+steam_crypt_rsa_enc_str(const gchar *mod, const gchar *exp, const gchar *str);
 
-#endif /* _STEAM_CRYPT_H */
+#endif /* _STEAM_CRYPT_H_ */

@@ -26,12 +26,14 @@
  *
  * @return The #GQuark of the error domain.
  **/
-GQuark steam_http_error_quark(void)
+GQuark
+steam_http_error_quark(void)
 {
     static GQuark q;
 
-    if (G_UNLIKELY(q == 0))
+    if (G_UNLIKELY(q == 0)) {
         q = g_quark_from_static_string("steam-http-error-quark");
+    }
 
     return q;
 }
@@ -44,14 +46,14 @@ GQuark steam_http_error_quark(void)
  *
  * @return The #SteamHttp or NULL on error.
  **/
-SteamHttp *steam_http_new(const gchar *agent)
+SteamHttp *
+steam_http_new(const gchar *agent)
 {
     SteamHttp *http;
 
     http = g_new0(SteamHttp, 1);
-
-    http->agent   = g_strdup(agent);
-    http->reqs    = g_hash_table_new(g_direct_hash, g_direct_equal);
+    http->agent = g_strdup(agent);
+    http->reqs = g_hash_table_new(g_direct_hash, g_direct_equal);
     http->cookies = g_hash_table_new_full(g_str_hash,
                                           (GEqualFunc) steam_util_str_iequal,
                                           g_free, g_free);
@@ -63,13 +65,15 @@ SteamHttp *steam_http_new(const gchar *agent)
  *
  * @param http The #SteamHttp.
  **/
-void steam_http_free_reqs(SteamHttp *http)
+void
+steam_http_free_reqs(SteamHttp *http)
 {
     GHashTableIter iter;
-    gpointer       key;
+    gpointer key;
 
-    if (G_UNLIKELY(http == NULL))
+    if (G_UNLIKELY(http == NULL)) {
         return;
+    }
 
     g_hash_table_iter_init(&iter, http->reqs);
 
@@ -84,10 +88,12 @@ void steam_http_free_reqs(SteamHttp *http)
  *
  * @param http The #SteamHttp.
  **/
-void steam_http_free(SteamHttp *http)
+void
+steam_http_free(SteamHttp *http)
 {
-    if (G_UNLIKELY(http == NULL))
+    if (G_UNLIKELY(http == NULL)) {
         return;
+    }
 
     steam_http_free_reqs(http);
     g_hash_table_destroy(http->reqs);
@@ -101,19 +107,20 @@ void steam_http_free(SteamHttp *http)
  * Inserts a #va_list into a #GHashTable.
  *
  * @param table The #GHashTable.
- * @param pair  The first #SteamHttpPair.
- * @param ap    The #va_list.
+ * @param pair The first #SteamHttpPair.
+ * @param ap The #va_list.
  **/
-static void steam_http_tree_ins(GHashTable *table, const SteamHttpPair *pair,
-                                va_list ap)
+static void
+steam_http_tree_ins(GHashTable *table, const SteamHttpPair *pair, va_list ap)
 {
     const SteamHttpPair *p;
     gchar *key;
     gchar *val;
 
     for (p = pair; p != NULL; ) {
-        if (p->key == NULL)
+        if (p->key == NULL) {
             continue;
+        }
 
         key = g_strdup(p->key);
         val = g_strdup(p->val);
@@ -129,9 +136,10 @@ static void steam_http_tree_ins(GHashTable *table, const SteamHttpPair *pair,
  *
  * @param http The #SteamHttp.
  * @param pair The first #SteamHttpPair.
- * @param ...  The additional #SteamHttpPair.
+ * @param ... The additional #SteamHttpPair.
  **/
-void steam_http_cookies_set(SteamHttp *http, const SteamHttpPair *pair, ...)
+void
+steam_http_cookies_set(SteamHttp *http, const SteamHttpPair *pair, ...)
 {
     va_list ap;
 
@@ -147,40 +155,45 @@ void steam_http_cookies_set(SteamHttp *http, const SteamHttpPair *pair, ...)
  * it is overwritten with the new value.
  *
  * @param http The #SteamHttp.
- * @param req  The #SteamHttpReq.
+ * @param req The #SteamHttpReq.
  **/
-void steam_http_cookies_parse_req(SteamHttp *http, const SteamHttpReq *req)
+void
+steam_http_cookies_parse_req(SteamHttp *http, const SteamHttpReq *req)
 {
     gchar **hdrs;
     gchar **kv;
-    gchar  *str;
-    gsize   i;
-    gsize   j;
+    gchar *str;
+    gsize i;
+    gsize j;
 
     g_return_if_fail(http != NULL);
-    g_return_if_fail(req  != NULL);
+    g_return_if_fail(req != NULL);
 
-    if (req->request == NULL)
+    if (req->request == NULL) {
         return;
+    }
 
     hdrs = g_strsplit(req->request->reply_headers, "\r\n", 0);
 
     for (i = 0; hdrs[i] != NULL; i++) {
-        if (g_ascii_strncasecmp(hdrs[i], "Set-Cookie", 10) != 0)
+        if (g_ascii_strncasecmp(hdrs[i], "Set-Cookie", 10) != 0) {
             continue;
+        }
 
         str = strchr(hdrs[i], ';');
 
-        if (str != NULL)
+        if (str != NULL) {
             str[0] = 0;
+        }
 
         str = strchr(hdrs[i], ':');
 
-        if (str == NULL)
+        if (str == NULL) {
             continue;
+        }
 
         str = g_strstrip(++str);
-        kv  = g_strsplit(str, "=", 2);
+        kv = g_strsplit(str, "=", 2);
 
         for (j = 0; kv[j] != NULL; j++) {
             str = steam_http_uri_unescape(kv[j]);
@@ -188,8 +201,9 @@ void steam_http_cookies_parse_req(SteamHttp *http, const SteamHttpReq *req)
             kv[j] = str;
         }
 
-        if (g_strv_length(kv) > 1)
+        if (g_strv_length(kv) > 1) {
             steam_http_cookies_set(http, STEAM_HTTP_PAIR(kv[0], kv[1]), NULL);
+        }
 
         g_strfreev(kv);
     }
@@ -204,13 +218,14 @@ void steam_http_cookies_parse_req(SteamHttp *http, const SteamHttpReq *req)
  * @param http The #SteamHttp.
  * @param data The string.
  **/
-void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
+void
+steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
 {
     gchar **ckis;
     gchar **kv;
-    gchar  *str;
-    gsize   i;
-    gsize   j;
+    gchar *str;
+    gsize i;
+    gsize j;
 
     g_return_if_fail(http != NULL);
     g_return_if_fail(data != NULL);
@@ -219,7 +234,7 @@ void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
 
     for (i = 0; ckis[i] != NULL; i++) {
         str = g_strstrip(ckis[i]);
-        kv  = g_strsplit(str, "=", 2);
+        kv = g_strsplit(str, "=", 2);
 
         for (j = 0; kv[j] != NULL; j++) {
             str = steam_http_uri_unescape(kv[j]);
@@ -227,8 +242,9 @@ void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
             kv[j] = str;
         }
 
-        if (g_strv_length(kv) > 1)
+        if (g_strv_length(kv) > 1) {
             steam_http_cookies_set(http, STEAM_HTTP_PAIR(kv[0], kv[1]), NULL);
+        }
 
         g_strfreev(kv);
     }
@@ -245,22 +261,24 @@ void steam_http_cookies_parse_str(SteamHttp *http, const gchar *data)
  *
  * @return The string representation of the cookies.
  **/
-gchar *steam_http_cookies_str(SteamHttp *http)
+gchar *
+steam_http_cookies_str(SteamHttp *http)
 {
-    GHashTableIter  iter;
-    GString        *gstr;
-    gchar          *key;
-    gchar          *val;
-    gchar          *str;
+    gchar *key;
+    gchar *str;
+    gchar *val;
+    GHashTableIter iter;
+    GString *gstr;
 
     g_return_val_if_fail(http != NULL, NULL);
 
     gstr = g_string_sized_new(128);
     g_hash_table_iter_init(&iter, http->cookies);
 
-    while (g_hash_table_iter_next(&iter, (gpointer*) &key, (gpointer*) &val)) {
-        if (val == NULL)
+    while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &val)) {
+        if (val == NULL) {
             val = "";
+        }
 
         key = steam_http_uri_escape(key);
         val = steam_http_uri_escape(val);
@@ -274,7 +292,6 @@ gchar *steam_http_cookies_str(SteamHttp *http)
 
     str = g_strdup(gstr->str);
     g_string_free(gstr, TRUE);
-
     return str;
 }
 
@@ -291,14 +308,13 @@ gchar *steam_http_cookies_str(SteamHttp *http)
  *
  * @return The #SteamHttpReq or NULL on error.
  **/
-SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
-                                 gint port, const gchar *path,
-                                 SteamHttpFunc func, gpointer data)
+SteamHttpReq *
+steam_http_req_new(SteamHttp *http, const gchar *host, gint port,
+                   const gchar *path, SteamHttpFunc func, gpointer data)
 {
     SteamHttpReq *req;
 
     req = g_new0(SteamHttpReq, 1);
-
     req->http = http;
     req->host = g_strdup(host);
     req->port = port;
@@ -309,14 +325,14 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
     req->headers = g_hash_table_new_full(g_str_hash,
                                          (GEqualFunc) steam_util_str_iequal,
                                          g_free, g_free);
-    req->params  = g_hash_table_new_full(g_str_hash,
+    req->params = g_hash_table_new_full(g_str_hash,
                                          (GEqualFunc) steam_util_str_iequal,
                                          g_free, g_free);
 
     steam_http_req_headers_set(req,
         STEAM_HTTP_PAIR("User-Agent", http->agent),
-        STEAM_HTTP_PAIR("Host",       host),
-        STEAM_HTTP_PAIR("Accept",     "*/*"),
+        STEAM_HTTP_PAIR("Host", host),
+        STEAM_HTTP_PAIR("Accept", "*/*"),
         STEAM_HTTP_PAIR("Connection", "Close"),
         NULL
     );
@@ -329,7 +345,8 @@ SteamHttpReq *steam_http_req_new(SteamHttp *http, const gchar *host,
  *
  * @param request The #http_request.
  **/
-static void steam_http_req_close_nuller(struct http_request *request)
+static void
+steam_http_req_close_nuller(struct http_request *request)
 {
 
 }
@@ -341,10 +358,10 @@ static void steam_http_req_close_nuller(struct http_request *request)
  *
  * @param req The #SteamHttpReq.
  **/
-static void steam_http_req_close(SteamHttpReq *req, gboolean callback)
+static void
+steam_http_req_close(SteamHttpReq *req, gboolean callback)
 {
     g_return_if_fail(req != NULL);
-
     b_event_remove(req->toid);
 
     if ((req->err == NULL) && (req->scode == 0)) {
@@ -352,25 +369,27 @@ static void steam_http_req_close(SteamHttpReq *req, gboolean callback)
                     "Request closed");
     }
 
-    if (callback && (req->func != NULL))
+    if (callback && (req->func != NULL)) {
         req->func(req, req->data);
+    }
 
     if (req->request != NULL) {
         /* Prevent more than one call to request->func() */
         req->request->func = steam_http_req_close_nuller;
         req->request->data = NULL;
 
-        if (!(req->request->flags & STEAM_HTTP_CLIENT_FREED))
+        if (!(req->request->flags & STEAM_HTTP_CLIENT_FREED)) {
             http_close(req->request);
+        }
     }
 
-    req->status    = NULL;
-    req->scode     = 0;
-    req->header    = NULL;
-    req->body      = NULL;
+    req->status = NULL;
+    req->scode = 0;
+    req->header = NULL;
+    req->body = NULL;
     req->body_size = 0;
-    req->toid      = 0;
-    req->request   = NULL;
+    req->toid = 0;
+    req->request = NULL;
 }
 
 /**
@@ -378,15 +397,18 @@ static void steam_http_req_close(SteamHttpReq *req, gboolean callback)
  *
  * @param req The #SteamHttpReq.
  **/
-void steam_http_req_free(SteamHttpReq *req)
+void
+steam_http_req_free(SteamHttpReq *req)
 {
-    if (G_UNLIKELY(req == NULL))
+    if (G_UNLIKELY(req == NULL)) {
         return;
+    }
 
     steam_http_req_close(req, TRUE);
 
-    if (req->err != NULL)
+    if (req->err != NULL) {
         g_error_free(req->err);
+    }
 
     g_hash_table_destroy(req->headers);
     g_hash_table_destroy(req->params);
@@ -396,55 +418,60 @@ void steam_http_req_free(SteamHttpReq *req)
     g_free(req);
 }
 
-static void steam_http_req_debug(SteamHttpReq *req, gboolean response,
-                                 const gchar *header, const gchar *body)
+static void
+steam_http_req_debug(SteamHttpReq *req, gboolean response,
+                     const gchar *header, const gchar *body)
 {
-    const gchar  *act;
-    const gchar  *type;
-    const gchar  *prot;
-    gchar        *str;
-    gchar       **ls;
-    guint         i;
+    const gchar *act;
+    const gchar *prot;
+    const gchar *type;
+    gchar **ls;
+    gchar *str;
+    guint i;
 
-    if (req->err != NULL)
+    if (req->err != NULL) {
         str = g_strdup_printf(" (%s)", req->err->message);
-    else if (req->status != NULL)
+    } else if (req->status != NULL) {
         str = g_strdup_printf(" (%s)", req->status);
-    else
+    } else {
         str = g_strdup("");
+    }
 
-    act  = response ? "Response" : "Request";
-    type = (req->flags & STEAM_HTTP_REQ_FLAG_POST) ? "POST"  : "GET";
-    prot = (req->flags & STEAM_HTTP_REQ_FLAG_SSL)  ? "https" : "http";
+    act = response ? "Response" : "Request";
+    type = (req->flags & STEAM_HTTP_REQ_FLAG_POST) ? "POST" : "GET";
+    prot = (req->flags & STEAM_HTTP_REQ_FLAG_SSL) ? "https" : "http";
 
     steam_util_debug_info("%s %s (%p): %s://%s:%d%s%s", type, act, req,
                           prot, req->host, req->port, req->path, str);
     g_free(str);
 
-    if (req->rsc > 0)
+    if (req->rsc > 0) {
         steam_util_debug_info("Reattempt: #%u", req->rsc);
+    }
 
     if ((header != NULL) && (strlen(header) > 0)) {
         ls = g_strsplit(header, "\n", 0);
 
-        for (i = 0; ls[i] != NULL; i++)
-            steam_util_debug_info("  %s", ls[i]);
+        for (i = 0; ls[i] != NULL; i++) {
+            steam_util_debug_info(" %s", ls[i]);
+        }
 
         g_strfreev(ls);
     } else {
-        steam_util_debug_info("  ** No header data **");
+        steam_util_debug_info(" ** No header data **");
         steam_util_debug_info("%s", "");
     }
 
     if ((body != NULL) && (strlen(body) > 0)) {
         ls = g_strsplit(body, "\n", 0);
 
-        for (i = 0; ls[i] != NULL; i++)
-            steam_util_debug_info("  %s", ls[i]);
+        for (i = 0; ls[i] != NULL; i++) {
+            steam_util_debug_info(" %s", ls[i]);
+        }
 
         g_strfreev(ls);
     } else {
-        steam_util_debug_info("  ** No body data **");
+        steam_util_debug_info(" ** No body data **");
     }
 }
 
@@ -452,12 +479,12 @@ static void steam_http_req_debug(SteamHttpReq *req, gboolean response,
  * Sets headers from #SteamHttpPair. If a header already exists, it is
  * overwritten with the new value.
  *
- * @param req  The #SteamHttpReq.
+ * @param req The #SteamHttpReq.
  * @param pair The first #SteamHttpPair.
- * @param ...  The additional #SteamHttpPair.
+ * @param ... The additional #SteamHttpPair.
  **/
-void steam_http_req_headers_set(SteamHttpReq *req, const SteamHttpPair *pair,
-                                ...)
+void
+steam_http_req_headers_set(SteamHttpReq *req, const SteamHttpPair *pair, ...)
 {
     va_list ap;
 
@@ -472,12 +499,12 @@ void steam_http_req_headers_set(SteamHttpReq *req, const SteamHttpPair *pair,
  * Sets parameters from #SteamHttpPair. If a parameter already exists,
  * it is overwritten with the new value.
  *
- * @param req  The #SteamHttpReq.
+ * @param req The #SteamHttpReq.
  * @param pair The first #SteamHttpPair.
- * @param ...  The additional #SteamHttpPair.
+ * @param ... The additional #SteamHttpPair.
  **/
-void steam_http_req_params_set(SteamHttpReq *req, const SteamHttpPair *pair,
-                               ...)
+void
+steam_http_req_params_set(SteamHttpReq *req, const SteamHttpPair *pair, ...)
 {
     va_list ap;
 
@@ -492,16 +519,15 @@ void steam_http_req_params_set(SteamHttpReq *req, const SteamHttpPair *pair,
  * Implemented #b_event_handler for resending failed a #SteamHttpReq.
  *
  * @param data The user defined data, which is a #SteamHttpReq.
- * @param fd   The file descriptor.
+ * @param fd The file descriptor.
  * @param cond The #b_input_condition.
  *
  * @return FALSE to kill the timer.
  **/
-static gboolean steam_http_req_done_error(gpointer data, gint fd,
-                                          b_input_condition cond)
+static gboolean
+steam_http_req_done_error(gpointer data, gint fd, b_input_condition cond)
 {
     SteamHttpReq *req = data;
-
     steam_http_req_send(req);
     return FALSE;
 }
@@ -511,7 +537,8 @@ static gboolean steam_http_req_done_error(gpointer data, gint fd,
  *
  * @param req The #SteamHttpReq.
  **/
-static void steam_http_req_done(SteamHttpReq *req)
+static void
+steam_http_req_done(SteamHttpReq *req)
 {
     steam_http_req_debug(req, TRUE, req->header, req->body);
 
@@ -539,15 +566,16 @@ static void steam_http_req_done(SteamHttpReq *req)
  *
  * @param request The #http_request.
  **/
-static void steam_http_req_cb(struct http_request *request)
+static void
+steam_http_req_cb(struct http_request *request)
 {
     SteamHttpReq *req = request->data;
 
     /* Shortcut request elements */
-    req->status    = request->status_string;
-    req->scode     = request->status_code;
-    req->header    = request->reply_headers;
-    req->body      = request->reply_body;
+    req->status = request->status_string;
+    req->scode = request->status_code;
+    req->header = request->reply_headers;
+    req->body = request->reply_body;
     req->body_size = request->body_size;
 
     switch (req->scode) {
@@ -570,12 +598,13 @@ static void steam_http_req_cb(struct http_request *request)
  * Implemented #b_event_handler for handling a timed out #SteamHttpReq.
  *
  * @param data The user defined data, which is a #SteamHttpReq.
- * @param fd   The file descriptor.
+ * @param fd The file descriptor.
  * @param cond The #b_input_condition.
  *
  * @return FALSE to kill the timer.
  **/
-static gboolean steam_http_req_send_timeout(gpointer data, gint fd,
+static gboolean
+steam_http_req_send_timeout(gpointer data, gint fd,
                                             b_input_condition cond)
 {
     SteamHttpReq *req = data;
@@ -593,26 +622,27 @@ static gboolean steam_http_req_send_timeout(gpointer data, gint fd,
  * with #g_free() when no longer needed.
  *
  * @param req The #SteamHttpReq.
- * @param hs  The return location for the header string.
- * @param ps  The return location for the param string.
- * @param fs  The return location for the full string.
+ * @param hs The return location for the header string.
+ * @param ps The return location for the param string.
+ * @param fs The return location for the full string.
  **/
-static void steam_http_req_asm(SteamHttpReq *req, gchar **hs, gchar **ps,
-                               gchar **fs)
+static void
+steam_http_req_asm(SteamHttpReq *req, gchar **hs, gchar **ps, gchar **fs)
 {
-    GHashTableIter  iter;
-    GString        *hgs;
-    GString        *pgs;
-    gchar          *str;
-    gchar          *key;
-    gchar          *val;
+    gchar *key;
+    gchar *str;
+    gchar *val;
+    GHashTableIter iter;
+    GString *hgs;
+    GString *pgs;
 
     g_hash_table_iter_init(&iter, req->params);
     pgs = g_string_sized_new(128);
 
-    while (g_hash_table_iter_next(&iter, (gpointer*) &key, (gpointer*) &val)) {
-        if (val == NULL)
+    while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &val)) {
+        if (val == NULL) {
             val = "";
+        }
 
         key = steam_http_uri_escape(key);
         val = steam_http_uri_escape(val);
@@ -634,7 +664,7 @@ static void steam_http_req_asm(SteamHttpReq *req, gchar **hs, gchar **ps,
         str = g_strdup_printf("%" G_GSIZE_FORMAT, pgs->len);
 
         steam_http_req_headers_set(req,
-            STEAM_HTTP_PAIR("Content-Type",   "application/"
+            STEAM_HTTP_PAIR("Content-Type", "application/"
                                               "x-www-form-urlencoded"),
             STEAM_HTTP_PAIR("Content-Length", str),
             NULL
@@ -646,9 +676,10 @@ static void steam_http_req_asm(SteamHttpReq *req, gchar **hs, gchar **ps,
     g_hash_table_iter_init(&iter, req->headers);
     hgs = g_string_sized_new(128);
 
-    while (g_hash_table_iter_next(&iter, (gpointer*) &key, (gpointer*) &val)) {
-        if (val == NULL)
+    while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &val)) {
+        if (val == NULL) {
             val = "";
+        }
 
         g_string_append_printf(hgs, "%s: %s\r\n", key, val);
     }
@@ -670,14 +701,14 @@ static void steam_http_req_asm(SteamHttpReq *req, gchar **hs, gchar **ps,
  *
  * @param req The #SteamHttpReq.
  **/
-void steam_http_req_send(SteamHttpReq *req)
+void
+steam_http_req_send(SteamHttpReq *req)
 {
-    gchar *str;
     gchar *hs;
     gchar *ps;
+    gchar *str;
 
     g_return_if_fail(req != NULL);
-
     steam_http_req_asm(req, &hs, &ps, &str);
     steam_http_req_debug(req, FALSE, hs, ps);
 
@@ -714,19 +745,18 @@ void steam_http_req_send(SteamHttpReq *req)
  *
  * @return The escaped string or NULL on error.
  **/
-gchar *steam_http_uri_escape(const gchar *unescaped)
+gchar *
+steam_http_uri_escape(const gchar *unescaped)
 {
     gchar *ret;
     gchar *str;
 
     g_return_val_if_fail(unescaped != NULL, NULL);
-
     str = g_strndup(unescaped, (strlen(unescaped) * 3) + 1);
     http_encode(str);
 
     ret = g_strdup(str);
     g_free(str);
-
     return ret;
 }
 
@@ -738,18 +768,17 @@ gchar *steam_http_uri_escape(const gchar *unescaped)
  *
  * @return The unescaped string or NULL on error.
  **/
-gchar *steam_http_uri_unescape(const gchar *escaped)
+gchar *
+steam_http_uri_unescape(const gchar *escaped)
 {
     gchar *ret;
     gchar *str;
 
     g_return_val_if_fail(escaped != NULL, NULL);
-
     str = g_strdup(escaped);
     http_decode(str);
 
     ret = g_strdup(str);
     g_free(str);
-
     return ret;
 }

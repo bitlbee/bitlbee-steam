@@ -28,13 +28,13 @@
  *
  * @return The #SteamUser or NULL on error.
  **/
-SteamUser *steam_user_new(bee_user_t *bu)
+SteamUser *
+steam_user_new(bee_user_t *bu)
 {
     SteamUser *user;
 
     user = g_new0(SteamUser, 1);
     user->buser = bu;
-
     return user;
 }
 
@@ -43,10 +43,12 @@ SteamUser *steam_user_new(bee_user_t *bu)
  *
  * @param user The #SteamUser.
  **/
-void steam_user_free(SteamUser *user)
+void
+steam_user_free(SteamUser *user)
 {
-    if (G_UNLIKELY(user == NULL))
+    if (G_UNLIKELY(user == NULL)) {
         return;
+    }
 
     g_free(user->server);
     g_free(user->game);
@@ -57,32 +59,33 @@ void steam_user_free(SteamUser *user)
  * Sends a message to all channels which a #SteamUser is occupying with
  * the sender being the #SteamUser.
  *
- * @param user   The #SteamUser.
+ * @param user The #SteamUser.
  * @param format The format string.
- * @param ...    The arguments for the format string.
+ * @param ... The arguments for the format string.
  **/
-void steam_user_chans_msg(SteamUser *user, const gchar *format, ...)
+void
+steam_user_chans_msg(SteamUser *user, const gchar *format, ...)
 {
+    gchar *str;
+    GSList *l;
     irc_channel_t *ic;
-    irc_user_t    *iu;
-    va_list        ap;
-    gchar         *str;
-    GSList        *l;
+    irc_user_t *iu;
+    va_list ap;
 
-    g_return_if_fail(user   != NULL);
+    g_return_if_fail(user != NULL);
     g_return_if_fail(format != NULL);
+    iu = user->buser->ui_data;
 
     va_start(ap, format);
     str = g_strdup_vprintf(format, ap);
     va_end(ap);
 
-    iu = user->buser->ui_data;
-
     for (l = iu->irc->channels; l != NULL; l = l->next) {
         ic = l->data;
 
-        if (irc_channel_has_user(ic, iu) != NULL)
+        if (irc_channel_has_user(ic, iu) != NULL) {
             irc_send_msg(iu, "PRIVMSG", ic->name, str, NULL);
+        }
     }
 
     g_free(str);
@@ -96,13 +99,14 @@ void steam_user_chans_msg(SteamUser *user, const gchar *format, ...)
  *
  * @return The string representation of the #SteamUserFlags.
  **/
-gchar *steam_user_flags_str(SteamUserFlags flags)
+gchar *
+steam_user_flags_str(SteamUserFlags flags)
 {
+    gchar *str;
     gchar **strs;
-    gchar  *str;
 
     static const SteamUtilEnum enums[] = {
-        {STEAM_USER_FLAG_WEB,    "Web"},
+        {STEAM_USER_FLAG_WEB, "Web"},
         {STEAM_USER_FLAG_MOBILE, "Mobile"},
         {STEAM_USER_FLAG_BIGPIC, "Big Picture"},
         STEAM_UTIL_ENUM_NULL
@@ -129,12 +133,13 @@ gchar *steam_user_flags_str(SteamUserFlags flags)
  *
  * @return The #SteamUserInfo or NULL on error.
  **/
-SteamUserInfo *steam_user_info_new(SteamId id)
+SteamUserInfo *
+steam_user_info_new(SteamId id)
 {
     SteamUserInfo *info;
 
     info = g_new0(SteamUserInfo, 1);
-    info->id  = id;
+    info->id = id;
     info->act = STEAM_USER_ACT_NONE;
 
     return info;
@@ -145,10 +150,12 @@ SteamUserInfo *steam_user_info_new(SteamId id)
  *
  * @param info The #SteamUserInfo.
  **/
-void steam_user_info_free(SteamUserInfo *info)
+void
+steam_user_info_free(SteamUserInfo *info)
 {
-    if (G_UNLIKELY(info == NULL))
+    if (G_UNLIKELY(info == NULL)) {
         return;
+    }
 
     g_slist_free_full(info->nicks, g_free);
 
@@ -168,13 +175,13 @@ void steam_user_info_free(SteamUserInfo *info)
  *
  * @return The #SteamUserMsg or NULL on error.
  **/
-SteamUserMsg *steam_user_msg_new(SteamId id)
+SteamUserMsg *
+steam_user_msg_new(SteamId id)
 {
     SteamUserMsg *msg;
 
     msg = g_new0(SteamUserMsg, 1);
     msg->info = steam_user_info_new(id);
-
     return msg;
 }
 
@@ -183,13 +190,14 @@ SteamUserMsg *steam_user_msg_new(SteamId id)
  *
  * @param msg The #SteamUserMsg.
  **/
-void steam_user_msg_free(SteamUserMsg *msg)
+void
+steam_user_msg_free(SteamUserMsg *msg)
 {
-    if (G_UNLIKELY(msg == NULL))
+    if (G_UNLIKELY(msg == NULL)) {
         return;
+    }
 
     steam_user_info_free(msg->info);
-
     g_free(msg->text);
     g_free(msg);
 }
@@ -201,17 +209,18 @@ void steam_user_msg_free(SteamUserMsg *msg)
  *
  * @return The string representation of the #SteamUserMsgType.
  **/
-const gchar *steam_user_msg_type_str(SteamUserMsgType type)
+const gchar *
+steam_user_msg_type_str(SteamUserMsgType type)
 {
     static const SteamUtilEnum enums[] = {
-        {STEAM_USER_MSG_TYPE_SAYTEXT,      "saytext"},
-        {STEAM_USER_MSG_TYPE_EMOTE,        "emote"},
-        {STEAM_USER_MSG_TYPE_LEFT_CONV,    "leftconversation"},
+        {STEAM_USER_MSG_TYPE_SAYTEXT, "saytext"},
+        {STEAM_USER_MSG_TYPE_EMOTE, "emote"},
+        {STEAM_USER_MSG_TYPE_LEFT_CONV, "leftconversation"},
         {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
-        {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
-        {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
-        {STEAM_USER_MSG_TYPE_MY_SAYTEXT,   "my_saytext"},
-        {STEAM_USER_MSG_TYPE_MY_EMOTE,     "my_emote"},
+        {STEAM_USER_MSG_TYPE_STATE, "personastate"},
+        {STEAM_USER_MSG_TYPE_TYPING, "typing"},
+        {STEAM_USER_MSG_TYPE_MY_SAYTEXT, "my_saytext"},
+        {STEAM_USER_MSG_TYPE_MY_EMOTE, "my_emote"},
         STEAM_UTIL_ENUM_NULL
     };
 
@@ -225,17 +234,18 @@ const gchar *steam_user_msg_type_str(SteamUserMsgType type)
  *
  * @return The #SteamUserMsgType value.
  **/
-SteamUserMsgType steam_user_msg_type_from_str(const gchar *type)
+SteamUserMsgType
+steam_user_msg_type_from_str(const gchar *type)
 {
     static const SteamUtilEnum enums[] = {
-        {STEAM_USER_MSG_TYPE_SAYTEXT,      "saytext"},
-        {STEAM_USER_MSG_TYPE_EMOTE,        "emote"},
-        {STEAM_USER_MSG_TYPE_LEFT_CONV,    "leftconversation"},
+        {STEAM_USER_MSG_TYPE_SAYTEXT, "saytext"},
+        {STEAM_USER_MSG_TYPE_EMOTE, "emote"},
+        {STEAM_USER_MSG_TYPE_LEFT_CONV, "leftconversation"},
         {STEAM_USER_MSG_TYPE_RELATIONSHIP, "personarelationship"},
-        {STEAM_USER_MSG_TYPE_STATE,        "personastate"},
-        {STEAM_USER_MSG_TYPE_TYPING,       "typing"},
-        {STEAM_USER_MSG_TYPE_MY_SAYTEXT,   "my_saytext"},
-        {STEAM_USER_MSG_TYPE_MY_EMOTE,     "my_emote"},
+        {STEAM_USER_MSG_TYPE_STATE, "personastate"},
+        {STEAM_USER_MSG_TYPE_TYPING, "typing"},
+        {STEAM_USER_MSG_TYPE_MY_SAYTEXT, "my_saytext"},
+        {STEAM_USER_MSG_TYPE_MY_EMOTE, "my_emote"},
         STEAM_UTIL_ENUM_NULL
     };
 
@@ -250,16 +260,17 @@ SteamUserMsgType steam_user_msg_type_from_str(const gchar *type)
  *
  * @return The string representation or NULL on error.
  **/
-const gchar *steam_user_state_str(SteamUserState state)
+const gchar *
+steam_user_state_str(SteamUserState state)
 {
     static const SteamUtilEnum enums[] = {
         {STEAM_USER_STATE_OFFLINE, "Offline"},
-        {STEAM_USER_STATE_ONLINE,  "Online"},
-        {STEAM_USER_STATE_BUSY,    "Busy"},
-        {STEAM_USER_STATE_AWAY,    "Away"},
-        {STEAM_USER_STATE_SNOOZE,  "Snooze"},
-        {STEAM_USER_STATE_TRADE,   "Looking to Trade"},
-        {STEAM_USER_STATE_PLAY,    "Looking to Play"},
+        {STEAM_USER_STATE_ONLINE, "Online"},
+        {STEAM_USER_STATE_BUSY, "Busy"},
+        {STEAM_USER_STATE_AWAY, "Away"},
+        {STEAM_USER_STATE_SNOOZE, "Snooze"},
+        {STEAM_USER_STATE_TRADE, "Looking to Trade"},
+        {STEAM_USER_STATE_PLAY, "Looking to Play"},
         STEAM_UTIL_ENUM_NULL
     };
 
