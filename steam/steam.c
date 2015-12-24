@@ -150,11 +150,10 @@ static void steam_user_status(SteamData *sata, const SteamUserInfo *info,
     f = BEE_USER_ONLINE;
     m = steam_user_state_str(info->state);
 
-    if (info->state != STEAM_USER_STATE_ONLINE)
-        f |= BEE_USER_AWAY;
-
     if (info->game != NULL)
         f |= BEE_USER_SPECIAL;
+    else if (info->state != STEAM_USER_STATE_ONLINE)
+        f |= BEE_USER_AWAY;
 
     user = bu->data;
     cgm  = g_strcmp0(info->game,   user->game)   != 0;
