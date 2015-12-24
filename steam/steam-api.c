@@ -136,6 +136,8 @@ void steam_api_rehash(SteamApi *api)
                           api->token);
 
     steam_http_cookies_set(api->http,
+        STEAM_HTTP_PAIR("forceMobile",  "1"),
+        STEAM_HTTP_PAIR("mobileClient", PACKAGE),
         STEAM_HTTP_PAIR("steamLogin", str),
         STEAM_HTTP_PAIR("sessionid",  api->sessid),
         NULL
@@ -561,7 +563,6 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
 void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
                         const gchar *authcode, const gchar *captcha)
 {
-    SteamApi *api = req->api;
     GTimeVal  tv;
     gchar    *pswd;
     gchar    *ms;
@@ -607,17 +608,8 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
         NULL
     );
 
-    steam_http_cookies_set(api->http,
-        STEAM_HTTP_PAIR("forceMobile",  "1"),
-        STEAM_HTTP_PAIR("mobileClient", PACKAGE),
-        NULL
-    );
-
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(req->req);
-
-    g_hash_table_remove(api->http->cookies, "forceMobile");
-    g_hash_table_remove(api->http->cookies, "mobileClient");
 
     g_free(pswd);
     g_free(ms);
@@ -1584,9 +1576,14 @@ void steam_api_req_user_info_nicks(SteamApiReq *req)
     req->punc = steam_api_cb_user_info_nicks;
     steam_api_req_init(req, url.host, url.file);
 
+    /* /ajaxaliases/ does not like Mobile mode */
+    g_hash_table_remove(req->api->http->cookies, "forceMobile");
+    g_hash_table_remove(req->api->http->cookies, "mobileClient");
+
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(req->req);
 
+    steam_api_rehash(req->api);
     g_free(srl);
 }
 
