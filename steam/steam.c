@@ -1144,36 +1144,37 @@ void init_plugin(void);
  **/
 void init_plugin()
 {
-    struct prpl *pp;
+    struct prpl *dpp;
+
+    static const struct prpl pp = {
+        .name            = "steam",
+        .options         = OPT_NOOTR,
+        .init            = steam_init,
+        .login           = steam_login,
+        .logout          = steam_logout,
+        .buddy_msg       = steam_buddy_msg,
+        .set_away        = steam_set_away,
+        .send_typing     = steam_send_typing,
+        .add_buddy       = steam_add_buddy,
+        .remove_buddy    = steam_remove_buddy,
+        .add_permit      = steam_add_permit,
+        .add_deny        = steam_add_deny,
+        .rem_permit      = steam_rem_permit,
+        .rem_deny        = steam_rem_deny,
+        .get_info        = steam_get_info,
+        .away_states     = steam_away_states,
+        .handle_cmp      = g_ascii_strcasecmp,
+        .auth_allow      = steam_auth_allow,
+        .auth_deny       = steam_auth_deny,
+        .buddy_data_add  = steam_buddy_data_add,
+        .buddy_data_free = steam_buddy_data_free
+    };
 
     if (gcry_check_version(GCRYPT_VERSION) == NULL) {
         steam_util_debug_fatal("Failed to initialize libgcrypt");
         return;
     }
 
-    pp = g_new0(struct prpl, 1);
-
-    pp->name            = "steam";
-    pp->options         = OPT_NOOTR;
-    pp->init            = steam_init;
-    pp->login           = steam_login;
-    pp->logout          = steam_logout;
-    pp->buddy_msg       = steam_buddy_msg;
-    pp->set_away        = steam_set_away;
-    pp->send_typing     = steam_send_typing;
-    pp->add_buddy       = steam_add_buddy;
-    pp->remove_buddy    = steam_remove_buddy;
-    pp->add_permit      = steam_add_permit;
-    pp->add_deny        = steam_add_deny;
-    pp->rem_permit      = steam_rem_permit;
-    pp->rem_deny        = steam_rem_deny;
-    pp->get_info        = steam_get_info;
-    pp->away_states     = steam_away_states;
-    pp->handle_cmp      = g_ascii_strcasecmp;
-    pp->auth_allow      = steam_auth_allow;
-    pp->auth_deny       = steam_auth_deny;
-    pp->buddy_data_add  = steam_buddy_data_add;
-    pp->buddy_data_free = steam_buddy_data_free;
-
-    register_protocol(pp);
+    dpp = g_memdup(&pp, sizeof pp);
+    register_protocol(dpp);
 }
