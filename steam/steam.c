@@ -1135,14 +1135,14 @@ static void steam_buddy_data_free(struct bee_user *bu)
     steam_user_free(bu->data);
 }
 
-void init_plugin(void);
+G_MODULE_EXPORT void init_plugin(void);
 
 /**
  * Implements the #init_plugin() function. BitlBee looks for this
  * function and executes it to register the protocol and its related
  * callbacks.
  **/
-void init_plugin()
+G_MODULE_EXPORT void init_plugin()
 {
     struct prpl *dpp;
 
