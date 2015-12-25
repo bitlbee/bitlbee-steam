@@ -15,30 +15,85 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/** @file **/
-
 #ifndef _STEAM_ID_H_
 #define _STEAM_ID_H_
 
+/**
+ * SECTION:id
+ * @section_id: steam-id
+ * @short_description: <filename>steam-id.h</filename>
+ * @title: Steam Identifier
+ *
+ * The Steam identifier utilities.
+ */
+
 #include "steam-glib.h"
 
-#define STEAM_ID_CONSTANT(v)  G_GINT64_CONSTANT(v)
+/**
+ * STEAM_ID_FORMAT:
+ *
+ * The format specifier for printing and scanning a #SteamId.
+ */
 #define STEAM_ID_FORMAT  G_GINT64_FORMAT
+
+/**
+ * STEAM_ID_MODIFIER:
+ *
+ * The length modifier for printing a #SteamId.
+ */
 #define STEAM_ID_MODIFIER  G_GINT64_MODIFIER
-#define STEAM_ID_STR_MAX  21
-#define steam_id_hash  g_int64_hash
+
+/**
+ * STEAM_ID_STRMAX:
+ *
+ * The maximum length, including a null-terminating character, of the
+ * string representation of a #SteamId.
+ */
+#define STEAM_ID_STRMAX  21
+
+/**
+ * STEAM_TYPE_ID:
+ *
+ * The #GType of a #SteamId.
+ */
+#define STEAM_TYPE_ID  G_TYPE_INT64
+
+/**
+ * steam_id_equal:
+ *
+ * Compares the values of two #SteamId's for equality. See
+ * #g_int64_equal.
+ */
 #define steam_id_equal  g_int64_equal
 
 /**
+ * steam_id_hash:
+ *
+ * Converts a pointer to a #SteamId hash value. See #g_int64_hash.
+ */
+#define steam_id_hash  g_int64_hash
+
+/**
+ * FB_ID_CONSTANT:
+ * @v: The value.
+ *
+ * Inserts a literal #SteamId into source code.
+ *
+ * Return: The literal #SteamId value.
+ */
+#define STEAM_ID_CONSTANT(v)  G_GINT64_CONSTANT(v)
+
+/**
+ * STEAM_ID_NEW:
+ * @u: The #SteamIdUniv.
+ * @t: The #SteamIdType.
+ * @i: The #SteamIdInst.
+ * @n: The AccountID.
+ *
  * Creates a new #SteamId.
  *
- * @param u The #SteamIdUniv.
- * @param t The #SteamIdType.
- * @param i The #SteamIdInst.
- * @param n The AccountID.
- *
- * @return The resulting #SteamId.
- **/
+ * Returns: The resulting #SteamId.
+ */
 #define STEAM_ID_NEW(u, t, i, n) ((SteamId) ( \
          ((gint32) n) | \
         (((gint64) i) << 32) | \
@@ -47,129 +102,158 @@
     ))
 
 /**
+ * STEAM_ID_NEW_STR:
+ * @s: The string #SteamId.
+ *
  * Creates a new #SteamId from a string.
  *
- * @param s The string #SteamId.
- *
- * @return The resulting #SteamId.
- **/
+ * Returns: The resulting #SteamId.
+ */
 #define STEAM_ID_NEW_STR(s) \
     g_ascii_strtoll(s, NULL, 10)
 
 /**
- * Gets the string representation of a #SteamId.
+ * STEAM_ID_STR:
+ * @id: The string #SteamId.
+ * @s: The string buffer.
  *
- * @param id The string #SteamId.
- * @param s The string buffer.
- **/
+ * Gets the string representation of the #SteamId.
+ */
 #define STEAM_ID_STR(id, s) \
     g_sprintf(s, "%" STEAM_ID_FORMAT, (SteamId) id)
 
 /**
- * Gets the string representation of a #SteamId AccountID.
+ * STEAM_ID_ACCID_STR:
+ * @id: The string #SteamId.
+ * @s: The string buffer.
  *
- * @param id The string #SteamId.
- * @param s The string buffer.
- **/
+ * Gets the string representation of the #SteamId AccountID.
+ */
 #define STEAM_ID_ACCID_STR(id, s) \
     g_sprintf(s, "%" G_GINT32_FORMAT, STEAM_ID_ACCID(id))
 
 /**
- * Gets the 32-bit AccountID from a #SteamId.
+ * STEAM_ID_ACCID:
+ * @id: The #SteamId.
  *
- * @param id The #SteamId.
+ * Gets the 32-bit AccountID from the #SteamId.
  *
- * @return The resulting AccountID.
- **/
+ * Returns: The resulting AccountID.
+ */
 #define STEAM_ID_ACCID(id) ((gint32) ( \
         ((SteamId) id) & 0xFFFFFFFF \
     ))
 
 /**
- * Gets the #SteamIdInst from a #SteamId.
+ * STEAM_ID_INST:
+ * @id: The #SteamId.
  *
- * @param id The #SteamId.
+ * Gets the #SteamIdInst from the #SteamId.
  *
- * @return The resulting #SteamIdInst.
- **/
+ * Returns: The resulting #SteamIdInst.
+ */
 #define STEAM_ID_INST(id) ((SteamIdInst) ( \
         (((SteamId) id) >> 32) & 0x0FFFFF \
     ))
 
 /**
- * Gets the #SteamIdType from a #SteamId.
+ * STEAM_ID_TYPE:
+ * @id: The #SteamId.
  *
- * @param id The #SteamId.
+ * Gets the #SteamIdType from the #SteamId.
  *
- * @return The resulting #SteamIdType.
- **/
+ * Returns: The resulting #SteamIdType.
+ */
 #define STEAM_ID_TYPE(id) ((SteamIdType) ( \
         (((SteamId) id) >> 52) & 0x0F \
     ))
 
 /**
- * Gets the #SteamIdUniv from a #SteamId.
+ * STEAM_ID_UNIV:
+ * @id: The #SteamId.
  *
- * @param id The #SteamId.
+ * Gets the #SteamIdUniv from the #SteamId.
  *
- * @return The resulting #SteamIdUniv.
- **/
+ * Returns: The resulting #SteamIdUniv.
+ */
 #define STEAM_ID_UNIV(id) ((SteamIdUniv) ( \
         ((SteamId) id) >> 56 \
     ))
 
-/** The instance of a #SteamId. **/
-typedef enum _SteamIdInst SteamIdInst;
-
-/** The type of #SteamId. **/
-typedef enum _SteamIdType SteamIdType;
-
-/** The universe of #SteamId. **/
-typedef enum _SteamIdUniv SteamIdUniv;
-
-/** The 64-bit SteamID. **/
+/**
+ * SteamId:
+ *
+ * Represents a numeric Steam identifier.
+ */
 typedef gint64 SteamId;
 
 /**
- * The instance of a #SteamId.
- **/
-enum _SteamIdInst
+ * SteamIdInst:
+ * @STEAM_ID_INST_ALL: All.
+ * @STEAM_ID_INST_DESKTOP: Desktop.
+ * @STEAM_ID_INST_CONSOLE: Console.
+ * @STEAM_ID_INST_WEB: Web.
+ *
+ * The #SteamId instances.
+ */
+typedef enum
 {
-    STEAM_ID_INST_ALL = 0, /** All **/
-    STEAM_ID_INST_DESKTOP = 1, /** Desktop **/
-    STEAM_ID_INST_CONSOLE = 2, /** Console **/
-    STEAM_ID_INST_WEB = 4 /** Web **/
-};
+    STEAM_ID_INST_ALL = 0,
+    STEAM_ID_INST_DESKTOP = 1,
+    STEAM_ID_INST_CONSOLE = 2,
+    STEAM_ID_INST_WEB = 4
+} SteamIdInst;
 
 /**
- * The type of a #SteamId.
- **/
-enum _SteamIdType
+ * SteamIdType:
+ * @STEAM_ID_TYPE_INVALID: Invalid/
+ * @STEAM_ID_TYPE_INDIVIDUAL: Individual (user).
+ * @STEAM_ID_TYPE_MULTISEAT: Multiseat.
+ * @STEAM_ID_TYPE_GAMESERVER: Game server.
+ * @STEAM_ID_TYPE_ANONGAMESERVER: Anonymous game server.
+ * @STEAM_ID_TYPE_PENDING: Pending.
+ * @STEAM_ID_TYPE_CONTENTSERVER: Content server.
+ * @STEAM_ID_TYPE_CLAN: Clan or group.
+ * @STEAM_ID_TYPE_CHAT: Chat.
+ * @STEAM_ID_TYPE_SUPERSEEDER: P2P super seeder.
+ * @STEAM_ID_TYPE_ANONUSER: Anonymous user.
+ *
+ * The #SteamId types.
+ */
+typedef enum
 {
-    STEAM_ID_TYPE_INVALID = 0, /** Invalid **/
-    STEAM_ID_TYPE_INDIVIDUAL = 1, /** Individual (user) **/
-    STEAM_ID_TYPE_MULTISEAT = 2, /** Multiseat **/
-    STEAM_ID_TYPE_GAMESERVER = 3, /** Game server **/
-    STEAM_ID_TYPE_ANONGAMESERVER = 4, /** Anonymous game server **/
-    STEAM_ID_TYPE_PENDING = 5, /** Pending **/
-    STEAM_ID_TYPE_CONTENTSERVER = 6, /** Content server **/
-    STEAM_ID_TYPE_CLAN = 7, /** Clan or group **/
-    STEAM_ID_TYPE_CHAT = 8, /** Chat **/
-    STEAM_ID_TYPE_SUPERSEEDER = 9, /** P2P super seeder **/
-    STEAM_ID_TYPE_ANONUSER = 10 /** Anonymous user **/
-};
+    STEAM_ID_TYPE_INVALID = 0,
+    STEAM_ID_TYPE_INDIVIDUAL = 1,
+    STEAM_ID_TYPE_MULTISEAT = 2,
+    STEAM_ID_TYPE_GAMESERVER = 3,
+    STEAM_ID_TYPE_ANONGAMESERVER = 4,
+    STEAM_ID_TYPE_PENDING = 5,
+    STEAM_ID_TYPE_CONTENTSERVER = 6,
+    STEAM_ID_TYPE_CLAN = 7,
+    STEAM_ID_TYPE_CHAT = 8,
+    STEAM_ID_TYPE_SUPERSEEDER = 9,
+    STEAM_ID_TYPE_ANONUSER = 10
+} SteamIdType;
 
 /**
- * The universe of a #SteamId.
- **/
-enum _SteamIdUniv
+ * SteamIdUniv:
+ * @STEAM_ID_UNIV_UNKNOWN: Unknown.
+ * @STEAM_ID_UNIV_PUBLIC: Public.
+ * @STEAM_ID_UNIV_BETA: Beta.
+ * @STEAM_ID_UNIV_INTERNAL: Internal.
+ * @STEAM_ID_UNIV_DEV: Development.
+ * @STEAM_ID_UNIV_RC: Release Candidate.
+ *
+ * The #SteamId universes.
+ */
+typedef enum
 {
-    STEAM_ID_UNIV_UNKNOWN = 0, /** Unknown **/
-    STEAM_ID_UNIV_PUBLIC = 1, /** Public **/
-    STEAM_ID_UNIV_BETA = 2, /** Beta **/
-    STEAM_ID_UNIV_INTERNAL = 3, /** Internal **/
-    STEAM_ID_UNIV_DEV = 4, /** Development **/
-    STEAM_ID_UNIV_RC = 5 /** Release candidate **/
-};
+    STEAM_ID_UNIV_UNKNOWN = 0,
+    STEAM_ID_UNIV_PUBLIC = 1,
+    STEAM_ID_UNIV_BETA = 2,
+    STEAM_ID_UNIV_INTERNAL = 3,
+    STEAM_ID_UNIV_DEV = 4,
+    STEAM_ID_UNIV_RC = 5
+} SteamIdUniv;
 
 #endif /* _STEAM_ID_H_ */

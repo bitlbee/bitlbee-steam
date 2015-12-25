@@ -15,33 +15,58 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/** @file **/
-
 #ifndef _STEAM_H_
 #define _STEAM_H_
+
+/**
+ * SECTION:steam
+ * @section_id: steam-plugin
+ * @short_description: <filename>steam.h</filename>
+ * @title: Steam Plugin
+ *
+ * The Steam BitlBee #prpl.
+ */
 
 #include <bitlbee.h>
 
 #include "steam-api.h"
 #include "steam-glib.h"
 
-/** The main structure for the plugin. **/
 typedef struct _SteamData SteamData;
 
 /**
- * The main structure for the plugin.
- **/
+ * SteamData:
+ * @api: The #SteamApi.
+ * @ic: The #im_connection.
+ * @game_status: #TRUE to print game statues, otherwise #FALSE.
+ *
+ * The main data structure for the plugin.
+ */
 struct _SteamData
 {
-    SteamApi *api; /** The #SteamApi. **/
-    struct im_connection *ic; /** The #im_connection. **/
-
-    gboolean game_status; /** The printing of game play statues. **/
+    SteamApi *api;
+    struct im_connection *ic;
+    gboolean game_status;
 };
 
+/**
+ * steam_data_new:
+ * @acc: The #account.
+ *
+ * Creates a new #SteamData. The returned #SteamData should be freed
+ * with #steam_data_free() when no longer needed.
+ *
+ * Returns: The #SteamData.
+ */
 SteamData *
 steam_data_new(account_t *acc);
 
+/**
+ * steam_data_free:
+ * @sata: The #SteamData.
+ *
+ * Frees all memory used by the #SteamData.
+ */
 void
 steam_data_free(SteamData *sata);
 

@@ -20,14 +20,6 @@
 #include "steam-user.h"
 #include "steam-util.h"
 
-/**
- * Creates a new #SteamUser with a #bee_user_t. The returned #SteamUser
- * should be freed with #steam_user_free() when no longer needed.
- *
- * @param bu The #bee_user_t.
- *
- * @return The #SteamUser or NULL on error.
- **/
 SteamUser *
 steam_user_new(bee_user_t *bu)
 {
@@ -38,11 +30,6 @@ steam_user_new(bee_user_t *bu)
     return user;
 }
 
-/**
- * Frees all memory used by a #SteamUser.
- *
- * @param user The #SteamUser.
- **/
 void
 steam_user_free(SteamUser *user)
 {
@@ -55,14 +42,6 @@ steam_user_free(SteamUser *user)
     g_free(user);
 }
 
-/**
- * Sends a message to all channels which a #SteamUser is occupying with
- * the sender being the #SteamUser.
- *
- * @param user The #SteamUser.
- * @param format The format string.
- * @param ... The arguments for the format string.
- **/
 void
 steam_user_chans_msg(SteamUser *user, const gchar *format, ...)
 {
@@ -91,14 +70,6 @@ steam_user_chans_msg(SteamUser *user, const gchar *format, ...)
     g_free(str);
 }
 
-/**
- * Gets the string representation of #SteamUserFlags. The returned
- * string should be freed with #g_free() when no longer needed.
- *
- * @param flags The #SteamUserFlags.
- *
- * @return The string representation of the #SteamUserFlags.
- **/
 gchar *
 steam_user_flags_str(SteamUserFlags flags)
 {
@@ -125,14 +96,6 @@ steam_user_flags_str(SteamUserFlags flags)
     return str;
 }
 
-/**
- * Creates a new #SteamUserInfo. The returned #SteamUserInfo should be
- * freed with #steam_user_info_free() when no longer needed.
- *
- * @param id The #SteamId.
- *
- * @return The #SteamUserInfo or NULL on error.
- **/
 SteamUserInfo *
 steam_user_info_new(SteamId id)
 {
@@ -145,11 +108,6 @@ steam_user_info_new(SteamId id)
     return info;
 }
 
-/**
- * Frees all memory used by a #SteamUserInfo.
- *
- * @param info The #SteamUserInfo.
- **/
 void
 steam_user_info_free(SteamUserInfo *info)
 {
@@ -167,14 +125,6 @@ steam_user_info_free(SteamUserInfo *info)
     g_free(info);
 }
 
-/**
- * Creates a new #SteamUserMsg. The returned #SteamUserMsg should be
- * freed with #steam_user_msg_free() when no longer needed.
- *
- * @param id The #SteamId.
- *
- * @return The #SteamUserMsg or NULL on error.
- **/
 SteamUserMsg *
 steam_user_msg_new(SteamId id)
 {
@@ -185,11 +135,6 @@ steam_user_msg_new(SteamId id)
     return msg;
 }
 
-/**
- * Frees all memory used by a #SteamUserMsg.
- *
- * @param msg The #SteamUserMsg.
- **/
 void
 steam_user_msg_free(SteamUserMsg *msg)
 {
@@ -202,13 +147,6 @@ steam_user_msg_free(SteamUserMsg *msg)
     g_free(msg);
 }
 
-/**
- * Gets the string representation of a #SteamUserMsgType.
- *
- * @param type The #SteamUserMsgType.
- *
- * @return The string representation of the #SteamUserMsgType.
- **/
 const gchar *
 steam_user_msg_type_str(SteamUserMsgType type)
 {
@@ -227,13 +165,6 @@ steam_user_msg_type_str(SteamUserMsgType type)
     return steam_util_enum_ptr(enums, NULL, type);
 }
 
-/**
- * Gets the #SteamUserMsgType value of a string.
- *
- * @param type The string.
- *
- * @return The #SteamUserMsgType value.
- **/
 SteamUserMsgType
 steam_user_msg_type_from_str(const gchar *type)
 {
@@ -253,13 +184,6 @@ steam_user_msg_type_from_str(const gchar *type)
                                (GCompareFunc) g_ascii_strcasecmp);
 }
 
-/**
- * Gets the string representation of a #SteamUserState.
- *
- * @param state The #SteamUserState.
- *
- * @return The string representation or NULL on error.
- **/
 const gchar *
 steam_user_state_str(SteamUserState state)
 {

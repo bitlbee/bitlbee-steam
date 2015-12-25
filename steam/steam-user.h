@@ -15,185 +15,322 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/** @file **/
-
 #ifndef _STEAM_USER_H_
 #define _STEAM_USER_H_
+
+/**
+ * SECTION:user
+ * @section_id: steam-user
+ * @short_description: <filename>steam-user.h</filename>
+ * @title: JSON Utilities
+ *
+ * The JSON utilities.
+ */
 
 #include <bitlbee.h>
 
 #include "steam-glib.h"
 #include "steam-id.h"
 
-/** The action of a #SteamUserInfo. **/
-typedef enum _SteamUserAct SteamUserAct;
-
-/** The type of #SteamUserMsg. **/
-typedef enum _SteamUserMsgType SteamUserMsgType;
-
-/** The relation of a #SteamUserInfo. **/
-typedef enum _SteamUserRel SteamUserRel;
-
-/** The state of a #SteamUserInfo. **/
-typedef enum _SteamUserState SteamUserState;
-
-/** The flags of #SteamUserInfo. **/
-typedef enum _SteamUserFlags SteamUserFlags;
-
-/** The structure for a Steam user. **/
 typedef struct _SteamUser SteamUser;
-
-/** The structure for Steam user information. **/
 typedef struct _SteamUserInfo SteamUserInfo;
-
-/** The structure for a Steam user message. **/
 typedef struct _SteamUserMsg SteamUserMsg;
 
 /**
- * The action of a #SteamUserInfo.
- **/
-enum _SteamUserAct
+ * SteamUserAct:
+ * @STEAM_USER_ACT_REMOVE: Removed.
+ * @STEAM_USER_ACT_IGNORE: Ignored.
+ * @STEAM_USER_ACT_REQUEST: Friendship request.
+ * @STEAM_USER_ACT_ADD: Added.
+ * @STEAM_USER_ACT_REQUESTED: Requested friendship.
+ * @STEAM_USER_ACT_NONE: None.
+ *
+ * The #SteamUserInfo actions.
+ */
+typedef enum
 {
-    STEAM_USER_ACT_REMOVE = 0, /** Removed **/
-    STEAM_USER_ACT_IGNORE = 1, /** Ignored **/
-    STEAM_USER_ACT_REQUEST = 2, /** Friendship request **/
-    STEAM_USER_ACT_ADD = 3, /** Added **/
-    STEAM_USER_ACT_REQUESTED = 4, /** Friendship request **/
+    STEAM_USER_ACT_REMOVE = 0,
+    STEAM_USER_ACT_IGNORE = 1,
+    STEAM_USER_ACT_REQUEST = 2,
+    STEAM_USER_ACT_ADD = 3,
+    STEAM_USER_ACT_REQUESTED = 4,
 
-    STEAM_USER_ACT_NONE /** None **/
-};
+    STEAM_USER_ACT_NONE
+} SteamUserAct;
 
 /**
- * The type of #SteamUserMsg.
- **/
-enum _SteamUserMsgType
+ * SteamUserMsgType:
+ * @STEAM_USER_MSG_TYPE_SAYTEXT: Say text.
+ * @STEAM_USER_MSG_TYPE_EMOTE: Emote.
+ * @STEAM_USER_MSG_TYPE_LEFT_CONV: Left conversation.
+ * @STEAM_USER_MSG_TYPE_RELATIONSHIP: Relationship.
+ * @STEAM_USER_MSG_TYPE_STATE: State.
+ * @STEAM_USER_MSG_TYPE_TYPING: Typing.
+ * @STEAM_USER_MSG_TYPE_MY_SAYTEXT: My say text.
+ * @STEAM_USER_MSG_TYPE_MY_EMOTE: My emote.
+ * @STEAM_USER_MSG_TYPE_UNKNOWN: Unknown.
+ *
+ * The #SteamUserMsg types.
+ */
+typedef enum
 {
-    STEAM_USER_MSG_TYPE_SAYTEXT = 0, /** Say text (default) **/
-    STEAM_USER_MSG_TYPE_EMOTE, /** Emote **/
-    STEAM_USER_MSG_TYPE_LEFT_CONV, /** Left conversation **/
-    STEAM_USER_MSG_TYPE_RELATIONSHIP, /** Relationship **/
-    STEAM_USER_MSG_TYPE_STATE, /** State **/
-    STEAM_USER_MSG_TYPE_TYPING, /** Typing **/
-    STEAM_USER_MSG_TYPE_MY_SAYTEXT, /** My say text **/
-    STEAM_USER_MSG_TYPE_MY_EMOTE, /** My emote **/
+    STEAM_USER_MSG_TYPE_SAYTEXT = 0,
+    STEAM_USER_MSG_TYPE_EMOTE,
+    STEAM_USER_MSG_TYPE_LEFT_CONV,
+    STEAM_USER_MSG_TYPE_RELATIONSHIP,
+    STEAM_USER_MSG_TYPE_STATE,
+    STEAM_USER_MSG_TYPE_TYPING,
+    STEAM_USER_MSG_TYPE_MY_SAYTEXT,
+    STEAM_USER_MSG_TYPE_MY_EMOTE,
 
-    STEAM_USER_MSG_TYPE_UNKNOWN /** Unknown **/
-};
+    STEAM_USER_MSG_TYPE_UNKNOWN
+} SteamUserMsgType;
 
 /**
- * The relation of a #SteamUserInfo.
- **/
-enum _SteamUserRel
+ * SteamUserRel:
+ * @STEAM_USER_REL_FRIEND: Friend.
+ * @STEAM_USER_REL_IGNORE: Ignored.
+ *
+ * The #SteamUserInfo relationships.
+ */
+typedef enum
 {
-    STEAM_USER_REL_FRIEND = 0, /** Friend **/
-    STEAM_USER_REL_IGNORE /** Ignored **/
-};
+    STEAM_USER_REL_FRIEND = 0,
+    STEAM_USER_REL_IGNORE
+} SteamUserRel;
 
 /**
- * The state of a #SteamUserInfo.
- **/
-enum _SteamUserState
+ * SteamUserState:
+ * @STEAM_USER_STATE_OFFLINE: Offline.
+ * @STEAM_USER_STATE_ONLINE: Online.
+ * @STEAM_USER_STATE_BUSY: Busy.
+ * @STEAM_USER_STATE_AWAY: Away.
+ * @STEAM_USER_STATE_SNOOZE: Snooze.
+ * @STEAM_USER_STATE_TRADE: Trade.
+ * @STEAM_USER_STATE_PLAY: Play.
+ *
+ * The #SteamUserInfo states.
+ */
+typedef enum
 {
-    STEAM_USER_STATE_OFFLINE = 0, /** Offline **/
-    STEAM_USER_STATE_ONLINE = 1, /** Online **/
-    STEAM_USER_STATE_BUSY = 2, /** Busy **/
-    STEAM_USER_STATE_AWAY = 3, /** Away **/
-    STEAM_USER_STATE_SNOOZE = 4, /** Snooze **/
-    STEAM_USER_STATE_TRADE = 5, /** Looking to trade **/
-    STEAM_USER_STATE_PLAY = 6 /** Looking to play **/
-};
+    STEAM_USER_STATE_OFFLINE = 0,
+    STEAM_USER_STATE_ONLINE = 1,
+    STEAM_USER_STATE_BUSY = 2,
+    STEAM_USER_STATE_AWAY = 3,
+    STEAM_USER_STATE_SNOOZE = 4,
+    STEAM_USER_STATE_TRADE = 5,
+    STEAM_USER_STATE_PLAY = 6
+} SteamUserState;
 
 /**
- * The flags of #SteamUserInfo.
- **/
-enum _SteamUserFlags
+ * SteamUserFlags:
+ * @STEAM_USER_FLAG_WEB: Using a web client.
+ * @STEAM_USER_FLAG_MOBILE: Using a mobile client.
+ * @STEAM_USER_FLAG_BIGPIC: Using Big Picture mode.
+ *
+ * The #SteamUserInfo flags.
+ */
+typedef enum
 {
-    STEAM_USER_FLAG_WEB = 1 << 8, /** Using web client **/
-    STEAM_USER_FLAG_MOBILE = 1 << 9, /** Using mobile client **/
-    STEAM_USER_FLAG_BIGPIC = 1 << 10 /** Using Big Picture **/
-};
+    STEAM_USER_FLAG_WEB = 1 << 8,
+    STEAM_USER_FLAG_MOBILE = 1 << 9,
+    STEAM_USER_FLAG_BIGPIC = 1 << 10
+} SteamUserFlags;
 
 /**
- * The structure for a Steam user.
- **/
+ * SteamUser:
+ * @buser: The #bee_user.
+ * @game: The game name or #NULL.
+ * @server: The game server or #NULL.
+ * @vtime: The last view timestamp (UTC).
+ *
+ * Represents a Steam user.
+ */
 struct _SteamUser
 {
-    bee_user_t *buser; /** The #bee_user_t. **/
-
-    gchar *game; /** The game name or NULL. **/
-    gchar *server; /** The game server or NULL. **/
-
-    gint64 vtime; /** The last view timestamp (UTC). **/
+    bee_user_t *buser;
+    gchar *game;
+    gchar *server;
+    gint64 vtime;
 };
 
 /**
- * The structure for Steam user information.
- **/
+ * SteamUserInfo:
+ * @id: The #SteamId.
+ * @nicks: The #GSList of prior nicknames.
+ * @state: The #SteamUserState.
+ * @flags: The #SteamUserFlags.
+ * @rel: The #SteamUserRel.
+ * @act: The #SteamUserAct.
+ * @nick: The nickname.
+ * @fullname: The full name.
+ * @game: The game name or #NULL.
+ * @server: The game server or #NULL.
+ * @profile: The profile URL or #NULL.
+ * @ltime: The last logoff timestamp (UTC).
+ * @vtime: The last view timestamp (UTC).
+ * @unread: The unread message count.
+ *
+ * Represents Steam user information.
+ */
 struct _SteamUserInfo
 {
-    SteamId id; /** The #SteamId. **/
-    GSList *nicks; /** The #GSList of prior nicknames. */
+    SteamId id;
+    GSList *nicks;
 
-    SteamUserState state; /** The #SteamUserState. **/
-    SteamUserFlags flags; /** The #SteamUserFlags. **/
-    SteamUserRel rel; /** The #SteamUserRel. **/
-    SteamUserAct act; /** The #SteamUserAct. **/
+    SteamUserState state;
+    SteamUserFlags flags;
+    SteamUserRel rel;
+    SteamUserAct act;
 
-    gchar *nick; /** The nickname. **/
-    gchar *fullname; /** The full name. **/
-    gchar *game; /** The game name or NULL. **/
-    gchar *server; /** The game server or NULL. **/
-    gchar *profile; /** The profile URL or NULL. **/
+    gchar *nick;
+    gchar *fullname;
+    gchar *game;
+    gchar *server;
+    gchar *profile;
 
-    gint64 ltime; /** The last logoff timestamp (UTC). **/
-    gint64 vtime; /** The last view timestamp (UTC). **/
-
-    guint unread; /** The unread message count. **/
+    gint64 ltime;
+    gint64 vtime;
+    guint unread;
 };
 
 /**
- * The structure for a Steam user message.
- **/
+ * SteamUserMsg:
+ * @type: The #SteamUserMsgType.
+ * @info: The #SteamUserInfo.
+ * @text: The message text or #NULL.
+ * @time: The message timestamp (UTC).
+ *
+ * Represents a steam user messages.
+ */
 struct _SteamUserMsg
 {
-    SteamUserMsgType type; /** The #SteamUserMsgType. **/
-    SteamUserInfo *info; /** The #SteamUserInfo. **/
+    SteamUserMsgType type;
+    SteamUserInfo *info;
 
-    gchar *text; /** The message text or NULL. **/
-    gint64 time; /** The message timestamp (UTC) or NULL **/
+    gchar *text;
+    gint64 time;
 };
 
+/**
+ * steam_user_new:
+ * @bu: The #bee_user.
+ *
+ * Creates a new #SteamUser. The returned #SteamUser should be freed
+ * with #steam_user_free() when no longer needed.
+ *
+ * Returns: The #SteamUser.
+ */
 SteamUser *
 steam_user_new(bee_user_t *bu);
 
+/**
+ * steam_user_free:
+ * @user: The #SteamUser.
+ *
+ * Frees all memory used by the #SteamUser.
+ */
 void
 steam_user_free(SteamUser *user);
 
+/**
+ * steam_user_chans_msg:
+ * @user: The #SteamUser.
+ * @format: The format string.
+ * @...: The arguments for the format string.
+ *
+ * Sends a message to all channels which the #SteamUser is occupying
+ * with the sender being the #SteamUser.
+ */
 void
 steam_user_chans_msg(SteamUser *user, const gchar *fmt, ...)
                      G_GNUC_PRINTF(2, 3);
 
+/**
+ * steam_user_flags_str:
+ * @flags: The #SteamUserFlags.
+ *
+ * Gets the string representation of the #SteamUserFlags. The returned
+ * string should be freed with #g_free() when no longer needed.
+ *
+ * Returns: The string representation or #NULL on error.
+ */
 gchar *
 steam_user_flags_str(SteamUserFlags flags);
 
+/**
+ * steam_user_info_new:
+ * @id: The #SteamId.
+ *
+ * Creates a new #SteamUserInfo. The returned #SteamUserInfo should be
+ * freed with #steam_user_info_free() when no longer needed.
+ *
+ * Returns: The #SteamUserInfo or #NULL on error.
+ */
 SteamUserInfo *
 steam_user_info_new(SteamId id);
 
+/**
+ * steam_user_info_free:
+ * @info: The #SteamUserInfo.
+ *
+ * Frees all memory used by the #SteamUserInfo.
+ */
 void
 steam_user_info_free(SteamUserInfo *info);
 
+
+/**
+ * steam_user_msg_new:
+ * @id: The #SteamId.
+ *
+ * Creates a new #SteamUserMsg. The returned #SteamUserMsg should be
+ * freed with #steam_user_msg_free() when no longer needed.
+ *
+ * Returns: The #SteamUserMsg.
+ */
 SteamUserMsg *
 steam_user_msg_new(SteamId id);
 
+/**
+ * steam_user_msg_free:
+ * @msg: The #SteamUserMsg.
+ *
+ * Frees all memory used by the #SteamUserMsg.
+ */
 void
 steam_user_msg_free(SteamUserMsg *msg);
 
+/**
+ * steam_user_msg_type_str:
+ * @type: The #SteamUserMsgType.
+ *
+ * Gets the string representation of the #SteamUserMsgType.
+ *
+ * Returns: The string representation or #NULL on error.
+ */
 const gchar *
 steam_user_msg_type_str(SteamUserMsgType type);
 
+/**
+ * steam_user_msg_type_from_str:
+ * @type: The string.
+ *
+ * Gets the #SteamUserMsgType value of the string.
+ *
+ * Returns: The #SteamUserMsgType value.
+ */
 SteamUserMsgType
 steam_user_msg_type_from_str(const gchar *type);
 
+/**
+ * steam_user_state_str:
+ * @state: The #SteamUserState.
+ *
+ * Gets the string representation of the #SteamUserState.
+ *
+ * Returns: The string representation or #NULL on error.
+ */
 const gchar *
 steam_user_state_str(SteamUserState state);
 

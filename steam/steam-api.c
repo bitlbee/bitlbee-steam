@@ -24,11 +24,6 @@
 #include "steam-json.h"
 #include "steam-util.h"
 
-/**
- * Gets the error domain for #SteamApi.
- *
- * @return The #GQuark of the error domain.
- **/
 GQuark
 steam_api_error_quark(void)
 {
@@ -41,12 +36,6 @@ steam_api_error_quark(void)
     return q;
 }
 
-/**
- * Creates a new #SteamApi. The returned #SteamApi should be freed with
- * #steam_api_free() when no longer needed.
- *
- * @return The #SteamApi or NULL on error.
- **/
 SteamApi *
 steam_api_new(void)
 {
@@ -60,11 +49,6 @@ steam_api_new(void)
     return api;
 }
 
-/**
- * Frees all memory used by a #SteamApi for authentication.
- *
- * @param api The #SteamApi.
- **/
 void
 steam_api_free_auth(SteamApi *api)
 {
@@ -85,11 +69,6 @@ steam_api_free_auth(SteamApi *api)
     api->cgid = NULL;
 }
 
-/**
- * Frees all memory used by a #SteamApi.
- *
- * @param api The #SteamApi.
- **/
 void
 steam_api_free(SteamApi *api)
 {
@@ -109,14 +88,6 @@ steam_api_free(SteamApi *api)
     g_free(api);
 }
 
-/**
- * Gets the captcha URL of a captcha GID. The returned string should
- * be freed with #g_free() when no longer needed.
- *
- * @param cgid The captcha GID.
- *
- * @return The captcha URL, or NULL on error.
- **/
 gchar *
 steam_api_captcha_url(const gchar *cgid)
 {
@@ -126,11 +97,6 @@ steam_api_captcha_url(const gchar *cgid)
                            STEAM_COM_PATH_CAPTCHA, cgid);
 }
 
-/**
- * Rehashes the #SteamApi after modifying the session information.
- *
- * @param api The #SteamApi.
- **/
 void
 steam_api_rehash(SteamApi *api)
 {
@@ -162,14 +128,6 @@ steam_api_rehash(SteamApi *api)
     );
 }
 
-/**
- * Parses and assigns #GError values from a #json_value.
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value.
- *
- * @return TRUE if an error exists, otherwise FALSE.
- **/
 static void
 steam_api_json_error(SteamApiReq *req, const json_value *json)
 {
@@ -230,12 +188,6 @@ steam_api_json_error(SteamApiReq *req, const json_value *json)
     }
 }
 
-/**
- * Parses and assigns #SteamUserInfo values from a #json_value.
- *
- * @param info The #SteamUserInfo.
- * @param json The #json_value.
- **/
 static void
 steam_api_json_user_info(SteamUserInfo *info, const json_value *json)
 {
@@ -286,16 +238,6 @@ steam_api_json_user_info(SteamUserInfo *info, const json_value *json)
     }
 }
 
-/**
- * Creates a new #SteamApiReq. The returned #SteamApiReq should be freed
- * with #steam_api_req_free() when no longer needed.
- *
- * @param api The #SteamApi.
- * @param func The #SteamApiFunc or NULL.
- * @param data The user defined data or NULL.
- *
- * @return The #SteamApiReq or NULL on error.
- **/
 SteamApiReq *
 steam_api_req_new(SteamApi *api, SteamApiFunc func, gpointer data)
 {
@@ -314,14 +256,6 @@ steam_api_req_new(SteamApi *api, SteamApiFunc func, gpointer data)
     return req;
 }
 
-/**
- * Creates a new forwarded #SteamApiReq. This NULLs the err, func, data,
- * msgs, infs, and infr data fields in the source #SteamApiReq, and
- * forwards them to the return #SteamApiReq. The returned #SteamApiReq
- * should be free with #steam_api_req_free() when no longer needed.
- *
- * @param req The #SteamApiReq.
- **/
 SteamApiReq *
 steam_api_req_fwd(SteamApiReq *req)
 {
@@ -344,11 +278,6 @@ steam_api_req_fwd(SteamApiReq *req)
     return deq;
 }
 
-/**
- * Frees all memory used by a #SteamApiReq.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_free(SteamApiReq *req)
 {
@@ -389,12 +318,6 @@ steam_api_req_free(SteamApiReq *req)
     g_free(req);
 }
 
-/**
- * Implemented #SteamHttpFunc for handling #SteamApiReq replies.
- *
- * @param heq The #SteamHttpReq.
- * @param data The user defined data, which is #SteamApiReq.
- **/
 static void
 steam_api_req_cb(SteamHttpReq *heq, gpointer data)
 {
@@ -434,13 +357,6 @@ steam_api_req_cb(SteamHttpReq *heq, gpointer data)
     steam_api_req_free(req);
 }
 
-/**
- * Initializes a new SSL based #SteamHttpReq for a #SteamApiReq.
- *
- * @param req The #SteamApiReq.
- * @param host The request hostname.
- * @param path The request pathname.
- **/
 void
 steam_api_req_init(SteamApiReq *req, const gchar *host, const gchar *path)
 {
@@ -457,12 +373,6 @@ steam_api_req_init(SteamApiReq *req, const gchar *host, const gchar *path)
     req->req = heq;
 }
 
-/**
- * Implemented #SteamApiParser for requesting user info.
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_user_info_req(SteamApiReq *req, const json_value *json)
 {
@@ -470,12 +380,6 @@ steam_api_cb_user_info_req(SteamApiReq *req, const json_value *json)
     steam_api_req_user_info(req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_cb_auth_rdir().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_auth_finish(SteamApiReq *req, const json_value *json)
 {
@@ -494,12 +398,6 @@ steam_api_cb_auth_finish(SteamApiReq *req, const json_value *json)
     req->api->sessid = g_strdup(str);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_cb_auth().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_auth_rdir(SteamApiReq *req, const json_value *json)
 {
@@ -511,12 +409,6 @@ steam_api_cb_auth_rdir(SteamApiReq *req, const json_value *json)
     steam_http_req_send(req->req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_auth().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_auth(SteamApiReq *req, const json_value *json)
 {
@@ -595,18 +487,6 @@ steam_api_cb_auth(SteamApiReq *req, const json_value *json)
     json_value_free(jp);
 }
 
-/**
- * Sends a authorization request. This is typically called twice to
- * complete the authorization process. First, the user is authenticated
- * partially, and then the Steam Guard code is requested. Then, with the
- * Steam Guard code, the authentication process can be completed.
- *
- * @param req The #SteamApiReq.
- * @param user The username.
- * @param pass The password.
- * @param authcode The authorization code (Steam Guard) or NULL.
- * @param captcha The captcha code or NULL.
- **/
 void
 steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
                    const gchar *authcode, const gchar *captcha)
@@ -681,12 +561,6 @@ steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
     g_free(ms);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_friends().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_friends(SteamApiReq *req, const json_value *json)
 {
@@ -729,16 +603,10 @@ steam_api_cb_friends(SteamApiReq *req, const json_value *json)
     steam_api_req_msg_info(req);
 }
 
-/**
- * Sends a friend list request. This returns the entire list of friends
- * for the #SteamApi user, including ignored friends.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_friends(SteamApiReq *req)
 {
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
 
     g_return_if_fail(req != NULL);
 
@@ -756,12 +624,6 @@ steam_api_req_friends(SteamApiReq *req)
     steam_http_req_send(req->req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_key().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_key(SteamApiReq *req, const json_value *json)
 {
@@ -783,13 +645,6 @@ steam_api_cb_key(SteamApiReq *req, const json_value *json)
     }
 }
 
-/**
- * Sends a key request. The PKCS key is used to encrypt the password
- * before it is sent during the authentication phase.
- *
- * @param req The #SteamApiReq.
- * @param user The username.
- **/
 void
 steam_api_req_key(SteamApiReq *req, const gchar *user)
 {
@@ -816,11 +671,6 @@ steam_api_req_key(SteamApiReq *req, const gchar *user)
     g_free(ms);
 }
 
-/**
- * Sends a logoff request. This simply logs the #SteamApi user off.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_logoff(SteamApiReq *req)
 {
@@ -837,12 +687,6 @@ steam_api_req_logoff(SteamApiReq *req)
     steam_http_req_send(req->req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_logon().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_logon(SteamApiReq *req, const json_value *json)
 {
@@ -875,13 +719,6 @@ steam_api_cb_logon(SteamApiReq *req, const json_value *json)
     steam_api_cb_user_info_req(req, json);
 }
 
-/**
- * Sends a logon request. This simply logs the #SteamApi user on. The
- * #SteamApi user must be authenticated via #steam_api_req_auth()
- * before they can logon.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_logon(SteamApiReq *req)
 {
@@ -901,12 +738,6 @@ steam_api_req_logon(SteamApiReq *req)
     steam_http_req_send(req->req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_msg().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_msg(SteamApiReq *req, const json_value *json)
 {
@@ -919,18 +750,12 @@ steam_api_cb_msg(SteamApiReq *req, const json_value *json)
     }
 }
 
-/**
- * Sends a message request. This sends a #SteamUserMsg to a Steam user.
- *
- * @param req The #SteamApiReq.
- * @param msg The #SteamUserMsg.
- **/
 void
 steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg)
 {
     const gchar *type;
     gboolean empty;
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
 
     g_return_if_fail(req != NULL);
     g_return_if_fail(msg != NULL);
@@ -975,12 +800,6 @@ steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg)
     }
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_msg_info().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_msg_info(SteamApiReq *req, const json_value *json)
 {
@@ -1036,12 +855,6 @@ steam_api_cb_msg_info(SteamApiReq *req, const json_value *json)
     steam_api_cb_user_info_req(req, json);
 }
 
-/**
- * Sends a message information request. This retrieves the last know
- * message info of the #SteamUserInfos.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_msg_info(SteamApiReq *req)
 {
@@ -1067,12 +880,6 @@ steam_api_req_msg_info(SteamApiReq *req)
     steam_http_req_send(req->req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_msgs().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_msgs(SteamApiReq *req, const json_value *json)
 {
@@ -1121,18 +928,11 @@ steam_api_cb_msgs(SteamApiReq *req, const json_value *json)
     }
 }
 
-/**
- * Sends a message log request.
- *
- * @param req The #SteamApiReq.
- * @param id The #SteamId.
- * @param since The since timestamp.
- **/
 void
 steam_api_req_msgs(SteamApiReq *req, SteamId id, gint64 since)
 {
-    gchar sid1[STEAM_ID_STR_MAX];
-    gchar sid2[STEAM_ID_STR_MAX];
+    gchar sid1[STEAM_ID_STRMAX];
+    gchar sid2[STEAM_ID_STRMAX];
     gchar *stime;
 
     g_return_if_fail(req != NULL);
@@ -1155,16 +955,10 @@ steam_api_req_msgs(SteamApiReq *req, SteamId id, gint64 since)
     g_free(stime);
 }
 
-/**
- * Sends a messages read request.
- *
- * @param req The #SteamApiReq.
- * @param id The #SteamId.
- **/
 void
 steam_api_req_msgs_read(SteamApiReq *req, SteamId id)
 {
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
 
     g_return_if_fail(req != NULL);
 
@@ -1183,12 +977,6 @@ steam_api_req_msgs_read(SteamApiReq *req, SteamId id)
     steam_http_req_send(req->req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_poll().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_poll(SteamApiReq *req, const json_value *json)
 {
@@ -1272,13 +1060,6 @@ steam_api_cb_poll(SteamApiReq *req, const json_value *json)
     steam_api_cb_user_info_req(req, json);
 }
 
-/**
- * Sends a poll request. This retrieves new messages from Steam. In
- * addition, this keeps the #SteamApi session active, and must be
- * called every 30 seconds.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_poll(SteamApiReq *req)
 {
@@ -1323,20 +1104,12 @@ steam_api_req_poll(SteamApiReq *req)
     g_free(lmid);
 }
 
-/**
- * Sends a friend accept request. If someone has requested friendship
- * with the #SteamApi user, this will accept the friendship request.
- *
- * @param req The #SteamApiReq.
- * @param id The #SteamId.
- * @param type The #SteamApiAcceptType.
- **/
 void
 steam_api_req_user_accept(SteamApiReq *req, SteamId id,
                           SteamApiAcceptType type)
 {
     const gchar *sct;
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     gchar *srl;
     SteamUserInfo *info;
     url_t url;
@@ -1378,12 +1151,6 @@ steam_api_req_user_accept(SteamApiReq *req, SteamId id,
     g_free(srl);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_user_add().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_user_add(SteamApiReq *req, const json_value *json)
 {
@@ -1398,18 +1165,10 @@ steam_api_cb_user_add(SteamApiReq *req, const json_value *json)
     steam_api_cb_user_info_req(req, json);
 }
 
-/**
- * Sends a friend add request. This will request the friendship of
- * another Steam user. The Steam user is not really a friend until
- * they accept the request on their end.
- *
- * @param req The #SteamApiReq.
- * @param id The #SteamId.
- **/
 void
 steam_api_req_user_add(SteamApiReq *req, SteamId id)
 {
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     SteamUserInfo *info;
 
     g_return_if_fail(req != NULL);
@@ -1432,14 +1191,6 @@ steam_api_req_user_add(SteamApiReq *req, SteamId id)
     steam_http_req_send(req->req);
 }
 
-/**
- * Sends a friend ignore request. This will either ignore or unignore
- * a Steam user from the #SteamApi user.
- *
- * @param req The #SteamApiReq.
- * @param id The #SteamId.
- * @param ignore TRUE to ignore, or FALSE to unignore.
- **/
 void
 steam_api_req_user_ignore(SteamApiReq *req, SteamId id, gboolean ignore)
 {
@@ -1477,12 +1228,6 @@ steam_api_req_user_ignore(SteamApiReq *req, SteamId id, gboolean ignore)
     g_free(user);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_user_info().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
 {
@@ -1536,12 +1281,6 @@ steam_api_cb_user_info(SteamApiReq *req, const json_value *json)
     g_hash_table_destroy(ght);
 }
 
-/**
- * Sends a user information request. This retrieves the user information
- * for all users in the #SteamApiReq->infos list.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_user_info(SteamApiReq *req)
 {
@@ -1604,12 +1343,6 @@ steam_api_req_user_info(SteamApiReq *req)
     g_hash_table_destroy(ght);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_user_info_nicks().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_user_info_nicks(SteamApiReq *req, const json_value *json)
 {
@@ -1640,12 +1373,6 @@ steam_api_cb_user_info_nicks(SteamApiReq *req, const json_value *json)
     }
 }
 
-/**
- * Sends a user nickname information request. This retrieves the user
- * nicname information for all users in the #SteamApiReq->infos list.
- *
- * @param req The #SteamApiReq.
- **/
 void
 steam_api_req_user_info_nicks(SteamApiReq *req)
 {
@@ -1695,12 +1422,6 @@ steam_api_req_user_info_nicks(SteamApiReq *req)
     g_free(srl);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_user_remove().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_user_remove(SteamApiReq *req, const json_value *json)
 {
@@ -1713,18 +1434,10 @@ steam_api_cb_user_remove(SteamApiReq *req, const json_value *json)
     steam_api_cb_user_info_req(req, json);
 }
 
-/**
- * Sends a friend remove request. This will remove a Steam friend from
- * the friend list of the #SteamApi user. This does not block the user,
- * see: #steam_api_req_user_ignore().
- *
- * @param req The #SteamApiReq.
- * @param id The #SteamId.
- **/
 void
 steam_api_req_user_remove(SteamApiReq *req, SteamId id)
 {
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     SteamUserInfo *info;
 
     g_return_if_fail(req != NULL);
@@ -1747,12 +1460,6 @@ steam_api_req_user_remove(SteamApiReq *req, SteamId id)
     steam_http_req_send(req->req);
 }
 
-/**
- * Implemented #SteamApiParser for #steam_api_req_user_search().
- *
- * @param req The #SteamApiReq.
- * @param json The #json_value or NULL.
- **/
 static void
 steam_api_cb_user_search(SteamApiReq *req, const json_value *json)
 {
@@ -1788,15 +1495,6 @@ steam_api_cb_user_search(SteamApiReq *req, const json_value *json)
     steam_api_cb_user_info_req(req, json);
 }
 
-/**
- * Sends a user search request. This searches for Steam users based on
- * a search term. This is very useful when attempting to add Steam
- * users by their name via #steam_api_req_user_add().
- *
- * @param req The #SteamApiReq.
- * @param name The username.
- * @param count The amount of search results.
- **/
 void
 steam_api_req_user_search(SteamApiReq *req, const gchar *name, guint count)
 {
