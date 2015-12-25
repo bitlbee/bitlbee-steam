@@ -38,14 +38,6 @@ steam_cb_poll(SteamApiReq *req, gpointer data);
 static void
 steam_cb_user_info_nicks(SteamApiReq *req, gpointer data);
 
-/**
- * Creates a new #SteamData with an #account_t. The returned #SteamData
- * should be freed with #steam_data_free() when no longer needed.
- *
- * @param acc The #account_t.
- *
- * @return The #SteamData or NULL on error.
- **/
 SteamData *
 steam_data_new(account_t *acc)
 {
@@ -67,11 +59,6 @@ steam_data_new(account_t *acc)
     return sata;
 }
 
-/**
- * Frees all memory used by a #SteamData.
- *
- * @param sata The #SteamData.
- **/
 void
 steam_data_free(SteamData *sata)
 {
@@ -83,15 +70,6 @@ steam_data_free(SteamData *sata)
     g_free(sata);
 }
 
-/**
- * Processes the error of a #SteamApiReq.
- *
- * @param sata The #SteamData.
- * @param req The #SteamApiReq.
- * @param logout TRUE to logout, otherwise FALSE.
- *
- * @return TRUE if an error exists, otherwise FALSE.
- **/
 static gboolean
 steam_req_error(SteamData *sata, SteamApiReq *req, gboolean logout)
 {
@@ -124,14 +102,6 @@ steam_req_error(SteamData *sata, SteamApiReq *req, gboolean logout)
     return TRUE;
 }
 
-
-/**
- * Updates the status of a #bee_user_t based on a #SteamUserInfo.
- *
- * @param sata The #SteamData.
- * @param info The #SteamUserInfo.
- * @param bu The #bee_user_t or NULL.
- **/
 static void
 steam_user_status(SteamData *sata, const SteamUserInfo *info, bee_user_t *bu)
 {
@@ -139,7 +109,7 @@ steam_user_status(SteamData *sata, const SteamUserInfo *info, bee_user_t *bu)
     gboolean cgm;
     gboolean csv;
     gchar *game;
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     gint f;
     SteamUser *user;
 
@@ -200,18 +170,11 @@ steam_user_status(SteamData *sata, const SteamUserInfo *info, bee_user_t *bu)
     g_free(game);
 }
 
-/**
- * Processes a #SteamApiMsg.
- *
- * @param sata The #SteamData.
- * @param msg The #SteamUserMsg.
- * @param time The timestamp (UTC) of the message, or 0 for now.
- **/
 static void
 steam_user_msg(SteamData *sata, SteamUserMsg *msg, gint64 time)
 {
     bee_user_t *bu;
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     gchar *str;
     guint32 f;
     SteamUserInfo *info = msg->info;
@@ -301,12 +264,6 @@ relationship:
     }
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_auth().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_auth(SteamApiReq *req, gpointer data)
 {
@@ -349,17 +306,11 @@ steam_cb_auth(SteamApiReq *req, gpointer data)
     account_on(acc->bee, acc);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_friends().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_friends(SteamApiReq *req, gpointer data)
 {
     bee_user_t *bu;
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     GList *l;
     SteamData *sata = data;
     SteamUser *user;
@@ -416,12 +367,6 @@ steam_cb_friends(SteamApiReq *req, gpointer data)
     steam_api_req_poll(req);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_key().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_key(SteamApiReq *req, gpointer data)
 {
@@ -443,12 +388,6 @@ steam_cb_key(SteamApiReq *req, gpointer data)
     steam_api_req_auth(req, acc->user, acc->pass, ac, cc);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_logoff().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_logoff(SteamApiReq *req, gpointer data)
 {
@@ -456,12 +395,6 @@ steam_cb_logoff(SteamApiReq *req, gpointer data)
     steam_data_free(sata);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_logon().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_logon(SteamApiReq *req, gpointer data)
 {
@@ -478,12 +411,6 @@ steam_cb_logon(SteamApiReq *req, gpointer data)
     steam_api_req_friends(req);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_logon() for relogging.
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_relogon(SteamApiReq *req, gpointer data)
 {
@@ -498,12 +425,6 @@ steam_cb_relogon(SteamApiReq *req, gpointer data)
     steam_api_req_friends(req);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_msg().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_msg(SteamApiReq *req, gpointer data)
 {
@@ -511,17 +432,11 @@ steam_cb_msg(SteamApiReq *req, gpointer data)
     steam_req_error(sata, req, TRUE);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_msgs().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_msgs(SteamApiReq *req, gpointer data)
 {
     bee_user_t *bu;
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     GList *l;
     SteamData *sata = data;
     SteamUser *user;
@@ -553,12 +468,6 @@ steam_cb_msgs(SteamApiReq *req, gpointer data)
     }
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_poll().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_poll(SteamApiReq *req, gpointer data)
 {
@@ -577,12 +486,6 @@ steam_cb_poll(SteamApiReq *req, gpointer data)
     steam_api_req_poll(req);
 }
 
-/**
- * Implemented #SteamApiFunc for generic users actions.
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_user_action(SteamApiReq *req, gpointer data)
 {
@@ -596,12 +499,6 @@ steam_cb_user_action(SteamApiReq *req, gpointer data)
     steam_user_status(sata, info, NULL);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_user_info().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_user_info(SteamApiReq *req, gpointer data)
 {
@@ -610,12 +507,6 @@ steam_cb_user_info(SteamApiReq *req, gpointer data)
     steam_api_req_user_info_nicks(req);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_user_info_nicks().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_user_info_nicks(SteamApiReq *req, gpointer data)
 {
@@ -678,17 +569,11 @@ steam_cb_user_info_nicks(SteamApiReq *req, gpointer data)
     steam_user_status(sata, info, NULL);
 }
 
-/**
- * Implemented #SteamApiFunc for #steam_api_req_user_search().
- *
- * @param req The #SteamApiReq.
- * @param data The user defined data, which is #SteamData.
- **/
 static void
 steam_cb_user_search(SteamApiReq *req, gpointer data)
 {
     const gchar *tag;
-    gchar sid[STEAM_ID_STR_MAX];
+    gchar sid[STEAM_ID_STRMAX];
     GList *l;
     guint i;
     SteamData *sata = data;
@@ -724,16 +609,6 @@ steam_cb_user_search(SteamApiReq *req, gpointer data)
     }
 }
 
-/**
- * Implemented #set_eval for generic accounton operations. This simply
- * turns the account on as soon a value is set if it is not already
- * turned on.
- *
- * @param set The #set_t.
- * @param value The set value.
- *
- * @return The resulting set value.
- **/
 static char *
 steam_eval_accounton(set_t *set, char *value)
 {
@@ -754,14 +629,6 @@ steam_eval_accounton(set_t *set, char *value)
     return value;
 }
 
-/**
- * Implemented #set_eval for the set of game_status.
- *
- * @param set The #set_t.
- * @param value The set value.
- *
- * @return The resulting set value.
- **/
 static char *
 steam_eval_game_status(set_t *set, char *value)
 {
@@ -781,16 +648,6 @@ steam_eval_game_status(set_t *set, char *value)
     return value;
 }
 
-/**
- * Implemented #set_eval for the set of password. If the account is on,
- * this disables the account, and resets the token. Then the plugin
- * will force the authentication process with the new password.
- *
- * @param set The #set_t.
- * @param value The set value.
- *
- * @return The resulting set value.
- **/
 static char *
 steam_eval_password(set_t *set, char *value)
 {
@@ -809,11 +666,6 @@ steam_eval_password(set_t *set, char *value)
     return value;
 }
 
-/**
- * Implements #prpl->init(). This initializes the an account.
- *
- * @param acc The #account_t.
- **/
 static void
 steam_init(account_t *acc)
 {
@@ -847,11 +699,6 @@ steam_init(account_t *acc)
     set_add(&acc->set, "password", NULL, steam_eval_password, acc);
 }
 
-/**
- * Implements #prpl->login(). This logins an account in.
- *
- * @param acc The #account_t.
- **/
 static void
 steam_login(account_t *acc)
 {
@@ -883,11 +730,6 @@ steam_login(account_t *acc)
     steam_api_req_logon(req);
 }
 
-/**
- * Implements #prpl->logout(). This logs an account out.
- *
- * @param ic The #im_connection.
- **/
 static void
 steam_logout(struct im_connection *ic)
 {
@@ -904,16 +746,6 @@ steam_logout(struct im_connection *ic)
     }
 }
 
-/**
- * Implements #prpl->buddy_msg(). This sends a message to a buddy.
- *
- * @param ic The #im_connection.
- * @param to The handle of the buddy.
- * @param message The message to send.
- * @param flags The message flags. (Irrelevant to this plugin)
- *
- * @return 0. (Upstream bitlbe does nothing with this)
- **/
 static int
 steam_buddy_msg(struct im_connection *ic, char *to, char *message, int flags)
 {
@@ -951,13 +783,6 @@ steam_buddy_msg(struct im_connection *ic, char *to, char *message, int flags)
     return 0;
 }
 
-/**
- * Implements #prpl->set_away(). This sets the away state of the user.
- *
- * @param ic The #im_connection.
- * @param state The away state.
- * @param message The away message.
- **/
 static void
 steam_set_away(struct im_connection *ic, char *state, char *message)
 {
@@ -972,15 +797,6 @@ steam_set_away(struct im_connection *ic, char *state, char *message)
     }
 }
 
-/**
- * Implements #prpl->send_typing(). This sends the typing state message.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- * @param flags The message flags. (Irrelevant to this plugin)
- *
- * @return 0. (Upstream bitlbe does nothing with this)
- **/
 static int
 steam_send_typing(struct im_connection *ic, char *who, int flags)
 {
@@ -997,13 +813,6 @@ steam_send_typing(struct im_connection *ic, char *who, int flags)
     return 0;
 }
 
-/**
- * Implements #prpl->add_buddy(). This adds a buddy.
- *
- * @param ic The #im_connection.
- * @param name The name of the buddy to add.
- * @param group The group of the buddy. (Irrelevant to this plugin)
- **/
 static void
 steam_add_buddy(struct im_connection *ic, char *name, char *group)
 {
@@ -1027,13 +836,6 @@ steam_add_buddy(struct im_connection *ic, char *name, char *group)
     }
 }
 
-/**
- * Implements #prpl->remove_buddy(). This removes a buddy.
- *
- * @param ic The #im_connection.
- * @param name The name of the buddy to add.
- * @param group The group of the buddy. (Irrelevant to this plugin)
- **/
 static void
 steam_remove_buddy(struct im_connection *ic, char *name, char *group)
 {
@@ -1044,24 +846,12 @@ steam_remove_buddy(struct im_connection *ic, char *name, char *group)
     steam_api_req_user_remove(req, STEAM_ID_NEW_STR(name));
 }
 
-/**
- * Implements #prpl->add_permit(). This is not used by the plugin.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- **/
 static void
 steam_add_permit(struct im_connection *ic, char *who)
 {
 
 }
 
-/**
- * Implements #prpl->add_deny(). This blocks a buddy.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- **/
 static void
 steam_add_deny(struct im_connection *ic, char *who)
 {
@@ -1073,24 +863,12 @@ steam_add_deny(struct im_connection *ic, char *who)
     steam_api_req_user_ignore(req, STEAM_ID_NEW_STR(who), TRUE);
 }
 
-/**
- * Implements #prpl->rem_permit(). This is not used by the plugin.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- **/
 static void
 steam_rem_permit(struct im_connection *ic, char *who)
 {
 
 }
 
-/**
- * Implements #prpl->rem_deny(). This unblocks a buddy.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- **/
 static void
 steam_rem_deny(struct im_connection *ic, char *who)
 {
@@ -1101,12 +879,6 @@ steam_rem_deny(struct im_connection *ic, char *who)
     steam_api_req_user_ignore(req, STEAM_ID_NEW_STR(who), FALSE);
 }
 
-/**
- * Implements #prpl->get_info(). This retrieves the info of a buddy.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- **/
 static void
 steam_get_info(struct im_connection *ic, char *who)
 {
@@ -1121,13 +893,6 @@ steam_get_info(struct im_connection *ic, char *who)
     steam_api_req_user_info(req);
 }
 
-/**
- * Implements #prpl->away_states(). This retrieves the away states.
- *
- * @param ic The #im_connection.
- *
- * @return The #GList of away states.
- **/
 static GList *
 steam_away_states(struct im_connection *ic)
 {
@@ -1142,12 +907,6 @@ steam_away_states(struct im_connection *ic)
     return states;
 }
 
-/**
- * Implements #prpl->auth_allow(). This accepts buddy requests.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- **/
 static void
 steam_auth_allow(struct im_connection *ic, const char *who)
 {
@@ -1159,12 +918,6 @@ steam_auth_allow(struct im_connection *ic, const char *who)
                               STEAM_API_ACCEPT_TYPE_DEFAULT);
 }
 
-/**
- * Implements #prpl->auth_allow(). This denies buddy requests.
- *
- * @param ic The #im_connection.
- * @param who The handle of the buddy.
- **/
 static void
 steam_auth_deny(struct im_connection *ic, const char *who)
 {
@@ -1176,22 +929,12 @@ steam_auth_deny(struct im_connection *ic, const char *who)
                               STEAM_API_ACCEPT_TYPE_IGNORE);
 }
 
-/**
- * Implements #prpl->buddy_data_add(). This adds data to the buddy.
- *
- * @param bu The #bee_user_t.
- **/
 static void
 steam_buddy_data_add(struct bee_user *bu)
 {
     bu->data = steam_user_new(bu);
 }
 
-/**
- * Implements #prpl->buddy_data_free(). This frees the buddy data.
- *
- * @param bu The #bee_user_t.
- **/
 static void
 steam_buddy_data_free(struct bee_user *bu)
 {
@@ -1201,11 +944,6 @@ steam_buddy_data_free(struct bee_user *bu)
 G_MODULE_EXPORT void
 init_plugin(void);
 
-/**
- * Implements the #init_plugin() function. BitlBee looks for this
- * function and executes it to register the protocol and its related
- * callbacks.
- **/
 G_MODULE_EXPORT void
 init_plugin()
 {

@@ -20,13 +20,6 @@
 
 #include "steam-util.h"
 
-/**
- * Logs a debugging message.
- *
- * @param level The #SteamDebugLevel.
- * @param format The format string literal.
- * @param ... The arguments for @format.
- **/
 void
 steam_util_debug(SteamDebugLevel level, const gchar *format, ...)
 {
@@ -37,13 +30,6 @@ steam_util_debug(SteamDebugLevel level, const gchar *format, ...)
     va_end(ap);
 }
 
-/**
- * Logs a debugging message.
- *
- * @param level The #SteamDebugLevel.
- * @param format The format string literal.
- * @param ap The #va_list.
- **/
 void
 steam_util_vdebug(SteamDebugLevel level, const gchar *format, va_list ap)
 {
@@ -92,13 +78,6 @@ steam_util_vdebug(SteamDebugLevel level, const gchar *format, va_list ap)
     g_free(str);
 }
 
-/**
- * Logs a debugging message with the level of
- * #STEAM_UTIL_DEBUG_LEVEL_MISC.
- *
- * @param format The format string literal.
- * @param ... The arguments for @format.
- **/
 void
 steam_util_debug_misc(const gchar *format, ...)
 {
@@ -109,13 +88,6 @@ steam_util_debug_misc(const gchar *format, ...)
     va_end(ap);
 }
 
-/**
- * Logs a debugging message with the level of
- * #STEAM_UTIL_DEBUG_LEVEL_INFO.
- *
- * @param format The format string literal.
- * @param ... The arguments for @format.
- **/
 void
 steam_util_debug_info(const gchar *format, ...)
 {
@@ -126,13 +98,6 @@ steam_util_debug_info(const gchar *format, ...)
     va_end(ap);
 }
 
-/**
- * Logs a debugging message with the level of
- * #STEAM_UTIL_DEBUG_LEVEL_WARN.
- *
- * @param format The format string literal.
- * @param ... The arguments for @format.
- **/
 void
 steam_util_debug_warn(const gchar *format, ...)
 {
@@ -143,13 +108,6 @@ steam_util_debug_warn(const gchar *format, ...)
     va_end(ap);
 }
 
-/**
- * Logs a debugging message with the level of
- * #STEAM_UTIL_DEBUG_LEVEL_ERROR.
- *
- * @param format The format string literal.
- * @param ... The arguments for @format.
- **/
 void
 steam_util_debug_error(const gchar *format, ...)
 {
@@ -160,13 +118,6 @@ steam_util_debug_error(const gchar *format, ...)
     va_end(ap);
 }
 
-/**
- * Logs a debugging message with the level of
- * #STEAM_UTIL_DEBUG_LEVEL_FATAL.
- *
- * @param format The format string literal.
- * @param ... The arguments for @format.
- **/
 void
 steam_util_debug_fatal(const gchar *format, ...)
 {
@@ -177,15 +128,6 @@ steam_util_debug_fatal(const gchar *format, ...)
     va_end(ap);
 }
 
-/**
- * Gets the enumerator pointer from its value.
- *
- * @param enums The array of #SteamUtilEnum.
- * @param def The default return value.
- * @param val The enumerator value.
- *
- * @return The enumerator pointer, or NULL on error.
- **/
 gpointer
 steam_util_enum_ptr(const SteamUtilEnum *enums, gpointer def, guint val)
 {
@@ -202,15 +144,6 @@ steam_util_enum_ptr(const SteamUtilEnum *enums, gpointer def, guint val)
     return def;
 }
 
-/**
- * Gets the enumerator pointers from its value. The returned array
- * should be freed when no longer needed.
- *
- * @param enums The array of #SteamUtilEnum.
- * @param vals The enumerator values.
- *
- * @return The enumerator pointer array.
- **/
 gpointer *
 steam_util_enum_ptrs(const SteamUtilEnum *enums, guint vals)
 {
@@ -238,16 +171,6 @@ steam_util_enum_ptrs(const SteamUtilEnum *enums, guint vals)
     return ptrs;
 }
 
-/**
- * Gets the enumerator value from its pointer.
- *
- * @param enums The array of #SteamUtilEnum.
- * @param ptr The enumerator pointer.
- * @param def The default return value.
- * @param cmpfunc The #GCompareFunc.
- *
- * @return The enumerator value, or 0 on error.
- **/
 guint
 steam_util_enum_val(const SteamUtilEnum *enums, guint def,
                     gconstpointer ptr, GCompareFunc cmpfunc)
@@ -267,15 +190,6 @@ steam_util_enum_val(const SteamUtilEnum *enums, guint def,
     return def;
 }
 
-/**
- * Converts a hexadecimal string to a #GByteArray. The returned
- * #GByteArray should be freed with #g_byte_array_free() when no
- * longer needed.
- *
- * @param str The hexadecimal string.
- *
- * @return The #GByteArray or NULL on error.
- **/
 GByteArray *
 steam_util_str_hex2bytes(const gchar *str)
 {
@@ -313,29 +227,12 @@ steam_util_str_hex2bytes(const gchar *str)
     return ret;
 }
 
-/**
- * Compare two strings case insensitively. This is useful for where
- * the return value must be a boolean, such as with a #GEqualFunc.
- *
- * @param s1 The first string.
- * @param s2 The second string.
- *
- * @return TRUE if the strings are equal, otherwise FALSE.
- **/
 gboolean
 steam_util_str_iequal(const gchar *s1, const gchar *s2)
 {
     return g_ascii_strcasecmp(s1, s2) == 0;
 }
 
-/**
- * Gets the string representation of a timespan. The returned string
- * should be freed with #g_free() when no longer needed.
- *
- * @param span The #GTimeSpan.
- *
- * @return The string representation of a timespan.
- **/
 gchar *
 steam_util_time_span_str(GTimeSpan span)
 {
@@ -373,15 +270,6 @@ steam_util_time_span_str(GTimeSpan span)
     return str;
 }
 
-/**
- * Gets the string representation of a timespan since the given
- * timestamp. The returned string should be freed with #g_free() when
- * no longer needed.
- *
- * @param span The timestamp (UTC).
- *
- * @return The string representation of a timespan.
- **/
 gchar *
 steam_util_time_since_utc(gint64 timestamp)
 {
@@ -403,15 +291,6 @@ steam_util_time_since_utc(gint64 timestamp)
     return steam_util_time_span_str(spn);
 }
 
-/**
- * Find the first occurrence of a character in a string not contained
- * inside quotes (single or double).
- *
- * @param str The string.
- * @param chr The character.
- *
- * @return A pointer to the character, or NULL if it was not found.
- **/
 gchar *
 steam_util_ustrchr(const gchar *str, gchar chr)
 {

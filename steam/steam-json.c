@@ -20,11 +20,6 @@
 
 #include "steam-json.h"
 
-/**
- * Gets the error domain for the JSON parser.
- *
- * @return The #GQuark of the error domain.
- **/
 GQuark
 steam_json_error_quark(void)
 {
@@ -37,16 +32,6 @@ steam_json_error_quark(void)
     return q;
 }
 
-/**
- * Creates a new #json_value from JSON data. The returned #json_value
- * should be freed with #json_value_free() when no longer needed.
- *
- * @param data The JSON data.
- * @param length The length of the JSON data.
- * @param err The return location for a GError or NULL.
- *
- * @return The #json_value or NULL on error.
- **/
 json_value *
 steam_json_new(const gchar *data, gsize length, GError **err)
 {
@@ -70,14 +55,6 @@ steam_json_new(const gchar *data, gsize length, GError **err)
     return NULL;
 }
 
-/**
- * Gets the string representation of a #json_value. The returned string
- * should be freed with #g_free() when no longer needed.
- *
- * @param json The #json_value.
- *
- * @return The resulting string, or NULL on error.
- **/
 gchar *
 steam_json_valstr(const json_value *json)
 {
@@ -104,15 +81,6 @@ steam_json_valstr(const json_value *json)
     }
 }
 
-/**
- * Gets a #json_value by name from a parent #json_value.
- *
- * @param json The #json_value.
- * @param name The name.
- * @param type The #json_type.
- *
- * @return The json_value if found, otherwise NULL.
- **/
 json_value *
 steam_json_val(const json_value *json, const gchar *name, json_type type)
 {
@@ -125,17 +93,6 @@ steam_json_val(const json_value *json, const gchar *name, json_type type)
     return val;
 }
 
-/**
- * Gets a #json_value by name from a parent #json_value, and checks
- * for its existence and type.
- *
- * @param json The #json_value.
- * @param name The name.
- * @param type The #json_type.
- * @param val The return location for the value.
- *
- * @return TRUE if the value was found, or FALSE on error.
- **/
 gboolean
 steam_json_val_chk(const json_value *json, const gchar *name,
                    json_type type, json_value **val)
@@ -154,14 +111,6 @@ steam_json_val_chk(const json_value *json, const gchar *name,
     return TRUE;
 }
 
-/**
- * Gets an array by name from a parent #json_value.
- *
- * @param json The #json_value.
- * @param name The name.
- *
- * @return The #json_value if found, otherwise NULL.
- **/
 json_value *
 steam_json_array(const json_value *json, const gchar *name)
 {
@@ -174,17 +123,6 @@ steam_json_array(const json_value *json, const gchar *name)
     return val;
 }
 
-/**
- * Gets an array by name from a parent #json_value, and checks for its
- * existence and type.
- *
- * @param json The #json_value.
- * @param name The name.
- * @param type The #json_type.
- * @param val The return location for the value.
- *
- * @return TRUE if the value was found, or FALSE on error.
- **/
 gboolean
 steam_json_array_chk(const json_value *json, const gchar *name,
                      json_value **val)
@@ -192,14 +130,6 @@ steam_json_array_chk(const json_value *json, const gchar *name,
     return steam_json_val_chk(json, name, json_array, val);
 }
 
-/**
- * Gets a boolean value by name from a parent #json_value.
- *
- * @param json The #json_value.
- * @param name The name.
- *
- * @return The boolean value if found, otherwise FALSE.
- **/
 gboolean
 steam_json_bool(const json_value *json, const gchar *name)
 {
@@ -212,16 +142,6 @@ steam_json_bool(const json_value *json, const gchar *name)
     return val;
 }
 
-/**
- * Gets a boolean value by name from a parent #json_value, and checks
- * for its existence and type.
- *
- * @param json The #json_value.
- * @param name The name.
- * @param val The return location for the value.
- *
- * @return The boolean value if found, otherwise FALSE.
- **/
 gboolean
 steam_json_bool_chk(const json_value *json, const gchar *name, gboolean *val)
 {
@@ -238,14 +158,6 @@ steam_json_bool_chk(const json_value *json, const gchar *name, gboolean *val)
     return TRUE;
 }
 
-/**
- * Gets a integer value by name from a parent #json_value.
- *
- * @param json The #json_value.
- * @param name The name.
- *
- * @return The integer value if found, otherwise 0.
- **/
 gint64
 steam_json_int(const json_value *json, const gchar *name)
 {
@@ -258,16 +170,6 @@ steam_json_int(const json_value *json, const gchar *name)
     return val;
 }
 
-/**
- * Gets a integer value by name from a parent #json_value, and checks
- * for its existence and type.
- *
- * @param json The #json_value.
- * @param name The name.
- * @param val The return location for the value.
- *
- * @return TRUE if the value was found, or FALSE on error.
- **/
 gboolean
 steam_json_int_chk(const json_value *json, const gchar *name, gint64 *val)
 {
@@ -284,14 +186,6 @@ steam_json_int_chk(const json_value *json, const gchar *name, gint64 *val)
     return TRUE;
 }
 
-/**
- * Gets a string value by name from a parent #json_value.
- *
- * @param json The #json_value.
- * @param name The name.
- *
- * @return The string value if found, otherwise NULL.
- **/
 const gchar *
 steam_json_str(const json_value *json, const gchar *name)
 {
@@ -304,16 +198,6 @@ steam_json_str(const json_value *json, const gchar *name)
     return val;
 }
 
-/**
- * Gets a string value by name from a parent #json_value, and checks
- * for its existence and type.
- *
- * @param json The #json_value.
- * @param name The name.
- * @param val The return location for the value.
- *
- * @return TRUE if the value was found, or FALSE on error.
- **/
 gboolean
 steam_json_str_chk(const json_value *json, const gchar *name,
                    const gchar **val)

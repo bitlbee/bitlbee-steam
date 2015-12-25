@@ -21,17 +21,6 @@
 #include "steam-crypt.h"
 #include "steam-util.h"
 
-/**
- * Encrypts a #GByteArray via an RSA public key modules and exponent.
- * The returned #GByteArray should be freed with #g_byte_array_free()
- * when no longer needed.
- *
- * @param mod The modulus.
- * @param exp The exponent.
- * @param bytes The #GByteArray.
- *
- * @return The encrypted #GByteArray or NULL on error.
- **/
 GByteArray *
 steam_crypt_rsa_enc(const GByteArray *mod, const GByteArray *exp,
                     const GByteArray *bytes)
@@ -111,18 +100,6 @@ finish:
     return ret;
 }
 
-/**
- * Encrypts a string via an RSA public key modulus and exponent. The
- * modulus and exponent must be valid hexadecimal strings. The return
- * string is encoded with base64 encoding. The returned string should
- * be freed with #g_free() when no longer needed.
- *
- * @param mod The hexadecimal modulus string.
- * @param exp The hexadecimal exponent string.
- * @param str The string.
- *
- * @return The base64 encoded string or NULL on error.
- **/
 gchar *
 steam_crypt_rsa_enc_str(const gchar *mod, const gchar *exp, const gchar *str)
 {
