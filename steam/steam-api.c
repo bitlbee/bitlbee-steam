@@ -132,18 +132,24 @@ void steam_api_rehash(SteamApi *api)
     if (api->umqid == NULL)
         api->umqid = g_strdup_printf("%" G_GUINT32_FORMAT, g_random_int());
 
-    str = g_strdup_printf("%" STEAM_ID_FORMAT "||oauth:%s", api->info->id,
-                          api->token);
+    if ((api->info->id != 0) && (api->token != NULL)) {
+        str = g_strdup_printf("%" STEAM_ID_FORMAT "||oauth:%s",
+                              api->info->id, api->token);
+
+        steam_http_cookies_set(api->http,
+            STEAM_HTTP_PAIR("steamLogin", str),
+            NULL
+        );
+
+        g_free(str);
+    }
 
     steam_http_cookies_set(api->http,
         STEAM_HTTP_PAIR("forceMobile",  "1"),
         STEAM_HTTP_PAIR("mobileClient", PACKAGE),
-        STEAM_HTTP_PAIR("steamLogin", str),
-        STEAM_HTTP_PAIR("sessionid",  api->sessid),
+        STEAM_HTTP_PAIR("sessionid",    api->sessid),
         NULL
     );
-
-    g_free(str);
 }
 
 /**
