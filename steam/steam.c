@@ -295,6 +295,7 @@ static void steam_cb_auth(SteamApiReq *req, gpointer data)
 
     acc = sata->ic->acc;
 
+    set_setint(&acc->set, "autht",  req->api->autht);
     set_setstr(&acc->set, "cgid",   req->api->cgid);
     set_setstr(&acc->set, "esid",   req->api->esid);
     set_setstr(&acc->set, "sessid", req->api->sessid);
@@ -779,6 +780,9 @@ static void steam_init(account_t *acc)
     s = set_add(&acc->set, "captcha", NULL, steam_eval_accounton, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
 
+    s = set_add(&acc->set, "autht", NULL, NULL, acc);
+    s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
+
     s = set_add(&acc->set, "esid", NULL, NULL, acc);
     s->flags = SET_NULL_OK | SET_HIDDEN | SET_NOSAVE;
 
@@ -821,6 +825,7 @@ static void steam_login(account_t *acc)
         g_free(sata->api->esid);
         sata->api->esid = g_strdup(str);
 
+        sata->api->autht = set_getint(&acc->set, "autht");
         imcb_log(sata->ic, "Requesting authentication key");
         req = steam_api_req_new(sata->api, steam_cb_key, sata);
         steam_api_req_key(req, acc->user);

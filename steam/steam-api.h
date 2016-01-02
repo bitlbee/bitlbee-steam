@@ -56,6 +56,9 @@
 #define STEAM_COM_PATH_KEY           "/mobilelogin/getrsakey/"
 
 
+/** The types of authentication. **/
+typedef enum _SteamApiAuthType SteamApiAuthType;
+
 /** The #GError codes of #SteamApi. **/
 typedef enum _SteamApiError SteamApiError;
 
@@ -88,6 +91,15 @@ typedef void (*SteamApiFunc) (SteamApiReq *req, gpointer data);
  **/
 typedef void (*SteamApiParser) (SteamApiReq *req, const json_value *json);
 
+
+/**
+ * The types of authentication.
+ **/
+enum _SteamApiAuthType
+{
+    STEAM_API_AUTH_TYPE_EMAIL, /** Email **/
+    STEAM_API_AUTH_TYPE_MOBILE /** Mobile **/
+};
 
 /**
  * The #GError codes of #SteamApi.
@@ -138,6 +150,8 @@ struct _SteamApi
 
     gint64 lmid;         /** The last message identifier. **/
     gint64 time;         /** The logon timestamp (UTC). **/
+
+    SteamApiAuthType autht; /** The #SteamApiAuthType. **/
 
     gchar *cgid;         /** The captcha GID (authentication). **/
     gchar *esid;         /** The email SteamID (authentication). **/

@@ -499,8 +499,10 @@ static void steam_api_cb_auth(SteamApiReq *req, const json_value *json)
 
     if (steam_json_bool_chk(json, "success", &bool) && !bool) {
         if (steam_json_bool_chk(json, "requires_twofactor", &bool) && bool) {
+            req->api->autht = STEAM_API_AUTH_TYPE_MOBILE;
             errc = STEAM_API_ERROR_STEAMGUARD;
         } else if (steam_json_bool_chk(json, "emailauth_needed", &bool) && bool) {
+            req->api->autht = STEAM_API_AUTH_TYPE_EMAIL;
             errc = STEAM_API_ERROR_STEAMGUARD;
             str  = steam_json_str(json, "emailsteamid");
 
@@ -603,12 +605,29 @@ void steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
     g_get_current_time(&tv);
     ms = g_strdup_printf("%ld", (tv.tv_usec / 1000));
 
+    switch (req->api->autht) {
+    case STEAM_API_AUTH_TYPE_EMAIL:
+        steam_http_req_params_set(req->req,
+            STEAM_HTTP_PAIR("emailauth",    authcode),
+            STEAM_HTTP_PAIR("emailsteamid", req->api->esid),
+            NULL
+        );
+        break;
+
+    case STEAM_API_AUTH_TYPE_MOBILE:
+        steam_http_req_params_set(req->req,
+            STEAM_HTTP_PAIR("twofactorcode", authcode),
+            NULL
+        );
+        break;
+
+    default:
+        break;
+    }
+
     steam_http_req_params_set(req->req,
         STEAM_HTTP_PAIR("username",          user),
         STEAM_HTTP_PAIR("password",          pswd),
-        STEAM_HTTP_PAIR("twofactorcode",     authcode),
-        STEAM_HTTP_PAIR("emailauth",         authcode),
-        STEAM_HTTP_PAIR("emailsteamid",      req->api->esid),
         STEAM_HTTP_PAIR("captchagid",        req->api->cgid),
         STEAM_HTTP_PAIR("captcha_text",      captcha),
         STEAM_HTTP_PAIR("rsatimestamp",      req->api->pktime),
