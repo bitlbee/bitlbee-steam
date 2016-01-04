@@ -866,8 +866,11 @@ void steam_api_req_logon(SteamApiReq *req)
  **/
 static void steam_api_cb_msg(SteamApiReq *req, const json_value *json)
 {
+    /* Pop the successful message request */
+    g_queue_pop_head(req->api->msgs);
+
     if (!g_queue_is_empty(req->api->msgs)) {
-        req = g_queue_pop_head(req->api->msgs);
+        req = g_queue_peek_head(req->api->msgs);
         steam_http_req_send(req->req);
     }
 }
@@ -882,6 +885,7 @@ void steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg)
 {
     const gchar *type;
     gchar        sid[STEAM_ID_STR_MAX];
+    gboolean     empty;
 
     g_return_if_fail(req != NULL);
     g_return_if_fail(msg != NULL);
@@ -918,11 +922,11 @@ void steam_api_req_msg(SteamApiReq *req, const SteamUserMsg *msg)
     }
 
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
+    empty = g_queue_is_empty(req->api->msgs);
+    g_queue_push_tail(req->api->msgs, req);
 
-    if (g_queue_is_empty(req->api->msgs) && req->api->online)
+    if (empty && req->api->online)
         steam_http_req_send(req->req);
-    else
-        g_queue_push_tail(req->api->msgs, req);
 }
 
 /**
