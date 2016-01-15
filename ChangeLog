@@ -1,3 +1,22 @@
+bitlbee-steam-1.4.0 (2016-01-15):
+  - Added cleaner debugging utilities
+  - Added Coverity support
+  - Added support for the NOCONFIGURE variable to the autogen.sh script
+  - Added the --enable-warnings option to the configure script
+  - Dropped the required GLib version to 2.28.0
+  - Fixed segfault when fetching aliases
+  - Fixed broken message queuing
+  - Fixed failing Steam Community requests
+  - Fixed libgcrypt not being properly initialized
+  - Fixed the game state not taking precedence over the away state
+  - Implemented self message support
+  - Implemented support for SteamGuard mobile 2FA
+  - Make Travis CI build against bitlbee's master branch
+  - Migrated to the newer OAuth chat history API
+  - Migrated OBS packaging to Travis CI
+  - Removed the --enable-debug option from the configure script
+  - Various code refactoring and restyling
+
 bitlbee-steam-1.3.1 (2015-08-18):
   - Fixed gcrypt memory leak
   - Fixed OAuth data failing to parse
