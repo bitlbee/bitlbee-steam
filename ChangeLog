@@ -1,3 +1,6 @@
+bitlbee-steam-1.4.1 (2016-01-27):
+  - Fixed the missing steam-glib.h in the distribution tarball
+
 bitlbee-steam-1.4.0 (2016-01-15):
   - Added cleaner debugging utilities
   - Added Coverity support
