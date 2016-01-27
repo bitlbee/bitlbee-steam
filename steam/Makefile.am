@@ -13,20 +13,20 @@ steam_la_LDFLAGS = \
 
 steam_la_SOURCES = \
 	steam.c \
-	steam-api.c \
-	steam-crypt.c \
-	steam-http.c \
-	steam-json.c \
-	steam-user.c \
-	steam-util.c \
 	steam.h \
+	steam-api.c \
 	steam-api.h \
+	steam-crypt.c \
 	steam-crypt.h \
 	steam-glib.h \
+	steam-http.c \
 	steam-http.h \
 	steam-id.h \
+	steam-json.c \
 	steam-json.h \
+	steam-user.c \
 	steam-user.h \
+	steam-util.c \
 	steam-util.h
 
 # Build the library as a module
