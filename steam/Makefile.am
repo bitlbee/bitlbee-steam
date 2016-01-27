@@ -22,6 +22,7 @@ steam_la_SOURCES = \
 	steam.h \
 	steam-api.h \
 	steam-crypt.h \
+	steam-glib.h \
 	steam-http.h \
 	steam-id.h \
 	steam-json.h \
