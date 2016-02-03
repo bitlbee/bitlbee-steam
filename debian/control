@@ -3,14 +3,14 @@ Maintainer: jgeboski <jgeboski@gmail.com>
 Section: misc
 Priority: optional
 Standards-Version: 3.9.6
-Build-Depends: debhelper (>= 9), dh-autoreconf, libglib2.0-dev (>= 2.32), bitlbee-dev (>= 3.4), libgcrypt11-dev (>= 1.5.0) | libgcrypt20-dev
+Build-Depends: bitlbee-dev (>= 3.4), debhelper (>= 9), dh-autoreconf, libgcrypt11-dev (>= 1.5.0) | libgcrypt20-dev, libglib2.0-dev (>= 2.28)
 Homepage: https://github.com/jgeboski/bitlbee-steam
 
 Package: bitlbee-steam
 Architecture: any
 Section: misc
 Priority: optional
-Depends: ${shlibs:Depends}, ${misc:Depends}, bitlbee (>= 3.4) | bitlbee-libpurple (>= 3.4), libgcrypt11 (>= 1.5.0) | libgcrypt20
+Depends: ${shlibs:Depends}, ${misc:Depends}, bitlbee (>= 3.4) | bitlbee-libpurple (>= 3.4), libgcrypt11 (>= 1.5.0) | libgcrypt20, libglib2.0-0 (>= 2.28)
 Homepage: https://github.com/jgeboski/bitlbee-steam
 Description: Steam protocol plugin for BitlBee
  BitlBee Steam implements the Steam API into bitlbee. This plugin uses
