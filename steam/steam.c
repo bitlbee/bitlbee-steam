@@ -951,7 +951,6 @@ init_plugin()
 
     static const struct prpl pp = {
         .name = "steam",
-        .options = OPT_NOOTR,
         .init = steam_init,
         .login = steam_login,
         .logout = steam_logout,
