@@ -945,7 +945,7 @@ G_MODULE_EXPORT void
 init_plugin(void);
 
 G_MODULE_EXPORT void
-init_plugin()
+init_plugin(void)
 {
     struct prpl *dpp;
 
@@ -980,3 +980,23 @@ init_plugin()
     dpp = g_memdup(&pp, sizeof pp);
     register_protocol(dpp);
 }
+
+#ifdef BITLBEE_ABI_VERSION_CODE
+G_MODULE_EXPORT struct plugin_info *
+init_plugin_info(void);
+
+G_MODULE_EXPORT struct plugin_info *
+init_plugin_info(void)
+{
+	static struct plugin_info info = {
+		BITLBEE_ABI_VERSION_CODE,
+		"steam",
+		PACKAGE_VERSION,
+		"Steam protocol plugin",
+		"James Geboski <jgeboski@gmail.com>",
+		PACKAGE_URL
+	};
+
+	return &info;
+}
+#endif /* BITLBEE_ABI_VERSION_CODE */
