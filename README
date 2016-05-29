@@ -53,19 +53,19 @@ See: https://support.steampowered.com/kb_article.php?ref=3330-IAGK-7663
 Getting started:
 
     > account add steam <username> <password>
-    > account <acc> on
+    > account steam on
 
 Authenticating with SteamGuard:
 
-    > account <acc> set authcode <code>
+    > account steam set authcode <code>
 
 Captcha interaction may be required:
 
-    > account <acc> set captcha <text>
+    > account steam set captcha <text>
 
 Output game play statues to the account channel(s):
 
-    > account <acc> set game_status true
+    > account steam set game_status true
 
 ## Common Issues
 
@@ -85,9 +85,9 @@ Login error: HTTP: 401 Unauthorized
 Fixing this issue is done by forcing the plugin to re-authenticate:
 
 ```
-account <acc> off
-account <acc> set -del token
-account <acc> on
+account steam off
+account steam set -del token
+account steam on
 ```
 
 The account can also be deleted and re-added, but this will cause all
