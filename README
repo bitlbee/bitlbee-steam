@@ -3,6 +3,12 @@ API allowing it to run alongside the main Steam client. It is worth
 noting that the Steam Mobile API is HTTP based, which does lead to mild
 latency.
 
+## Package Repositories
+
+There are package repositories available for various distributions.
+
+See: https://jgeboski.github.io
+
 ## Building and Installing
 
 Make sure bitlbee and its headers have been installed. If bitlbee came
