@@ -67,6 +67,32 @@ Output game play statues to the account channel(s):
 
     > account <acc> set game_status true
 
+## Common Issues
+
+Below is a list of common issues and their respective fixes.
+
+### Expired token or session
+
+When the token or session identifier has expired, the user may see
+errors thrown by the plugin. Sometimes these errors are one time, but
+if they repeatedly and reliably happen, then a new token and session
+identifier need to be obtained.
+
+```
+Login error: HTTP: 401 Unauthorized
+```
+
+Fixing this issue is done by forcing the plugin to re-authenticate:
+
+```
+account <acc> off
+account <acc> set -del token
+account <acc> on
+```
+
+The account can also be deleted and re-added, but this will cause all
+other local metadata to be lost, such as local buddy aliases.
+
 ## Debugging
 
 One of the two supported environment variables can be defined to enable
