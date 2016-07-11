@@ -35,6 +35,7 @@ AC_PROG_LIBTOOL
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 m4_ifdef([AC_PROG_CC_C99],  [AC_PROG_CC_C99])
 
+GTK_DOC_CHECK([1.14],[--flavour no-tmpl])
 # Define PKG_CHECK_VAR() for pkg-config < 0.28
 m4_define_default(
     [PKG_CHECK_VAR],
