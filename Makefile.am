@@ -1,3 +1,3 @@
-ACLOCAL_AMFLAGS = -Im4
+ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 EXTRA_DIST = autogen.sh
-SUBDIRS = steam
+SUBDIRS = steam doc
