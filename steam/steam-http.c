@@ -219,7 +219,7 @@ steam_http_cookies_str(SteamHttp *http)
 
     g_return_val_if_fail(http != NULL, NULL);
 
-    gstr = g_string_sized_new(128);
+    gstr = g_string_new(NULL);
     g_hash_table_iter_init(&iter, http->cookies);
 
     while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &val)) {
@@ -501,7 +501,7 @@ steam_http_req_asm(SteamHttpReq *req, gchar **hs, gchar **ps, gchar **fs)
     GString *pgs;
 
     g_hash_table_iter_init(&iter, req->params);
-    pgs = g_string_sized_new(128);
+    pgs = g_string_new(NULL);
 
     while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &val)) {
         if (val == NULL) {
@@ -538,7 +538,7 @@ steam_http_req_asm(SteamHttpReq *req, gchar **hs, gchar **ps, gchar **fs)
     }
 
     g_hash_table_iter_init(&iter, req->headers);
-    hgs = g_string_sized_new(128);
+    hgs = g_string_new(NULL);
 
     while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &val)) {
         if (val == NULL) {

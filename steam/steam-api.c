@@ -1310,7 +1310,7 @@ steam_api_req_user_info(SteamApiReq *req)
     }
 
     ght = g_hash_table_new(g_int64_hash, g_int64_equal);
-    gstr = g_string_sized_new(2048);
+    gstr = g_string_new(NULL);
 
     for (l = req->infr->head, i = 0; l != NULL; l = n) {
         info = l->data;
