@@ -380,4 +380,19 @@ steam_http_uri_escape(const gchar *unescaped);
 gchar *
 steam_http_uri_unescape(const gchar *escaped);
 
+/**
+ * steam_http_uri_join:
+ * @first: The first URI segment.
+ * @...: The additional URI segments.
+ *
+ * Joins URI segments into a single URI. This simply ensures the URI
+ * segments are joined by only one forward slash. The returned string
+ * should be freed with #g_free() when no longer needed.
+ *
+ * Returns: The joined URI or #NULL on error.
+ */
+gchar *
+steam_http_uri_join(const gchar *first, ...)
+                    G_GNUC_NULL_TERMINATED;
+
 #endif /* _STEAM_HTTP_H_ */

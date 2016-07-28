@@ -1125,7 +1125,7 @@ steam_api_req_user_accept(SteamApiReq *req, SteamId id,
     g_return_if_fail(req != NULL);
 
     sct = steam_util_enum_ptr(enums, NULL, type);
-    srl = g_strconcat(req->api->info->profile, "/home_process", NULL);
+    srl = steam_http_uri_join(req->api->info->profile, "home_process", NULL);
     url_set(&url, srl);
 
     STEAM_ID_STR(id, sid);
@@ -1205,7 +1205,7 @@ steam_api_req_user_ignore(SteamApiReq *req, SteamId id, gboolean ignore)
 
     act = ignore ? "ignore" : "unignore";
     user = g_strdup_printf("friends[%" STEAM_ID_FORMAT "]", id);
-    srl = g_strconcat(req->api->info->profile, "/friends/", NULL);
+    srl = steam_http_uri_join(req->api->info->profile, "friends", NULL);
     url_set(&url, srl);
 
     info = steam_user_info_new(id);
@@ -1407,7 +1407,7 @@ steam_api_req_user_info_nicks(SteamApiReq *req)
         return;
     }
 
-    srl = g_strconcat(info->profile, "/ajaxaliases/", NULL);
+    srl = steam_http_uri_join(info->profile, "ajaxaliases", NULL);
     url_set(&url, srl);
 
     req->punc = steam_api_cb_user_info_nicks;

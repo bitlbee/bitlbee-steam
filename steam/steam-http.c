@@ -625,3 +625,29 @@ steam_http_uri_unescape(const gchar *escaped)
     g_free(str);
     return ret;
 }
+
+gchar *
+steam_http_uri_join(const gchar *first, ...)
+{
+    const gchar *s;
+    GString *ret;
+    va_list ap;
+
+    g_return_val_if_fail(first != NULL, NULL);
+
+    ret = g_string_new(first);
+    va_start(ap, first);
+    s = va_arg(ap, const gchar *);
+
+    while (s != NULL) {
+        if ((ret->len > 0) && (ret->str[ret->len - 1] != '/')) {
+            g_string_append_c(ret, '/');
+        }
+
+        g_string_append(ret, s);
+        s = va_arg(ap, const gchar *);
+    }
+
+    va_end(ap);
+    return g_string_free(ret, FALSE);
+}
