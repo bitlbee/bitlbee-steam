@@ -387,7 +387,7 @@ steam_api_cb_auth_finish(SteamApiReq *req, const json_value *json)
     const gchar *str;
 
     steam_http_cookies_parse_req(req->api->http, req->req);
-    str = g_hash_table_lookup(req->api->http->cookies, "sessionid");
+    str = steam_http_cookies_get(req->api->http, "sessionid");
 
     if (str == NULL) {
         g_set_error(&req->err, STEAM_API_ERROR, STEAM_API_ERROR_GENERAL,

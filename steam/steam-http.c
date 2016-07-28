@@ -100,6 +100,14 @@ steam_http_tree_ins(GHashTable *table, const SteamHttpPair *pair, va_list ap)
     }
 }
 
+const gchar *
+steam_http_cookies_get(SteamHttp *http, const gchar *name)
+{
+    g_return_val_if_fail(http != NULL, NULL);
+
+    return g_hash_table_lookup(http->cookies, name);
+}
+
 void
 steam_http_cookies_set(SteamHttp *http, const SteamHttpPair *pair, ...)
 {

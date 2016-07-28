@@ -233,6 +233,18 @@ void
 steam_http_free(SteamHttp *http);
 
 /**
+ * steam_http_cookies_get:
+ * @http: The #SteamHttp.
+ * @name: The cookie name.
+ *
+ * Gets the value of a cookie from the #SteamHttp.
+ *
+ * Returns: The value of the cookie, or #NULL for a nonexistent cookie.
+ */
+const gchar *
+steam_http_cookies_get(SteamHttp *http, const gchar *name);
+
+/**
  * steam_http_cookies_set:
  * @http: The #SteamHttp.
  * @pair: The first #SteamHttpPair.
