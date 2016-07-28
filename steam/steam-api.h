@@ -54,11 +54,25 @@
 #define STEAM_API_AGENT  "Steam App / " PACKAGE " / " PACKAGE_VERSION
 
 /**
- * STEAM_API_CLIENTID:
+ * STEAM_API_CLIENT:
+ *
+ * The Steam client.
+ */
+#define STEAM_API_CLIENT  "android"
+
+/**
+ * STEAM_API_CLIENT_ID:
  *
  * The Steam client identifier.
  */
-#define STEAM_API_CLIENTID  "DE45CD61"
+#define STEAM_API_CLIENT_ID  "DE45CD61"
+
+/**
+ * STEAM_API_CLIENT_VERSION:
+ *
+ * The Steam client version.
+ */
+#define STEAM_API_CLIENT_VERSION  "3472020 (2.1.6)"
 
 /**
  * STEAM_API_TIMEOUT:

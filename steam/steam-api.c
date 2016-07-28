@@ -122,7 +122,8 @@ steam_api_rehash(SteamApi *api)
 
     steam_http_cookies_set(api->http,
         STEAM_HTTP_PAIR("forceMobile", "1"),
-        STEAM_HTTP_PAIR("mobileClient", PACKAGE),
+        STEAM_HTTP_PAIR("mobileClient", STEAM_API_CLIENT),
+        STEAM_HTTP_PAIR("mobileClientVersion", STEAM_API_CLIENT_VERSION),
         STEAM_HTTP_PAIR("sessionid", api->sessid),
         NULL
     );
@@ -546,7 +547,7 @@ steam_api_req_auth(SteamApiReq *req, const gchar *user, const gchar *pass,
         STEAM_HTTP_PAIR("captcha_text", captcha),
         STEAM_HTTP_PAIR("rsatimestamp", req->api->pktime),
         STEAM_HTTP_PAIR("loginfriendlyname", PACKAGE),
-        STEAM_HTTP_PAIR("oauth_client_id", STEAM_API_CLIENTID),
+        STEAM_HTTP_PAIR("oauth_client_id", STEAM_API_CLIENT_ID),
         STEAM_HTTP_PAIR("donotcache", ms),
         STEAM_HTTP_PAIR("remember_login", "true"),
         STEAM_HTTP_PAIR("oauth_scope", "read_profile write_profile "
@@ -1124,7 +1125,7 @@ steam_api_req_user_accept(SteamApiReq *req, SteamId id,
     g_return_if_fail(req != NULL);
 
     sct = steam_util_enum_ptr(enums, NULL, type);
-    srl = g_strconcat(req->api->info->profile, "/home_process/", NULL);
+    srl = g_strconcat(req->api->info->profile, "/home_process", NULL);
     url_set(&url, srl);
 
     STEAM_ID_STR(id, sid);
@@ -1412,13 +1413,8 @@ steam_api_req_user_info_nicks(SteamApiReq *req)
     req->punc = steam_api_cb_user_info_nicks;
     steam_api_req_init(req, url.host, url.file);
 
-    /* /ajaxaliases/ does not like Mobile mode */
-    g_hash_table_remove(req->api->http->cookies, "forceMobile");
-    g_hash_table_remove(req->api->http->cookies, "mobileClient");
-
     req->req->flags |= STEAM_HTTP_REQ_FLAG_POST;
     steam_http_req_send(req->req);
-    steam_api_rehash(req->api);
     g_free(srl);
 }
 
