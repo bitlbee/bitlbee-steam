@@ -11,3 +11,5 @@ autoreconf --verbose --force --install || exit $?
 
 cd "$cwd"
 test -z "$NOCONFIGURE" && "$srcdir/configure" $@
+
+gtkdocize || exit 1
