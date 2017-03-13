@@ -19,7 +19,8 @@ AC_INIT(
     [https://github.com/jgeboski/bitlbee-steam/issues],
     [bitlbee-steam],
     [https://github.com/jgeboski/bitlbee-steam],
-    []
+    [gtk-doc],
+    [gtk_doc_version]
 )
 
 AC_CONFIG_AUX_DIR([build-aux])
@@ -34,6 +35,9 @@ AC_PROG_LIBTOOL
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 m4_ifdef([AC_PROG_CC_C99],  [AC_PROG_CC_C99])
+
+# check for gtk-doc
+m4_ifdef([GTK_DOC_CHECK], [GTK_DOC_CHECK([1.14],[--flavour no-tmpl])],[AM_CONDITIONAL([ENABLE_GTK_DOC], false)])
 
 # Define PKG_CHECK_VAR() for pkg-config < 0.28
 m4_define_default(
@@ -91,6 +95,6 @@ AS_IF(
     )]
 )
 
-AC_CONFIG_FILES([Makefile steam/Makefile])
+AC_CONFIG_FILES([Makefile steam/Makefile doc/Makefile])
 AC_SUBST([plugindir])
 AC_OUTPUT

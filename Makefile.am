@@ -1,3 +1,3 @@
-ACLOCAL_AMFLAGS = -Im4
-EXTRA_DIST = autogen.sh
-SUBDIRS = steam
+ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
+EXTRA_DIST = autogen.sh gtk-doc.make
+SUBDIRS = steam doc
