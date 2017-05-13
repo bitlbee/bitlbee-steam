@@ -30,4 +30,4 @@ steam_la_SOURCES = \
 	steam-util.h
 
 # Build the library as a module
-steam_la_LDFLAGS += -module -avoid-version
+steam_la_LDFLAGS += -module -avoid-version -no-undefined
