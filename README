@@ -76,7 +76,7 @@ Below is a list of common issues and their respective fixes.
 When the token or session identifier has expired, the user may see
 errors thrown by the plugin. Sometimes these errors are one time, but
 if they repeatedly and reliably happen, then a new token and session
-identifier need to be obtained.
+identifier needs to be obtained.
 
 ```
 Login error: HTTP: 401 Unauthorized
