@@ -1,19 +1,19 @@
 The Steam protocol plugin for bitlbee. This plugin uses the Steam Mobile
 API allowing it to run alongside the main Steam client. It is worth
-noting that the Steam Mobile API is HTTP based, which does lead to mild
+noting that the Steam Mobile API is HTTP based plugin, which does lead to mild
 latency.
 
 ## Package Repositories
 
 There are package repositories available for various distributions.
 
-See: https://jgeboski.github.io
+See: https://jgeboski.github.io  For further details
 
 ## Building and Installing
 
-Make sure bitlbee and its headers have been installed. If bitlbee came
+Make sure, bitlbee and its headers have been installed. If bitlbee came
 from the distribution's repository, it will most likely need the
-development package, usually bitlbee-dev.
+development package which you must install, usually bitlbee-dev.
 
 If bitlbee was built by hand (or alike via a script), ensure the make
 target `install-dev` is invoked. This target is not called by default,
@@ -69,7 +69,7 @@ Output game play statues to the account channel(s):
 
 ## Common Issues
 
-Below is a list of common issues and their respective fixes.
+Below is a list of common issues and their respective fixes. Follow these steps to fix these issues
 
 ### Expired token or session
 
