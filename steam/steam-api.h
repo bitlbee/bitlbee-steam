@@ -78,9 +78,9 @@
  * STEAM_API_TIMEOUT:
  *
  * The timeout (in seconds) of a poll request. This value should not
- * exceed `30`.
+ * exceed `25`. Higher values result in frequent HTTP 500 responses.
  */
-#define STEAM_API_TIMEOUT  30
+#define STEAM_API_TIMEOUT  25
 
 /**
  * STEAM_API_IDLEOUT_AWAY:
